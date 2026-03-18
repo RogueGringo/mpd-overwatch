@@ -1,5 +1,9 @@
 # 03. The Craft
 
+> VISION DOCUMENT. This describes the operational philosophy, not computed results.
+> Zone classifications shown are illustrative examples of platform capability.
+> Actual classifications require well-specific MWD/EDR data as input.
+
 There are two ways to do MPD.
 
 **The rental way:**

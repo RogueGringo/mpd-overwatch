@@ -1,5 +1,8 @@
 # 04. The Market
 
+> VISION DOCUMENT. Market size estimates from public sources (EIA, state regulators).
+> Per-well value projections are illustrative and require well-specific computation.
+
 The Permian Basin produces 6 million barrels per day from
 approximately 30,000 active horizontal wells. Operators
 drill roughly 4,000 new wells per year in the Delaware

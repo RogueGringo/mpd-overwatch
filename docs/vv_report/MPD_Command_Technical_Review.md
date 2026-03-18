@@ -1,8 +1,14 @@
-# MPD Command
+# MPD Overwatch
 ## Technical Review Document
 
 Prepared for Allen Hensley
 March 17, 2026
+
+> CONTENT NOTICE: This document contains a mix of verified equation outputs
+> (marked with V&V benchmark results) and illustrative calculations using
+> stated assumptions (marked as ASSUMPTION). Dollar values and production
+> forecasts are illustrative and require well-specific inputs. The platform
+> computes these values; it does not assert them without data.
 
 ---
 
