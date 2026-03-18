@@ -1101,14 +1101,17 @@ def _print_report(report: Dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
+    import sys as _sys
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     # Default data directory
+    _this_file = os.path.abspath(__file__)
+    _pkg_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_this_file)))))
     default_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(_PROJECT_DIR))),
+        _pkg_root,
         "DATA_TYPES_for_System_Use_EXAMPLES",
     )
-    data_dir = sys.argv[1] if len(sys.argv) > 1 else default_dir
+    data_dir = _sys.argv[1] if len(_sys.argv) > 1 else default_dir
 
     report = run_real_data_validation(data_dir)
     _print_report(report)
