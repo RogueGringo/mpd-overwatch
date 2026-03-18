@@ -1,30 +1,69 @@
+---
+layout: default
+title: MPD Overwatch
+---
+
 # MPD Overwatch
 
-Managed Pressure Drilling computation platform.
+Computation platform for Managed Pressure Drilling operations. Verified equations for hydraulics, formation damage, production forecasting, geomechanics, and pore pressure prediction.
 
-## Verified Equations
+## Verification Status
 
-28 V&V benchmarks pass at A+ precision (99.1/100).
+28 benchmarks. 28 pass. Grade A+. Score 99.1 out of 100.
 
-| Module | Tests | Grade |
-|--------|-------|-------|
-| [Hydraulics](equations/hydraulics.md) | 7/7 | A+ |
-| [Formation Damage](equations/formation_damage.md) | 6/6 | A+ |
-| [Production](equations/production.md) | 5/5 | A |
-| [Geomechanics](equations/geomechanics.md) | 5/5 | A+ |
-| [Pore Pressure](equations/pore_pressure.md) | 5/5 | A+ |
+| Module | Tests | Grade | Published Source |
+|--------|-------|-------|-----------------|
+| Hydraulics | 7/7 | A+ | IADC Manual 2011; Rehm et al. 2008 |
+| Formation Damage | 6/6 | A+ | Hawkins 1956; Bennion 1998 |
+| Production | 5/5 | A | Arps 1945 |
+| Geomechanics | 5/5 | A+ | Teale 1965; Mohr-Coulomb |
+| Pore Pressure | 5/5 | A+ | Rehm & McClendon 1971; Eaton 1975 |
 
-## Architecture
+## What This Platform Computes
 
-- [As-Built System Architecture](architecture/as_built.md)
-- [4D Pointcloud Data Standard](architecture/pointcloud.md)
-- [Sheaf Topology Analysis](architecture/sheaf_topology.md)
+Given well-specific input data (LAS files, formation pressures, completion design), the platform computes:
 
-## Reports
+- **Wellbore pressure** at every depth (BHP, ECD, operating window)
+- **Formation damage** from overbalance (skin factor, permeability reduction, PI change)
+- **Production impact** (IP, EUR, decline curves from Arps model)
+- **Rock properties** from drilling mechanics (MSE, UCS, brittleness)
+- **Pore pressure** from drilling exponents (d-exponent, Eaton method)
+- **Topological coherence** across multi-channel drilling data (sheaf Laplacian)
 
-Reports are generated from real field data using `mpd-overwatch report`.
-No synthetic or assumed values are presented as analysis.
+## What It Does Not Contain
 
-## Source
+Production forecasts, economic values, and formation damage estimates require well-specific inputs. The platform computes these values when provided with real data. No results are fabricated or assumed.
 
-[GitHub Repository](https://github.com/RogueGringo/mpd-overwatch)
+## Pages
+
+- [Hydraulics Equations](equations/hydraulics.md)
+- [Formation Damage Equations](equations/formation_damage.md)
+- [Production Equations](equations/production.md)
+- [Geomechanics Equations](equations/geomechanics.md)
+- [Pore Pressure Equations](equations/pore_pressure.md)
+- [Competitive Landscape](architecture/competitive_landscape.md)
+- [Field Data Report](vv_report/MPD_Overwatch_Report_REAL.html) (interactive, real well data)
+- [Technical Review](vv_report/MPD_Command_Technical_Review.md)
+
+## Install
+
+```bash
+git clone https://github.com/RogueGringo/mpd-overwatch.git
+cd mpd-overwatch
+pip install -e .
+mpd-overwatch info
+```
+
+## Usage
+
+```
+mpd-overwatch serve              Start dashboard at http://127.0.0.1:8050
+mpd-overwatch vv                 Run 28 V&V benchmarks
+mpd-overwatch report well.las    Generate report from LAS file
+mpd-overwatch analyze dir/       Analyze all LAS files in directory
+mpd-overwatch info               Show version and hardware
+```
+
+## Repository
+
+[github.com/RogueGringo/mpd-overwatch](https://github.com/RogueGringo/mpd-overwatch)
