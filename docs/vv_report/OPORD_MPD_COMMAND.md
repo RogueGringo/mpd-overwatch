@@ -1,5 +1,9 @@
 # OPERATIONS ORDER
-## MPD COMMAND - FIELD DEPLOYMENT
+## MPD OVERWATCH - FIELD DEPLOYMENT
+
+> OPERATIONAL PLANNING DOCUMENT. Describes mission, execution concept,
+> and force structure. Dollar values in Section 3c are illustrative
+> computations using stated assumptions, not measured production data.
 
 ```
 CLASSIFICATION:  PROPRIETARY - DISTRIBUTION LIMITED
