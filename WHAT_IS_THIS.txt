@@ -1,0 +1,41 @@
+MPD COMMAND
+===========
+
+This is a software tool that computes the dollar value of
+Managed Pressure Drilling for any well.
+
+It answers the question operators always ask:
+"What does MPD actually do for my well?"
+
+The answer is in the numbers:
+- How much formation damage does MPD prevent
+- How many more barrels does the well produce
+- How much drilling time and mud cost does MPD save
+- What is the total dollar value vs the service cost
+
+Every calculation is based on published SPE and IADC
+equations. 28 verification tests pass at 99.1 out of 100.
+
+To run it: double-click START_HERE.bat
+
+
+FILES IN THIS FOLDER
+====================
+
+START_HERE.bat         Double-click this to start the program
+QUICK_START.txt        Step-by-step instructions (you are reading this)
+WHAT_IS_THIS.txt       This file
+app.py                 The main program (do not edit)
+config.py              Settings (do not edit)
+requirements.txt       List of required software components
+
+core/                  Calculation engines (physics and math)
+data/                  Data loading and well information
+pages/                 Dashboard screens
+vv_pipeline/           Verification test suite
+assets/                Visual styling
+docs/                  Technical reports and specifications
+  vv_report/
+    MPD_Command_Technical_Review.md    For Allen - the main document
+    MPD_Command_VV_Report.md           Full verification details
+    Executive_Summary_for_Allen_Hensley.md  4-minute summary

@@ -1,0 +1,1 @@
+"""MPD Command - Dashboard Pages"""

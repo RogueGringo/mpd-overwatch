@@ -1,0 +1,63 @@
+MPD COMMAND - Quick Start Guide
+================================
+
+STEP 1: Double-click "START_HERE.bat"
+   - A black window will open
+   - Wait until you see "Dash is running"
+   - This takes about 10 seconds
+
+STEP 2: Open your web browser (Chrome, Edge, or Firefox)
+   - In the address bar, type: http://127.0.0.1:8050
+   - Press Enter
+   - The MPD Command dashboard will load
+
+STEP 3: Use the menu on the left side to navigate
+   - Click any page name to switch views
+   - All data updates automatically
+
+STEP 4: When done, close the black command window
+   - This stops the program
+   - Your browser tab can also be closed
+
+
+WHAT EACH PAGE DOES
+===================
+
+Overview          Summary of MPD value: dollars saved, barrels gained
+Pressure Window   Shows pore pressure, frac gradient, and where BHP sits
+Zone Intelligence Shows which parts of the lateral are good/bad for fracing
+MPD vs Conv       Side-by-side: conventional drilling vs MPD numbers
+Production Impact Move the sliders to see how EUR and IP change
+Completion Opt    Which stages to frac harder, which to skip
+Geomechanics      Rock strength and brittleness along the lateral
+Data Import       Load your own LAS files from the field
+Client Proposal   Generate a value proposal for any well
+Well Comparison   Compare two wells side by side
+HMU Operator      What the choke operator sees (gauges and alerts)
+Supervisory       What the supervisor sees (trends and zones)
+Topology          The math under the hood (point cloud analysis)
+V&V Report        Proof that every calculation is correct
+
+
+TROUBLESHOOTING
+===============
+
+Problem: "python is not recognized"
+Fix: Python needs to be installed. Download from python.org and
+     install with "Add to PATH" checked. Then try again.
+
+Problem: Browser shows blank page
+Fix: Make sure the black window says "Dash is running" first.
+     Try http://localhost:8050 instead of 127.0.0.1:8050
+
+Problem: Page loads slowly
+Fix: Normal for first load. Subsequent pages load faster.
+
+Problem: "Module not found" error
+Fix: In the black window, type: pip install dash plotly pandas numpy scipy lasio
+     Then run START_HERE.bat again.
+
+
+CONTACT
+=======
+Blake Jones - Software Development
