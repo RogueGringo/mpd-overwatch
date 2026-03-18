@@ -190,9 +190,9 @@ Real data validation: 42 LAS files scanned, 34 loaded, 233 Chevron survey statio
 
 ### What You Are Looking At
 
-54 Python files. 21,771 lines. 14 interactive pages. 10 computation engines. 28 verified benchmarks.
+62 Python files. 26,569 lines. 28 verified benchmarks. Installed via pip.
 
-One command to run it: `python app.py`
+Install: `pip install -e .` then run: `mpd-overwatch serve`
 
 It opens in a browser at `http://127.0.0.1:8050`. Every page responds in under 2 seconds. Every number is clickable-traceable to its equation and its input data.
 
@@ -201,5 +201,5 @@ It was built because the math supports what Allen Hensley has been saying for 30
 ---
 
 *Technical contact: Blake Jones*
-*Repository: C:\Claude\MPD model building\mpd_command*
+*Repository: https://github.com/RogueGringo/mpd-overwatch*
 *Full V&V data: docs/vv_report/*

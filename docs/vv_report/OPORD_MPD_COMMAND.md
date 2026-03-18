@@ -39,7 +39,7 @@ drilling data. The opposition is not another MPD company. The opposition is the 
   Global deployment experience. Reputation: tier-zero in the discipline.
 - Blake Jones: MWD operations. Software development. Cognitive profile: WMI 122 (93rd %ile),
   executive planning SS=120, arithmetic reasoning SS=15 (95th %ile). Builder of systems.
-- MPD Command Platform: 54 files, 21,771 lines. 28/28 V&V benchmarks. 10 computation engines.
+- MPD Overwatch Platform: 62 files, 26,569 lines. 28/28 V&V benchmarks A+. pip install -e .
   14 interactive displays. Sheaf topology anomaly detection. Real data validated.
 
 **Supporting:**
@@ -188,7 +188,7 @@ What has been missing is the integration: the craft of connecting what the well 
 while drilling to what the well delivers in production. The bridge between the choke
 manifold and the decline curve. Between the APWD sensor and the EUR.
 
-That bridge is now built. 54 files. 21,771 lines. 28 verified equations.
+That bridge is now built. 62 files. 26,569 lines. 28 verified equations.
 A sheaf Laplacian that detects when the physics breaks before any threshold alarm fires.
 A 4D point cloud that treats every measurement as a point in a mathematical space
 where proximity means physical relationship and distance means anomaly.
@@ -213,7 +213,7 @@ G. Hood - strategic direction and capital
 Platform access: `START_HERE.bat` -> `http://127.0.0.1:8050`
 V&V evidence: `docs/vv_report/`
 Field data: `DATA_TYPES_for_System_Use_EXAMPLES/`
-Source: `mpd_command/` (54 files, 21,771 lines)
+Source: `src/mpd_overwatch/` (62 files, 26,569 lines)
 
 ---
 
