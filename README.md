@@ -1,72 +1,73 @@
-# MPD Command v0.3.0-beta
+# mpd-overwatch
 
-**Precision Pressure Operations Platform**
+Managed Pressure Drilling computation platform.
 
-Built for Allen Hensley's MPD operating company. Positions Managed Pressure Drilling as a craft technical operation - proving that results matter more than price.
+## What it computes
 
-## Quick Start
+| Engine | Equations | V&V Status | Source |
+|--------|-----------|------------|--------|
+| Hydraulics | P = 0.052 x MW x TVD; ECD; BHP; AFP; kill sheets | 7/7 pass, A+ | IADC Manual 2011 |
+| Formation Damage | Hawkins skin factor; radial invasion; Darcy PI | 6/6 pass, A+ | Bennion 1998, SPE |
+| Production | Arps decline (exponential + hyperbolic); EUR; NPV | 5/5 pass, A | Arps 1945 |
+| Geomechanics | Teale MSE; UCS; Mohr-Coulomb; brittleness | 5/5 pass, A+ | Teale 1965 |
+| Pore Pressure | d-exponent; Eaton method | 5/5 pass, A+ | Eaton 1975 |
+| Topology | Sheaf Laplacian; Vietoris-Rips; persistent homology | Structural tests | TDA literature |
 
-```bash
-cd mpd_command
-pip install -r requirements.txt
-python app.py
-```
+28 V&V benchmarks. 28 pass. Score: 99.1/100.
 
-Open **http://127.0.0.1:8050** in your browser.
+## What it does NOT compute
 
-## Dashboard Pages
+Production forecasts, economic values, and formation damage estimates require
+well-specific input data (core analysis, production history, completion records).
+The platform computes these when provided with real inputs. It does not generate
+or assume values for data it does not have.
 
-| # | Page | Purpose |
-|---|------|---------|
-| 1 | Executive Overview | KPIs, decline curves, total MPD value quantification |
-| 2 | Pressure Window | Interactive PP/FG/ECD/BHP depth plot |
-| 3 | Zone Intelligence | Gamma+APWD+ROP correlation, zone flagging |
-| 4 | MPD vs Conventional | Side-by-side comparison, damage assessment |
-| 5 | Production Impact | Interactive EUR/IP/NPV calculator with sliders |
-| 6 | Completion Optimizer | Stage quality scoring, cluster recommendations |
-| 7 | Geomechanics | MSE, UCS, brittleness, fracability analysis |
-| 8 | Data Import | Load real LAS files, preview curves |
-| 9 | Client Proposal | Interactive MPD value proposal generator |
-| 10 | HMU Operator | Choke operator cockpit (gauges, alerts) |
-| 11 | Supervisory | Consultant overview (trends, decision support) |
-| 12 | V&V Report | Mathematical verification benchmarks |
-
-## Physics Engines
-
-- **hydraulics.py** - BHP, ECD, ESD, AFP, pressure profiles, surge/swab, kill sheets, MPD operating envelope
-- **geomechanics.py** - MSE, UCS, CCS, brittleness index, wellbore stability (Mohr-Coulomb), fracability scoring
-- **zone_intelligence.py** - Multi-channel baseline calculator, zone flagging algorithm, completion advisor
-- **production.py** - EUR by segment, IP from cluster efficiency, hyperbolic decline, NPV, cost savings
-- **formation_damage.py** - Skin factor (Hawkins), filtrate invasion, permeability reduction, PI comparison
-- **optimizer.py** - Bourgoyne-Young ROP model, parameter optimization, connection SBP planning
-- **proposal_generator.py** - 5-section client value proposal with physics-backed calculations
-
-## V&V (Verification & Validation)
-
-All calculations verified against analytical solutions:
-
-```
-Core Hydraulics:       7/7 PASS  Grade: A+
-Core Production:       5/5 PASS  Grade: A
-Core Formation Damage: 6/6 PASS  Grade: A+
-Overall:              18/18 PASS  Score: 98.6/100
-```
-
-Run V&V: Navigate to the V&V Report page in the dashboard, or:
+## Install
 
 ```bash
-python -c "from vv_pipeline.runner import run_all_benchmarks; r = run_all_benchmarks(); print(r['summary_text'])"
+pip install -e .
 ```
 
-## Data Formats Supported
+## Usage
 
-- LAS 2.0 (depth-based and time-based)
-- LAS 3.0 (tab-delimited, TOTCO/Pason)
-- CSV (survey data, event logs)
-- Excel (BHA specs, survey proposals)
-- 40+ vendor mnemonic aliases (Schlumberger, Pason, H&P, TOTCO)
+```bash
+mpd-overwatch serve                     # Start dashboard at http://127.0.0.1:8050
+mpd-overwatch vv                        # Run V&V benchmark suite
+mpd-overwatch report path/to/well.las   # Generate report from LAS file
+mpd-overwatch analyze path/to/data/     # Analyze all LAS files in directory
+mpd-overwatch info                      # Show version and hardware
+```
 
 ## Requirements
 
-- Python 3.10+
-- dash, plotly, pandas, numpy, scipy, lasio, openpyxl
+Python 3.10+. Dependencies installed automatically via `pip install -e .`
+
+## V&V
+
+Every equation is verified against a hand-calculated expected value.
+Run `mpd-overwatch vv` to execute all 28 benchmarks.
+
+CI runs on every push via GitHub Actions.
+
+## Data formats
+
+Parses LAS 2.0 (depth/time), LAS 3.0 (tab-delimited), CSV, Excel.
+60+ vendor mnemonic aliases (Schlumberger, Pason, H&P, TOTCO).
+
+## Repository structure
+
+```
+src/mpd_overwatch/
+    cli.py              Command line interface
+    config.py           Configuration
+    core/               Physics engines (hydraulics, damage, production, geomechanics, pore pressure)
+    pointcloud/         4D point cloud, topology, sheaf analysis
+    data/               LAS/CSV/Excel parsers, data models
+    dashboard/          Plotly Dash pages
+    vv/                 Verification & validation benchmarks
+tests/                  pytest test suite
+docs/                   GitHub Pages, architecture docs
+examples/
+    synthetic/          Demo data (clearly labeled as synthetic)
+    field_data/         Scripts for real data analysis
+```

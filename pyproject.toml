@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mpd-overwatch"
+version = "1.0.0b1"
+description = "Managed Pressure Drilling computation platform. Verified equations for hydraulics, formation damage, production forecasting, geomechanics, and pore pressure."
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.10"
+dependencies = [
+    "dash>=2.14.0",
+    "plotly>=5.18.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "lasio>=0.31",
+    "openpyxl>=3.1.0",
+    "kaleido>=0.2.1",
+]
+
+[project.optional-dependencies]
+gpu = ["torch>=2.0.0", "cupy-cuda12x"]
+dev = ["pytest>=7.0", "ruff>=0.1.0"]
+
+[project.scripts]
+mpd-overwatch = "mpd_overwatch.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
