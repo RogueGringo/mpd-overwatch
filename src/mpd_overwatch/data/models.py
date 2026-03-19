@@ -240,6 +240,34 @@ class DrillingData:
             timestamp=self.timestamp[mask],
         )
 
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Convert to a pandas DataFrame for PointCloud4D ingestion.
+
+        Returns a DataFrame with columns: depth_md, rop, wob, torque,
+        spp, flow_in, flow_out, gamma_ray, apwd, rpm, hookload,
+        choke_pressure, and optionally timestamp.
+        """
+        import pandas as pd
+
+        data = {
+            "depth_md": self.depth_md,
+            "rop": self.rop,
+            "wob": self.wob,
+            "torque": self.torque,
+            "spp": self.spp,
+            "flow_in": self.flow_in,
+            "flow_out": self.flow_out,
+            "gamma_ray": self.gamma_ray,
+            "apwd": self.apwd,
+            "rpm": self.rpm,
+            "hookload": self.hookload,
+            "choke_pressure": self.choke_pressure,
+        }
+        df = pd.DataFrame(data)
+        if self.timestamp is not None and len(self.timestamp) > 0:
+            df["timestamp"] = self.timestamp
+        return df
+
 
 # ---------------------------------------------------------------------------
 # Zone Flagging

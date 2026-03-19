@@ -35,3 +35,15 @@ computed analysis without adequate labeling:
 These capabilities exist in the platform. The equations are verified (28/28 A+).
 But the specific dollar values require well-specific inputs that were not provided.
 The platform computes results from real data. It does not fabricate them.
+
+## Iteration 4 Additions (2026-03-18)
+
+| Component | Tests | What it verifies |
+|-----------|-------|-----------------|
+| 4D Pointcloud Data Standard | 26 tests | Ingestion, V&V round-trip, distance metrics, VR complex, persistent homology, sheaf Laplacian PSD/symmetry, coherence detection |
+| ATFT Analysis Engine | 11 tests | Gini routing (ASCEND/REPROBE/HOLD/SPLIT), anomaly classification (KICK/LOSS/FORMATION_CHANGE/EQUIPMENT), zone classification, well fingerprint, cross-well comparison |
+| Dashboard | 5 tests | ATFT page renders, controls page renders, semantic prime compliance, role-based navigation |
+
+64 tests pass across the full suite (28 V&V + 26 pointcloud + 11 ATFT + 5 dashboard).
+
+Design specs: `docs/superpowers/specs/2026-03-18-*.md`

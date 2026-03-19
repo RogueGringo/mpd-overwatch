@@ -20,7 +20,16 @@ Where gaps exist, they are identified with what would be needed.
 | sheaf_analysis | 4 | 5 | Core complete |
 | persistent_homology | 8 | 5 | Core complete |
 | topology | 10 | 1 | Core complete |
-| **Total** | **90** | **39** | |
+| pointcloud (ingestion) | 5 | 2 | Core complete |
+| pointcloud (channel_registry) | 6 | 2 | Core complete |
+| pointcloud (pointcloud4d) | 8 | 1 | Core complete |
+| pointcloud (adaptive_operator) | 9 | 3 | Core complete |
+| pointcloud (distance) | 4 | 0 | Core complete |
+| pointcloud (hardware) | 5 | 0 | Core complete |
+| atft_engine | 5 | 8 | Core complete |
+| dashboard (atft_analysis) | 2 | 0 | Core complete |
+| dashboard (controls) | 4 | 0 | Core complete |
+| **Total** | **138** | **61** | |
 
 ## Coverage by Training Document
 

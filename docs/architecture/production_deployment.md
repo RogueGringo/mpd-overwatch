@@ -7,9 +7,13 @@ title: Production Deployment Architecture
 
 ## Current State (v1.0.0-beta)
 
-The platform runs as a local Dash application. All computation is verified
-(28/28 V&V benchmarks A+). The package installs via `pip install -e .` and
-serves at `http://127.0.0.1:8050`.
+The platform runs as a local Dash application with 11 dashboard pages.
+64 tests pass (28 V&V equation benchmarks + 26 pointcloud/topology + 11 ATFT engine + 5 dashboard).
+The package installs via `pip install -e .` and serves at `http://127.0.0.1:8050`.
+
+Iteration 4 additions: ATFT analysis engine (sheaf coherence, Gini routing,
+anomaly classification, zone flagging, well fingerprinting), interactive
+calibration controls, role-based navigation (HMU/Supervisor/Consultant).
 
 ## Immediate Deployment (Render.com)
 

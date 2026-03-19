@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 
@@ -332,3 +332,116 @@ def ingest_directory(
             warnings.warn(f"Failed to ingest {fpath.name}: {exc}")
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Unified ingestion entry point
+# ---------------------------------------------------------------------------
+
+def ingest(
+    source: "Union[str, Path, pd.DataFrame, DrillingData]",
+    well_name: str = "",
+    depth_col: Optional[str] = None,
+    channel_map: Optional[Dict[str, str]] = None,
+    registry: Optional[ChannelRegistry] = None,
+) -> PointCloud4D:
+    """Universal ingestion entry point.
+
+    Accepts any supported source type and returns a ``PointCloud4D``.
+
+    Parameters
+    ----------
+    source : str, Path, pd.DataFrame, or DrillingData
+        - File path (``.las``, ``.csv``): auto-detects format.
+        - Directory path: batch-ingests all ``.las`` files (returns first).
+        - ``pandas.DataFrame``: direct conversion.
+        - ``DrillingData``: converts via ``to_dataframe()`` then ingests.
+    well_name : str
+        Well identifier.
+    depth_col : str, optional
+        Name of the depth column.  If ``None``, auto-detected via
+        heuristic (looks for 'DEPT', 'depth_md', 'MD', etc.).
+    channel_map : dict, optional
+        Override mnemonic-to-channel mapping.
+    registry : ChannelRegistry, optional
+        Channel definitions.  Uses default 18-channel registry if not
+        provided.
+
+    Returns
+    -------
+    PointCloud4D
+    """
+    if registry is None:
+        registry = ChannelRegistry()
+
+    # -- DrillingData --
+    # Import here to avoid circular import at module level.
+    try:
+        from mpd_overwatch.data.models import DrillingData
+        is_drilling_data = isinstance(source, DrillingData)
+    except ImportError:
+        is_drilling_data = False
+
+    if is_drilling_data:
+        df = source.to_dataframe()
+        return ingest_dataframe(
+            df,
+            depth_col="depth_md",
+            channel_map=channel_map,
+            registry=registry,
+            well_name=well_name,
+        )
+
+    # -- pandas DataFrame --
+    if _HAS_PANDAS and isinstance(source, pd.DataFrame):
+        if depth_col is None:
+            depth_col = _guess_depth_column(list(source.columns))
+        return ingest_dataframe(
+            source,
+            depth_col=depth_col,
+            channel_map=channel_map,
+            registry=registry,
+            well_name=well_name,
+        )
+
+    # -- File / directory path --
+    path = Path(str(source))
+
+    if path.is_dir():
+        results = ingest_directory(
+            str(path),
+            registry=registry,
+            channel_map=channel_map,
+        )
+        if not results:
+            raise ValueError(f"No files could be ingested from {path}")
+        return results[0]
+
+    if not path.is_file():
+        raise FileNotFoundError(f"Source not found: {source}")
+
+    ext = path.suffix.lower()
+    if ext == ".las":
+        return ingest_las(
+            str(path),
+            registry=registry,
+            well_name=well_name or None,
+            channel_map=channel_map,
+        )
+    elif ext == ".csv":
+        return ingest_csv(
+            str(path),
+            depth_col=depth_col,
+            registry=registry,
+            well_name=well_name or None,
+            channel_map=channel_map,
+        )
+    else:
+        # Try CSV as fallback
+        return ingest_csv(
+            str(path),
+            depth_col=depth_col,
+            registry=registry,
+            well_name=well_name or None,
+            channel_map=channel_map,
+        )

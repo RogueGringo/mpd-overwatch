@@ -49,9 +49,9 @@ WELL_SCENARIOS = {
         "stages": 50,
         "clusters_per_stage": 5,
         "description": (
-            "Standard Permian Basin Wolfcamp A lateral. Overpressured target "
-            "with 10,000 ft lateral. MPD employed to maintain narrow pressure "
-            "window and minimize formation damage through reduced overbalance."
+            "Wolfcamp A lateral, 10,000 ft. PP gradient: 0.56 psi/ft. "
+            "FG: 0.82 psi/ft. Operating window: 0.26 psi/ft (FG - PP). "
+            "MW: 11.8 ppg. SBP: 150 psi. MPD maintains BHP within window."
         ),
     },
     "bone_spring": {
@@ -79,9 +79,9 @@ WELL_SCENARIOS = {
         "stages": 35,
         "clusters_per_stage": 4,
         "description": (
-            "Sidetrack through 2nd Bone Spring Sand. Lower pore pressure "
-            "than Wolfcamp but tighter fracture window. MPD used to prevent "
-            "differential sticking and reduce lost circulation events."
+            "2nd Bone Spring Sand sidetrack, 7,500 ft lateral. PP: 0.48 psi/ft. "
+            "FG: 0.78 psi/ft. Window: 0.30 psi/ft. MW: 10.8 ppg. "
+            "MPD reduces differential sticking risk and circulation losses."
         ),
     },
     "delaware_mpd": {
@@ -109,9 +109,9 @@ WELL_SCENARIOS = {
         "stages": 55,
         "clusters_per_stage": 5,
         "description": (
-            "Extended-reach lateral targeting Wolfcamp B with potential 3rd Bone "
-            "Spring entry. Dual-gradient challenge with significant pore pressure "
-            "ramp. MPD critical for wellbore integrity through transition zones."
+            "Wolfcamp B / 3rd Bone Spring, 11,500 ft lateral. PP: 0.60 psi/ft. "
+            "FG: 0.85 psi/ft. Window: 0.25 psi/ft. MW: 12.2 ppg. "
+            "PP ramp across formation transition requires MPD for BHP control."
         ),
     },
     "overpressured": {
@@ -139,10 +139,9 @@ WELL_SCENARIOS = {
         "stages": 45,
         "clusters_per_stage": 4,
         "description": (
-            "Deep Wolfcamp C target with extreme overpressure. Operating window "
-            "less than 0.8 ppg EMW. MPD is not optional -- conventional drilling "
-            "cannot maintain wellbore stability at this depth without excessive mud "
-            "weight and catastrophic formation damage."
+            "Wolfcamp C, 10,500 ft lateral at 13,500 ft TVD. PP: 0.72 psi/ft. "
+            "FG: 0.88 psi/ft. Window: 0.16 psi/ft (<0.8 ppg EMW). "
+            "MW: 13.5 ppg. SBP: 300 psi. Conventional MW exceeds FG at this depth."
         ),
     },
 }
@@ -183,20 +182,22 @@ def create_app():
                 ("/well-comparison", "Well Comparison", "03"),
                 ("/geomechanics", "Geomechanics", "04"),
                 ("/topology", "Topology", "05"),
+                ("/atft", "ATFT Analysis", "06"),
             ],
         },
         {
             "heading": "CONTROL",
             "links": [
-                ("/hmu", "HMU Operator", "06"),
-                ("/supervisory", "Supervisory", "07"),
+                ("/hmu", "HMU Operator", "07"),
+                ("/supervisory", "Supervisory", "08"),
+                ("/controls", "Calibration", "09"),
             ],
         },
         {
             "heading": "ENGINEERING",
             "links": [
-                ("/formulas", "Formula Tabulator", "08"),
-                ("/vv-report", "V&V Benchmarks", "09"),
+                ("/formulas", "Formula Tabulator", "10"),
+                ("/vv-report", "V&V Benchmarks", "11"),
             ],
         },
     ]
@@ -1579,6 +1580,14 @@ def create_app():
             elif pathname == "/topology":
                 from mpd_overwatch.dashboard.topology import page_topology
                 return page_topology()
+
+            elif pathname == "/atft":
+                from mpd_overwatch.dashboard.atft_analysis import page_atft_analysis
+                return page_atft_analysis()
+
+            elif pathname == "/controls":
+                from mpd_overwatch.dashboard.controls import page_controls
+                return page_controls()
 
             else:
                 return _page_command_center()
