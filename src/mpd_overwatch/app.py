@@ -40,7 +40,8 @@ def create_app():
         ("/hmu", "HMU Operator"),
         ("/supervisory", "Supervisory"),
         ("/topology", "Topology"),
-        ("/vv-report", "V&V Report"),
+        ("/formulas", "Formula Tabulator"),
+        ("/vv-report", "V&V Benchmarks"),
     ]
 
     def make_sidebar():
@@ -212,6 +213,9 @@ def create_app():
             elif pathname == "/topology":
                 from mpd_overwatch.dashboard.topology import page_topology
                 return page_topology()
+            elif pathname == "/formulas":
+                from mpd_overwatch.dashboard.formula_tabulator import page_formula_tabulator
+                return page_formula_tabulator()
             elif pathname == "/mpd-vs-conventional":
                 from mpd_overwatch.dashboard.well_comparison import page_well_comparison
                 return page_well_comparison()
@@ -223,5 +227,9 @@ def create_app():
                 html.H2("Page Error"),
                 html.P(str(e), style={"color": COLORS["danger"]}),
             ], className="card")
+
+    # Register formula tabulator callbacks
+    from mpd_overwatch.dashboard.formula_tabulator import register_formula_callbacks
+    register_formula_callbacks(app)
 
     return app
