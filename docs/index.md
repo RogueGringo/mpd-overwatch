@@ -7,17 +7,17 @@ title: MPD Overwatch
 
 Computation platform for Managed Pressure Drilling operations. Verified equations for hydraulics, formation damage, production forecasting, geomechanics, and pore pressure prediction.
 
-## Verification Status
+## Equation Verification
 
-28 benchmarks. 28 pass. Grade A+. Score 99.1 out of 100.
+28 equations tested. 28 computed values match hand-calculated expected values.
 
-| Module | Tests | Grade | Published Source |
-|--------|-------|-------|-----------------|
-| Hydraulics | 7/7 | A+ | IADC Manual 2011; Rehm et al. 2008 |
-| Formation Damage | 6/6 | A+ | Hawkins 1956; Bennion 1998 |
-| Production | 5/5 | A | Arps 1945 |
-| Geomechanics | 5/5 | A+ | Teale 1965; Mohr-Coulomb |
-| Pore Pressure | 5/5 | A+ | Rehm & McClendon 1971; Eaton 1975 |
+| Module | Equations Tested | Status | Published Source |
+|--------|-----------------|--------|-----------------|
+| Hydraulics | 7 | All match | IADC Manual 2011; Rehm et al. 2008 |
+| Formation Damage | 6 | All match | Hawkins 1956; Bennion 1998 |
+| Production | 5 | All match | Arps 1945 |
+| Geomechanics | 5 | All match | Teale 1965; Mohr-Coulomb |
+| Pore Pressure | 5 | All match | Rehm & McClendon 1971; Eaton 1975 |
 
 ## What This Platform Computes
 

@@ -59,7 +59,7 @@ $5.65 billion by 2030 (4.28% CAGR). Source: Mordor Intelligence.
 | Completion optimization from MPD data | No | No | No | No | No | Yes |
 | Topological anomaly detection | No | No | No | No | No | Yes |
 | Open source / inspectable | No | No | No | No | No | Yes |
-| V&V with published benchmarks | Unknown | Unknown | Unknown | Unknown | Unknown | 28/28 A+ |
+| V&V with published benchmarks | Unknown | Unknown | Unknown | Unknown | Unknown | 28/28 match |
 
 ## Factual Differentiation
 

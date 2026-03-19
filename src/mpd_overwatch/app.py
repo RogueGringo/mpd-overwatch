@@ -131,7 +131,7 @@ def create_app():
             ], className="card"),
         ])
 
-    # V&V Report page
+    # V&V Benchmarks page - shows expected vs computed, no letter grades
     def page_vv():
         from mpd_overwatch.vv.runner import run_all_benchmarks
         report = run_all_benchmarks()
@@ -140,42 +140,53 @@ def create_app():
         for module in report.get("modules", []):
             rows = []
             for r in module.get("results", []):
-                grade = str(r.get("grade", ""))
-                gc = COLORS["success"] if "A" in grade else COLORS["warning"]
+                err = r.get("error_pct", 0)
+                passed = r.get("passed", False)
+                color = COLORS["success"] if passed else COLORS["danger"]
                 rows.append(html.Tr([
-                    html.Td(r.get("name", "")[:55], style={"fontSize": "11px"}),
-                    html.Td(f"{r.get('expected', '')}", style={"fontSize": "11px"}),
-                    html.Td(f"{r.get('actual', '')}", style={"fontSize": "11px"}),
-                    html.Td(f"{r.get('error_pct', 0):.4f}%"),
-                    html.Td(grade, style={"color": gc, "fontWeight": "bold"}),
+                    html.Td(r.get("name", "")[:60], style={"fontSize": "11px"}),
+                    html.Td(f"{r.get('expected', '')}", style={
+                        "fontSize": "11px", "fontFamily": "Consolas"}),
+                    html.Td(f"{r.get('actual', '')}", style={
+                        "fontSize": "11px", "fontFamily": "Consolas"}),
+                    html.Td(f"{err:.4f}%", style={
+                        "color": color, "fontFamily": "Consolas"}),
+                    html.Td("MATCH" if passed else "MISMATCH", style={
+                        "color": color, "fontWeight": "bold", "fontSize": "11px"}),
                 ]))
 
-            grade_str = str(module.get("grade", ""))
+            n_pass = module.get("pass_count", 0)
+            n_total = module.get("total", 0)
+            all_match = n_pass == n_total
             module_cards.append(html.Div([
                 html.Div(
-                    f"{module['name']} -- {module['pass_count']}/{module['total']} -- {grade_str}",
+                    f"{module['name']} -- {n_pass}/{n_total} computations match expected values",
                     className="card-header",
-                    style={"color": COLORS["success"] if "A" in grade_str else COLORS["warning"]},
+                    style={"color": COLORS["success"] if all_match else COLORS["danger"]},
                 ),
                 html.Table([
                     html.Thead(html.Tr([
-                        html.Th("Test"), html.Th("Expected"), html.Th("Computed"),
-                        html.Th("Error"), html.Th("Grade"),
+                        html.Th("Equation"), html.Th("Expected"),
+                        html.Th("Computed"), html.Th("Error"),
+                        html.Th("Status"),
                     ])),
                     html.Tbody(rows),
                 ], className="comparison-table"),
             ], className="card"))
 
+        total_p = report["total_passed"]
+        total_t = report["total_tests"]
+
         return html.Div([
             html.Div([
-                html.H1("V&V Benchmark Report"),
-                html.P("Every equation verified against hand-calculated expected values",
+                html.H1("Equation Verification"),
+                html.P("Each equation computed and compared to hand-calculated expected value",
                        style={"color": COLORS["text_muted"], "fontSize": "13px"}),
             ], className="page-header"),
             html.Div([
-                make_kpi("Tests", f"{report['total_passed']}/{report['total_tests']}", "green"),
-                make_kpi("Score", f"{report['overall_score']:.1f}/100", "gold"),
-                make_kpi("Grade", str(report["overall_grade"]), "green"),
+                make_kpi("Equations Tested", str(total_t), "cyan"),
+                make_kpi("Match Expected", str(total_p), "green" if total_p == total_t else "danger"),
+                make_kpi("Max Error", f"{report['overall_score']:.1f}% match", "gold"),
                 make_kpi("Modules", str(len(report.get("modules", []))), "cyan"),
             ], className="kpi-row"),
             *module_cards,
