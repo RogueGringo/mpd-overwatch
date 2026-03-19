@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPD Overwatch</title>
+<meta name="description" content="Managed Pressure Drilling computation and intelligence platform">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root {
+  --void: #04060c;
+  --abyss: #080c16;
+  --deep: #0c1220;
+  --surface: #131c2e;
+  --edge: #1a2640;
+  --signal: #00e5ff;
+  --signal-dim: rgba(0,229,255,0.12);
+  --signal-glow: rgba(0,229,255,0.25);
+  --confirm: #00ff94;
+  --warn: #ffb627;
+  --threat: #ff3d5a;
+  --text-hi: #eef2f7;
+  --text-mid: #7b8ba3;
+  --text-lo: #3d4f6a;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Instrument Sans', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--void);
+  color: var(--text-hi);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection { background: var(--signal); color: var(--void); }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 2px; }
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Grid lines background */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--edge) 1px, transparent 1px),
+    linear-gradient(90deg, var(--edge) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+/* Glow orb */
+.orb {
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--signal-glow) 0%, transparent 70%);
+  opacity: 0.08;
+  pointer-events: none;
+  filter: blur(80px);
+}
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulseGlow { 0%,100% { box-shadow: 0 0 20px var(--signal-dim); } 50% { box-shadow: 0 0 40px var(--signal-glow); } }
+@keyframes scanline { from { transform: translateY(-100%); } to { transform: translateY(100vh); } }
+@keyframes ticker { from { opacity: 0.4; } to { opacity: 1; } }
+@keyframes countUp { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+.anim-up { animation: fadeUp 0.6s ease both; }
+.anim-in { animation: fadeIn 0.8s ease both; }
+
+/* Scanline */
+.scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  opacity: 0.15;
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* Top bar */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: rgba(4,6,12,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--edge);
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  z-index: 100;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.topbar-brand {
+  color: var(--signal);
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 12px;
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--edge);
+  margin: 0 16px;
+}
+
+.topbar-item {
+  color: var(--text-lo);
+  letter-spacing: 1px;
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--confirm);
+  box-shadow: 0 0 8px var(--confirm);
+  animation: ticker 2s infinite alternate;
+}
+
+/* Hero */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 64px 80px;
+  position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.hero-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--signal);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-label::before {
+  content: '';
+  width: 32px;
+  height: 1px;
+  background: var(--signal);
+}
+
+.hero h1 {
+  font-family: var(--sans);
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--text-hi);
+  max-width: 800px;
+  margin-bottom: 24px;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--signal);
+}
+
+.hero-sub {
+  font-size: 16px;
+  color: var(--text-mid);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  background: var(--signal);
+  color: var(--void);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: pulseGlow 3s infinite;
+}
+
+.btn-primary:hover {
+  background: #33ecff;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--text-mid);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-decoration: none;
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+/* Live computation panel */
+.live-panel {
+  position: absolute;
+  right: 64px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 380px;
+  background: var(--abyss);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  overflow: hidden;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+.live-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-lo);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--confirm);
+  animation: ticker 1.5s infinite alternate;
+}
+
+.live-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(26,38,64,0.4);
+  font-family: var(--mono);
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.live-row:hover { background: rgba(0,229,255,0.03); }
+
+.live-label { color: var(--text-mid); font-size: 11px; }
+.live-value { color: var(--text-hi); font-weight: 600; }
+.live-eq { color: var(--text-lo); font-size: 10px; padding: 4px 16px 10px; display: block; }
+.live-unit { color: var(--text-lo); font-size: 10px; margin-left: 4px; }
+
+/* Sections */
+.section {
+  padding: 100px 64px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--signal);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-label::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--signal);
+}
+
+.section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 48px;
+  color: var(--text-hi);
+}
+
+/* Verification grid */
+.vv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--edge);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.vv-cell {
+  background: var(--abyss);
+  padding: 20px;
+  transition: background 0.15s;
+}
+
+.vv-cell:hover { background: var(--deep); }
+
+.vv-module {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-mid);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.vv-status {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--confirm);
+  margin-bottom: 4px;
+}
+
+.vv-source {
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+/* Scenario cards */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.scenario-card {
+  background: var(--abyss);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 28px;
+  transition: all 0.2s;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.scenario-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--signal);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.scenario-card:hover {
+  border-color: var(--signal-dim);
+  transform: translateY(-2px);
+}
+
+.scenario-card:hover::before { opacity: 1; }
+
+.scenario-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-hi);
+  margin-bottom: 6px;
+}
+
+.scenario-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-lo);
+  margin-bottom: 12px;
+}
+
+.scenario-params {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.scenario-param {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.scenario-param-label { color: var(--text-lo); font-size: 10px; display: block; margin-bottom: 2px; letter-spacing: 0.5px; }
+.scenario-param-value { color: var(--signal); font-weight: 600; }
+
+/* Architecture */
+.arch-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--edge);
+  transition: background 0.15s;
+}
+
+.arch-row:hover { background: rgba(0,229,255,0.02); }
+.arch-row:last-child { border-bottom: none; }
+
+.arch-label {
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--signal);
+  border-right: 1px solid var(--edge);
+  display: flex;
+  align-items: center;
+}
+
+.arch-desc {
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.5;
+}
+
+/* CTA */
+.cta-section {
+  text-align: center;
+  padding: 120px 64px;
+  position: relative;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 80px;
+  background: linear-gradient(var(--edge), transparent);
+}
+
+/* Footer */
+.footer {
+  padding: 40px 64px;
+  border-top: 1px solid var(--edge);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-lo);
+  display: flex;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .live-panel { display: none; }
+  .hero { padding: 120px 32px 80px; }
+  .section { padding: 80px 32px; }
+}
+
+@media (max-width: 640px) {
+  .hero h1 { font-size: 28px; }
+  .topbar { padding: 0 16px; }
+  .scenario-grid { grid-template-columns: 1fr; }
+  .arch-row { grid-template-columns: 1fr; }
+  .arch-label { border-right: none; border-bottom: 1px solid var(--edge); }
+}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="orb" style="top:-200px;left:-200px;"></div>
+<div class="orb" style="bottom:-300px;right:-200px;opacity:0.05;"></div>
+<div class="scanline"></div>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// Live computation that runs in the browser
+function useComputation(mw, tvd, sbp, afp) {
+  const hydrostatic = 0.052 * mw * tvd;
+  const bhpStatic = hydrostatic + sbp;
+  const bhpDynamic = hydrostatic + afp + sbp;
+  const ecd = mw + afp / (0.052 * tvd);
+  return { hydrostatic, bhpStatic, bhpDynamic, ecd };
+}
+
+function AnimatedNumber({ value, decimals = 0, prefix = '', suffix = '' }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    let start = 0;
+    const end = value;
+    const duration = 1200;
+    const startTime = Date.now();
+
+    function tick() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(start + (end - start) * eased);
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    tick();
+  }, [value]);
+
+  return <span>{prefix}{display.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}{suffix}</span>;
+}
+
+function App() {
+  const [mw, setMw] = useState(11.8);
+  const [tvd, setTvd] = useState(10500);
+  const [sbp, setSbp] = useState(150);
+  const [afp, setAfp] = useState(250);
+
+  const comp = useComputation(mw, tvd, sbp, afp);
+
+  const scenarios = [
+    { name: "Wolfcamp A Horizontal", basin: "Delaware Basin, Reeves Co TX", formation: "Wolfcamp A", td: "20,500", window: "5.1 ppg", mw: "11.8 ppg" },
+    { name: "Bone Spring Sidetrack", basin: "Delaware Basin, Lea Co NM", formation: "2nd Bone Spring", td: "16,800", window: "5.8 ppg", mw: "10.8 ppg" },
+    { name: "Delaware Basin MPD", basin: "Delaware Basin, Loving Co TX", formation: "Wolfcamp B", td: "22,000", window: "4.8 ppg", mw: "12.2 ppg" },
+    { name: "Overpressured Delaware", basin: "Delaware Basin, Reeves Co TX", formation: "Wolfcamp C (Deep)", td: "24,000", window: "3.1 ppg", mw: "13.5 ppg" },
+  ];
+
+  const engines = [
+    { label: "Hydraulics", desc: "Hydrostatic pressure, ECD, BHP, annular friction, kill sheets, pressure profiles. IADC Manual 2011; Rehm et al. 2008." },
+    { label: "Formation Damage", desc: "Hawkins skin factor, filtrate invasion radius, Darcy productivity index, overbalance permeability model. Bennion 1998." },
+    { label: "Geomechanics", desc: "Teale MSE, UCS estimation, Mohr-Coulomb stability, brittleness index, fracability scoring. Teale 1965." },
+    { label: "Pore Pressure", desc: "Rehm-McClendon d-exponent, dc correction, Eaton pore pressure prediction, normal compaction trend. Eaton 1975." },
+    { label: "Production", desc: "Arps decline (exponential + hyperbolic), EUR by segment, IP from cluster efficiency, NPV computation. Arps 1945." },
+    { label: "Topology", desc: "4D pointcloud, Vietoris-Rips filtration, sheaf Laplacian coherence, persistent homology, waypoint signatures. ATFT 2026." },
+  ];
+
+  const verification = [
+    { module: "Hydraulics", count: "7/7", source: "IADC 2011" },
+    { module: "Formation Damage", count: "6/6", source: "Bennion 1998" },
+    { module: "Production", count: "5/5", source: "Arps 1945" },
+    { module: "Geomechanics", count: "5/5", source: "Teale 1965" },
+    { module: "Pore Pressure", count: "5/5", source: "Eaton 1975" },
+  ];
+
+  return (
+    <>
+      {/* Top Bar */}
+      <div className="topbar">
+        <span className="topbar-brand">MPD OVERWATCH</span>
+        <div className="topbar-sep" />
+        <span className="topbar-item">DRILLING INTELLIGENCE</span>
+        <div className="topbar-right">
+          <span className="topbar-item">28 EQUATIONS VERIFIED</span>
+          <div className="topbar-sep" />
+          <div className="topbar-dot" />
+          <span className="topbar-item" style={{color:'var(--confirm)'}}>ONLINE</span>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <div className="hero">
+        <div className="hero-label anim-up" style={{animationDelay:'0.1s'}}>
+          Managed Pressure Drilling
+        </div>
+        <h1 className="anim-up" style={{animationDelay:'0.2s'}}>
+          Compute the value of <em>every well</em> through verified physics
+        </h1>
+        <p className="hero-sub anim-up" style={{animationDelay:'0.3s'}}>
+          28 equations from published petroleum engineering sources. Each computed value matches its hand-calculated expected value. The software proves itself by computing.
+        </p>
+        <div className="hero-actions anim-up" style={{animationDelay:'0.4s'}}>
+          <a href="https://codespaces.new/RogueGringo/mpd-overwatch" className="btn-primary">
+            Launch Dashboard
+            <span style={{fontSize:'14px'}}>&#8599;</span>
+          </a>
+          <a href="https://github.com/RogueGringo/mpd-overwatch" className="btn-secondary">
+            View Source
+          </a>
+        </div>
+
+        {/* Live computation panel */}
+        <div className="live-panel">
+          <div className="live-header">
+            <div className="live-dot" />
+            Live Computation
+          </div>
+          <div className="live-row">
+            <span className="live-label">MW</span>
+            <span className="live-value">{mw} <span className="live-unit">ppg</span></span>
+          </div>
+          <div className="live-row">
+            <span className="live-label">TVD</span>
+            <span className="live-value">{tvd.toLocaleString()} <span className="live-unit">ft</span></span>
+          </div>
+          <div className="live-row">
+            <span className="live-label">SBP</span>
+            <span className="live-value">{sbp} <span className="live-unit">psi</span></span>
+          </div>
+          <span className="live-eq">P = 0.052 × {mw} × {tvd.toLocaleString()}</span>
+          <div className="live-row" style={{background:'rgba(0,229,255,0.03)'}}>
+            <span className="live-label">Hydrostatic</span>
+            <span className="live-value" style={{color:'var(--signal)'}}>
+              <AnimatedNumber value={comp.hydrostatic} suffix=" psi" />
+            </span>
+          </div>
+          <span className="live-eq">BHP = P + SBP = {comp.hydrostatic.toFixed(0)} + {sbp}</span>
+          <div className="live-row" style={{background:'rgba(0,229,255,0.03)'}}>
+            <span className="live-label">BHP Static</span>
+            <span className="live-value" style={{color:'var(--signal)'}}>
+              <AnimatedNumber value={comp.bhpStatic} suffix=" psi" />
+            </span>
+          </div>
+          <span className="live-eq">ECD = {mw} + {afp} / (0.052 × {tvd.toLocaleString()})</span>
+          <div className="live-row" style={{background:'rgba(0,229,255,0.03)'}}>
+            <span className="live-label">ECD</span>
+            <span className="live-value" style={{color:'var(--warn)'}}>
+              <AnimatedNumber value={comp.ecd} decimals={4} suffix=" ppg" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Verification */}
+      <div className="section">
+        <div className="section-label">Equation Verification</div>
+        <h2>28 equations. 28 match.</h2>
+        <div className="vv-grid">
+          {verification.map((v, i) => (
+            <div className="vv-cell anim-up" key={i} style={{animationDelay:`${0.1*i}s`}}>
+              <div className="vv-module">{v.module}</div>
+              <div className="vv-status">{v.count}</div>
+              <div className="vv-source">{v.source}</div>
+            </div>
+          ))}
+          <div className="vv-cell">
+            <div className="vv-module">Overall</div>
+            <div className="vv-status" style={{fontSize:'16px'}}>ALL MATCH</div>
+            <div className="vv-source">Expected = Computed</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scenarios */}
+      <div className="section">
+        <div className="section-label">Well Scenarios</div>
+        <h2>Pre-loaded Delaware Basin configurations</h2>
+        <div className="scenario-grid">
+          {scenarios.map((s, i) => (
+            <div className="scenario-card anim-up" key={i} style={{animationDelay:`${0.1*i}s`}}>
+              <div className="scenario-name">{s.name}</div>
+              <div className="scenario-meta">{s.basin}</div>
+              <div className="scenario-params">
+                <div className="scenario-param">
+                  <span className="scenario-param-label">Formation</span>
+                  <span className="scenario-param-value">{s.formation}</span>
+                </div>
+                <div className="scenario-param">
+                  <span className="scenario-param-label">TD</span>
+                  <span className="scenario-param-value">{s.td} ft</span>
+                </div>
+                <div className="scenario-param">
+                  <span className="scenario-param-label">Window</span>
+                  <span className="scenario-param-value">{s.window}</span>
+                </div>
+                <div className="scenario-param">
+                  <span className="scenario-param-label">MW</span>
+                  <span className="scenario-param-value">{s.mw}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Architecture */}
+      <div className="section">
+        <div className="section-label">Computation Engines</div>
+        <h2>Published equations. Verified implementations.</h2>
+        <div style={{border:'1px solid var(--edge)', borderRadius:'4px', overflow:'hidden'}}>
+          {engines.map((e, i) => (
+            <div className="arch-row" key={i}>
+              <div className="arch-label">{e.label}</div>
+              <div className="arch-desc">{e.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="cta-section">
+        <h2 style={{fontSize:'28px', marginBottom:'16px', letterSpacing:'-0.02em'}}>
+          The software proves itself by computing.
+        </h2>
+        <p style={{color:'var(--text-mid)', marginBottom:'32px', fontSize:'15px'}}>
+          Enter values. See equations. Trace every number to its source.
+        </p>
+        <a href="https://codespaces.new/RogueGringo/mpd-overwatch" className="btn-primary" style={{margin:'0 auto'}}>
+          Launch Dashboard
+          <span style={{fontSize:'14px'}}>&#8599;</span>
+        </a>
+      </div>
+
+      {/* Footer */}
+      <div className="footer">
+        <span>MPD Overwatch v1.0.0-beta</span>
+        <span>28 verified equations across 5 modules</span>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
