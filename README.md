@@ -2,6 +2,8 @@
 
 Managed Pressure Drilling computation platform.
 
+**[Launch Dashboard](https://codespaces.new/RogueGringo/mpd-overwatch)** - opens the live application in your browser (GitHub account required)
+
 ## What it computes
 
 | Engine | Equations | Verified | Source |

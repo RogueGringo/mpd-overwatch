@@ -5,65 +5,60 @@ title: MPD Overwatch
 
 # MPD Overwatch
 
-Computation platform for Managed Pressure Drilling operations. Verified equations for hydraulics, formation damage, production forecasting, geomechanics, and pore pressure prediction.
+Managed Pressure Drilling computation and intelligence platform.
+
+<a href="https://codespaces.new/RogueGringo/mpd-overwatch" style="display:inline-block;padding:12px 24px;background:#00d4ff;color:#0a0e17;font-weight:bold;border-radius:6px;text-decoration:none;font-size:16px;margin:16px 0;">Launch Dashboard</a>
+
+Opens the live application in your browser. GitHub account required. The dashboard starts automatically in ~60 seconds.
+
+---
 
 ## Equation Verification
 
 28 equations tested. 28 computed values match hand-calculated expected values.
 
-| Module | Equations Tested | Status | Published Source |
-|--------|-----------------|--------|-----------------|
+| Module | Equations | Status | Source |
+|--------|-----------|--------|--------|
 | Hydraulics | 7 | All match | IADC Manual 2011; Rehm et al. 2008 |
 | Formation Damage | 6 | All match | Hawkins 1956; Bennion 1998 |
 | Production | 5 | All match | Arps 1945 |
 | Geomechanics | 5 | All match | Teale 1965; Mohr-Coulomb |
 | Pore Pressure | 5 | All match | Rehm & McClendon 1971; Eaton 1975 |
 
-## What This Platform Computes
+## Well Scenarios
 
-Given well-specific input data (LAS files, formation pressures, completion design), the platform computes:
+The dashboard includes 4 pre-loaded Delaware Basin scenarios:
 
-- **Wellbore pressure** at every depth (BHP, ECD, operating window)
-- **Formation damage** from overbalance (skin factor, permeability reduction, PI change)
-- **Production impact** (IP, EUR, decline curves from Arps model)
-- **Rock properties** from drilling mechanics (MSE, UCS, brittleness)
-- **Pore pressure** from drilling exponents (d-exponent, Eaton method)
-- **Topological coherence** across multi-channel drilling data (sheaf Laplacian)
+| Scenario | Formation | TD | Operating Window |
+|----------|-----------|-----|-----------------|
+| Wolfcamp A Horizontal | Wolfcamp A | 20,500 ft | Standard |
+| Bone Spring Sidetrack | 2nd Bone Spring | 16,800 ft | Tight |
+| Delaware Basin MPD | Wolfcamp B | 22,000 ft | Narrow |
+| Overpressured Delaware | Wolfcamp C | 24,000 ft | < 0.8 ppg |
 
-## What It Does Not Contain
+Each scenario computes hydraulics, formation damage, geomechanics, and control parameters using verified equations with source citations displayed inline.
 
-Production forecasts, economic values, and formation damage estimates require well-specific inputs. The platform computes these values when provided with real data. No results are fabricated or assumed.
+## Equation Reference
 
-## Pages
+- [Hydraulics](equations/hydraulics.md)
+- [Formation Damage](equations/formation_damage.md)
+- [Production](equations/production.md)
+- [Geomechanics](equations/geomechanics.md)
+- [Pore Pressure](equations/pore_pressure.md)
 
-- [Hydraulics Equations](equations/hydraulics.md)
-- [Formation Damage Equations](equations/formation_damage.md)
-- [Production Equations](equations/production.md)
-- [Geomechanics Equations](equations/geomechanics.md)
-- [Pore Pressure Equations](equations/pore_pressure.md)
+## Architecture
+
 - [Competitive Landscape](architecture/competitive_landscape.md)
-- [Field Data Report](vv_report/MPD_Overwatch_Report_REAL.html) (interactive, real well data)
-- [Technical Review](vv_report/MPD_Command_Technical_Review.md)
+- [Production Deployment](architecture/production_deployment.md)
+- [Training Material Coverage](architecture/training_material_coverage.md)
 
-## Install
+## Install Locally
 
 ```bash
 git clone https://github.com/RogueGringo/mpd-overwatch.git
 cd mpd-overwatch
 pip install -e .
-mpd-overwatch info
+mpd-overwatch serve
 ```
 
-## Usage
-
-```
-mpd-overwatch serve              Start dashboard at http://127.0.0.1:8050
-mpd-overwatch vv                 Run 28 V&V benchmarks
-mpd-overwatch report well.las    Generate report from LAS file
-mpd-overwatch analyze dir/       Analyze all LAS files in directory
-mpd-overwatch info               Show version and hardware
-```
-
-## Repository
-
-[github.com/RogueGringo/mpd-overwatch](https://github.com/RogueGringo/mpd-overwatch)
+Open `http://127.0.0.1:8050` in your browser.
