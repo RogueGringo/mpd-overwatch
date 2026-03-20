@@ -41,7 +41,7 @@ These modules are the core IP. They have 64 passing tests and verified reference
 | `core/units.py` | Unit conversion utilities | — |
 | `core/plotting.py` | Visualization helpers | — |
 | `pointcloud/` (all 11 modules) | 4D topology, ATFT engine, sheaf analysis, persistent homology | Curry et al. 2014, custom |
-| `vv/` (all 8 modules) | Verification & validation framework | — |
+| `vv/` (all modules except production_benchmarks) | Verification & validation framework. **Note:** `runner.py` imports `production_benchmarks` — needs minor edit to remove that registration after `production_benchmarks.py` is deleted. | — |
 | `data/las_parser.py` | LAS 2.0 parsing | CWLS standard |
 | `data/edr_parser.py` | EDR format parsing | — |
 | `data/models.py` | DrillingData, MeasurementPoint classes — see Section 2.5 for deprecation plan | — |
@@ -93,7 +93,7 @@ These modules are the core IP. They have 64 passing tests and verified reference
 
 ### 2.5 Data Flow — LAS to Dashboard
 
-The existing `DrillingData` dataclass has 13 hardcoded array fields. The new workflow needs flexible channel counts (25–45+). The data flow bypasses `DrillingData` for the main pipeline:
+The existing `DrillingData` dataclass has 14 hardcoded fields. The new workflow needs flexible channel counts (25–45+). The data flow bypasses `DrillingData` for the main pipeline:
 
 ```
 LAS File
@@ -598,7 +598,7 @@ LAS is the first-class format for this phase. The following formats are intended
 
 ### 9.1 Existing Tests (Preserved)
 
-All 64 existing tests continue to pass. They validate the core computation engines which are not modified.
+All existing tests continue to pass (66 collected as of v0.3.0-beta). They validate the core computation engines which are not modified.
 
 ### 9.2 New Tests Required
 
