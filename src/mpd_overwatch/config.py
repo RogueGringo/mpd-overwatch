@@ -1,7 +1,7 @@
 """MPD Command - Configuration"""
 
 APP_NAME = "MPD Command"
-APP_VERSION = "0.3.0-beta"
+APP_VERSION = "0.4.0-alpha"
 APP_TITLE = "MPD Command | Managed Pressure Drilling Operations Platform"
 
 # Visual theme colors (dark command-center aesthetic)
@@ -23,6 +23,12 @@ COLORS = {
     "ecd": "#ffd700",              # Gold for ECD
     "mpd_window": "rgba(0, 212, 255, 0.15)",  # Translucent cyan
     "conv_window": "rgba(255, 107, 53, 0.10)",  # Translucent orange
+    # Provenance badge colors
+    "badge_measured": "#2aaa66",
+    "badge_survey": "#e8a840",
+    "badge_derived": "#4a9eff",
+    "badge_modeled": "#c084fc",
+    "badge_computed": "#2dd4bf",
 }
 
 # Default Delaware Basin parameters
@@ -53,15 +59,29 @@ ZONE_THRESHOLDS = {
     "connection_swab_psi": 100,  # psi drop on connection = risk
 }
 
-# Page routing
+# Page routing — matches tab structure in app.py NAV_SECTIONS
 PAGES = {
-    "/": "Executive Overview",
-    "/pressure-window": "Pressure Window Navigator",
-    "/zone-analysis": "Zone Intelligence Map",
-    "/completion-optimizer": "Completion Optimizer",
-    "/hmu": "HMU Operator Panel",
-    "/supervisory": "Supervisory Panel",
-    "/vv-report": "V&V Benchmark Report",
+    # Entry points (always accessible)
+    "/": "File Manager",
+    "/files": "File Manager",
+    "/channels": "Channel Selector",
+    # OPERATIONS
+    "/well-overview": "Well Overview",
+    "/hmu": "HMU Cockpit",
+    "/supervisory": "Supervisory",
+    # ANALYSIS
+    "/hydraulics": "Hydraulics",
+    "/geomechanics": "Geomechanics",
+    "/pore-pressure": "Pore Pressure",
+    "/formation-damage": "Formation Damage",
+    # TOPOLOGY
+    "/topology": "Coherence Log",
+    "/atft": "ATFT Engine",
+    "/persistent-homology": "Persistent Homology",
+    # ENGINEERING
+    "/formulas": "Formula Verifier",
+    "/vv-report": "V&V Report",
+    "/controls": "Controls",
 }
 
 # Vendor mnemonic mapping (from DATA_TYPES_for_System_Use_EXAMPLES analysis)
