@@ -1,0 +1,239 @@
+/* ============================================================
+   Channel Selector Page Styles
+   C→B intent-driven channel classification flow
+   ============================================================ */
+
+/* Page layout */
+.channel-selector-page {
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.page-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #e8eaf0;
+    margin-bottom: 6px;
+}
+
+.page-subtitle {
+    color: #9ca3af;
+    font-size: 0.95rem;
+    margin-bottom: 28px;
+}
+
+/* ============================================================
+   Intent Buttons
+   ============================================================ */
+
+.intent-section {
+    margin-bottom: 32px;
+}
+
+.intent-section h4 {
+    color: #c5cae9;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+}
+
+.intent-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.intent-button {
+    padding: 8px 20px;
+    border: 1px solid #3d4f6e;
+    border-radius: 6px;
+    background: #1e2a3a;
+    color: #c5cae9;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+
+.intent-button:hover {
+    background: #2a3a52;
+    border-color: #5c6bc0;
+    color: #e8eaf0;
+}
+
+.intent-button.active,
+.intent-button:focus {
+    background: #3949ab;
+    border-color: #7986cb;
+    color: #ffffff;
+    outline: none;
+}
+
+/* ============================================================
+   Channel Section
+   ============================================================ */
+
+.channel-section {
+    background: #131b27;
+    border: 1px solid #2c3a4e;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.channel-section h4 {
+    color: #c5cae9;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+}
+
+/* ============================================================
+   Budget Counter
+   ============================================================ */
+
+.channel-budget-counter {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #1e2a3a;
+    border: 1px solid #3d4f6e;
+    border-radius: 20px;
+    color: #7986cb;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    letter-spacing: 0.03em;
+}
+
+.channel-budget-counter.budget-warn {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.channel-budget-counter.budget-over {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* ============================================================
+   Channel List
+   ============================================================ */
+
+.channel-list-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 80px;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #1a2436;
+    border-radius: 4px 4px 0 0;
+    border-bottom: 1px solid #2c3a4e;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7a99;
+}
+
+.channel-list-container {
+    border: 1px solid #2c3a4e;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+}
+
+/* Individual channel rows */
+.channel-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 80px;
+    gap: 8px;
+    padding: 9px 12px;
+    align-items: center;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #1e2a3a;
+    transition: background 0.1s ease;
+}
+
+.channel-row:last-child {
+    border-bottom: none;
+}
+
+.channel-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Tier-based row colours */
+.channel-tier-core {
+    background: #0f1e2e;
+    border-left: 3px solid #4caf50;
+}
+
+.channel-tier-core .channel-name {
+    color: #e8f5e9;
+    font-weight: 500;
+}
+
+.channel-tier-suggested {
+    background: #1a1a0f;
+    border-left: 3px solid #ff9800;
+}
+
+.channel-tier-suggested .channel-name {
+    color: #fff3e0;
+}
+
+.channel-tier-parked {
+    background: #1a1a1e;
+    border-left: 3px solid #455a64;
+    opacity: 0.65;
+}
+
+.channel-tier-parked .channel-name {
+    color: #78909c;
+}
+
+/* Tier badges */
+.tier-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tier-badge-core {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.tier-badge-suggested {
+    background: rgba(255, 152, 0, 0.12);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.tier-badge-parked {
+    background: rgba(69, 90, 100, 0.2);
+    color: #78909c;
+    border: 1px solid rgba(69, 90, 100, 0.3);
+}
+
+/* Unit display */
+.channel-unit {
+    color: #6b7a99;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+/* Checkbox / selection column */
+.channel-row input[type="checkbox"] {
+    accent-color: #5c6bc0;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
