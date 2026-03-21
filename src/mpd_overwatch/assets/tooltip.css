@@ -1,0 +1,114 @@
+/* ============================================================
+   Engineering Value Tooltip — MPD Overwatch
+   Dark theme: backgrounds #1a1e2e / #111827, borders #2a3a5e
+   ============================================================ */
+
+/* Outer container — flex row, acts as the hover anchor */
+.eng-value {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Circular [?] trigger button */
+.eng-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #2a3a5e;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.eng-value:hover .eng-tooltip-trigger {
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+/* Tooltip panel — hidden by default, shown on parent hover */
+.eng-tooltip-panel {
+  display: none;
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 280px;
+  max-width: 360px;
+  background-color: #1a1e2e;
+  border: 1px solid #2a3a5e;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.4;
+}
+
+.eng-value:hover .eng-tooltip-panel {
+  display: block;
+}
+
+/* Equation display — monospace, dark background */
+.eng-equation {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  background-color: #111827;
+  color: #4a9eff;
+  padding: 4px 8px;
+  border-radius: 3px;
+  overflow-x: auto;
+  white-space: pre;
+  border: 1px solid #2a3a5e;
+}
+
+/* Input provenance row */
+.eng-input-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+/* Labeled section blocks */
+.eng-section {
+  margin-bottom: 8px;
+}
+
+.eng-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Section label */
+.eng-section > span:first-child {
+  color: #888;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Operational implication box — amber/green/red border-left */
+.eng-implication {
+  padding-left: 8px;
+  font-size: 12px;
+  margin-top: 4px;
+  /* Default border-left; override inline for color-coded variants */
+  border-left: 3px solid #e8a840;
+}
+
+/* Divider between panel sections */
+.eng-tooltip-panel hr {
+  border: none;
+  border-top: 1px solid #2a3a5e;
+  margin: 8px 0;
+}
