@@ -179,7 +179,6 @@ def create_app():
         {
             "heading": "ANALYSIS",
             "links": [
-                ("/well-comparison", "Well Comparison", "03"),
                 ("/geomechanics", "Geomechanics", "04"),
                 ("/topology", "Topology", "05"),
                 ("/atft", "ATFT Analysis", "06"),
@@ -1556,12 +1555,6 @@ def create_app():
                     page_formula_tabulator,
                 )
                 return page_formula_tabulator()
-
-            elif pathname == "/well-comparison":
-                from mpd_overwatch.dashboard.well_comparison import (
-                    page_well_comparison,
-                )
-                return page_well_comparison()
 
             elif pathname == "/geomechanics":
                 from mpd_overwatch.dashboard.geomechanics import page_geomechanics

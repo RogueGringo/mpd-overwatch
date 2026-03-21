@@ -30,12 +30,6 @@ except ImportError as e:
     print(f"[V&V] WARNING: Could not import hydraulics benchmarks: {e}")
 
 try:
-    from mpd_overwatch.vv.benchmarks.production_benchmarks import run_production_benchmarks
-    _SUITES.append(("Core Production", run_production_benchmarks))
-except ImportError as e:
-    print(f"[V&V] WARNING: Could not import production benchmarks: {e}")
-
-try:
     from mpd_overwatch.vv.benchmarks.damage_benchmarks import run_damage_benchmarks
     _SUITES.append(("Core Formation Damage", run_damage_benchmarks))
 except ImportError as e:
@@ -244,7 +238,6 @@ def run_single_module(module_name: str) -> Dict:
     """
     name_map = {
         "hydraulics": "Core Hydraulics",
-        "production": "Core Production",
         "damage": "Core Formation Damage",
     }
 

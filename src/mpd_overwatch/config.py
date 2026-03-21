@@ -39,19 +39,6 @@ DEFAULTS = {
     "lateral_length": 10000,            # ft
     "total_depth_tvd": 10500,           # ft
     "total_depth_md": 20500,            # ft
-    "rig_rate": 35000,                  # $/day
-    "oil_price": 70,                    # $/bbl
-    "gas_price": 3.50,                  # $/mcf
-    "mpd_service_cost": 150000,         # $ per well (equipment + personnel)
-    "conventional_eur": 600000,         # BOE baseline
-    "conventional_ip": 1000,            # BOPD
-    "cluster_efficiency_conventional": 0.70,
-    "cluster_efficiency_mpd": 0.90,
-    "stages": 50,
-    "clusters_per_stage": 5,
-    "npt_reduction_pct": 35,            # % NPT reduction with MPD
-    "mud_loss_reduction_pct": 83,       # % mud loss reduction
-    "rop_increase_pct": 35,             # % ROP improvement
 }
 
 # Zone intelligence thresholds
@@ -71,8 +58,6 @@ PAGES = {
     "/": "Executive Overview",
     "/pressure-window": "Pressure Window Navigator",
     "/zone-analysis": "Zone Intelligence Map",
-    "/mpd-vs-conventional": "MPD vs Conventional",
-    "/production-impact": "Production Impact Calculator",
     "/completion-optimizer": "Completion Optimizer",
     "/hmu": "HMU Operator Panel",
     "/supervisory": "Supervisory Panel",
