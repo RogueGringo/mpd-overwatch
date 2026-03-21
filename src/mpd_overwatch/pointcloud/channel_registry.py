@@ -12,6 +12,7 @@ resolved to the canonical name via the alias table.
 from __future__ import annotations
 
 import copy
+import enum
 import threading
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -396,3 +397,190 @@ class ChannelRegistry:
 
     def __repr__(self) -> str:
         return f"ChannelRegistry({self.channel_count} channels)"
+
+
+# ---------------------------------------------------------------------------
+# Channel Tier Enum
+# ---------------------------------------------------------------------------
+
+class ChannelTier(enum.Enum):
+    """Classification tier for a channel mnemonic.
+
+    CORE      -- recognized by the registry (canonical name or alias)
+    SUGGESTED -- unknown to the registry but has a drilling-relevant unit
+    PARKED    -- unrecognized and no useful unit heuristic
+    """
+    CORE      = "core"
+    SUGGESTED = "suggested"
+    PARKED    = "parked"
+
+
+# ---------------------------------------------------------------------------
+# Unit heuristics for SUGGESTED tier
+# ---------------------------------------------------------------------------
+
+# Unit substrings that suggest a channel is relevant even if unrecognized
+_SUGGESTED_UNIT_FRAGMENTS: List[str] = [
+    "psi", "kpa", "mpa", "bar",          # pressure
+    "gpm", "lpm", "bbl", "m3",           # flow
+    "ppg", "sg", "g/cm",                  # density / mud weight
+    "ft/hr", "m/hr", "m/h",              # rate of penetration
+    "klbs", "kn", "lbf",                  # force
+    "rpm", "rev",                          # rotation
+    "ft-lb", "nm", "n-m",                # torque
+    "degf", "degc", "°f", "°c",          # temperature
+    "ohm",                                 # resistivity
+    "api",                                 # gamma-ray
+    "deg",                                 # inclination / azimuth
+]
+
+
+def _unit_suggests_drilling(unit: str) -> bool:
+    """Return True if *unit* string matches any known drilling unit fragment."""
+    u = unit.lower().strip()
+    return any(frag in u for frag in _SUGGESTED_UNIT_FRAGMENTS)
+
+
+# ---------------------------------------------------------------------------
+# classify_channels
+# ---------------------------------------------------------------------------
+
+def classify_channels(
+    mnemonics: List[str],
+    registry: ChannelRegistry,
+    units: Optional[Dict[str, str]] = None,
+) -> Dict[str, ChannelTier]:
+    """Classify each mnemonic into a :class:`ChannelTier`.
+
+    Parameters
+    ----------
+    mnemonics : list of str
+        Raw curve mnemonics to classify (e.g. from a LAS file header).
+    registry : ChannelRegistry
+        Registry to consult for CORE recognition.
+    units : dict, optional
+        Mapping of mnemonic -> unit string.  Used to up-classify unknown
+        channels from PARKED to SUGGESTED when the unit implies relevance.
+
+    Returns
+    -------
+    dict
+        ``{mnemonic: ChannelTier}``
+    """
+    units = units or {}
+    result: Dict[str, ChannelTier] = {}
+
+    for mnemonic in mnemonics:
+        # Try registry resolution (canonical name or alias)
+        try:
+            registry.mnemonic_to_channel(mnemonic)
+            result[mnemonic] = ChannelTier.CORE
+        except KeyError:
+            # Not in registry — check unit heuristic
+            unit = units.get(mnemonic, "")
+            if unit and _unit_suggests_drilling(unit):
+                result[mnemonic] = ChannelTier.SUGGESTED
+            else:
+                result[mnemonic] = ChannelTier.PARKED
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Intent channel profiles
+# ---------------------------------------------------------------------------
+
+_MPD_OPERATIONS_CHANNELS: List[str] = [
+    "hookload", "flow_in", "flow_out", "spp", "apwd", "choke_pressure",
+    "rpm", "rop", "wob", "torque", "mud_weight", "ecd", "mse",
+    "inclination", "azimuth", "temperature", "gamma_ray", "resistivity",
+    "choke_position", "casing_pressure", "backpressure", "flow_deviation",
+    "gain_loss", "annular_velocity", "block_height",
+]
+
+_DRILLING_OPTIMIZATION_CHANNELS: List[str] = [
+    "hookload", "flow_in", "flow_out", "spp", "apwd", "choke_pressure",
+    "rpm", "rop", "wob", "torque", "mud_weight", "ecd", "mse",
+    "inclination", "azimuth", "temperature", "gamma_ray", "resistivity",
+    # Additional optimization channels
+    "vibration", "bit_rpm", "stick_slip", "whirl", "lateral_shock",
+    "axial_shock", "string_shot", "bit_bounce", "drilling_efficiency",
+    "mechanical_efficiency", "hydraulic_horsepower", "impact_force",
+    "d_exponent", "normalized_rop",
+]
+
+_WELLBORE_STABILITY_CHANNELS: List[str] = [
+    "hookload", "flow_in", "flow_out", "spp", "apwd", "choke_pressure",
+    "rpm", "rop", "wob", "torque", "mud_weight", "ecd",
+    "inclination", "azimuth", "temperature", "resistivity",
+    # Stability-specific
+    "pit_volume", "pit_gain", "pit_loss", "total_pit_volume",
+    "gas_total", "gas_background", "mud_temp_in", "mud_temp_out",
+    "mud_conductivity", "flow_check", "swab_pressure", "surge_pressure",
+    "formation_pressure",
+]
+
+_POST_WELL_REVIEW_CHANNELS: List[str] = sorted(set(
+    _MPD_OPERATIONS_CHANNELS
+    + _DRILLING_OPTIMIZATION_CHANNELS
+    + _WELLBORE_STABILITY_CHANNELS
+))
+
+_INTENT_CHANNEL_MAP: Dict[str, List[str]] = {
+    "MPD Operations":       _MPD_OPERATIONS_CHANNELS,
+    "Drilling Optimization": _DRILLING_OPTIMIZATION_CHANNELS,
+    "Wellbore Stability":   _WELLBORE_STABILITY_CHANNELS,
+    "Post-Well Review":     _POST_WELL_REVIEW_CHANNELS,
+    "Custom":               [],
+}
+
+
+def get_intent_channels(intent_name: str) -> List[str]:
+    """Return the canonical channel list for a named analysis intent.
+
+    Parameters
+    ----------
+    intent_name : str
+        One of "MPD Operations", "Drilling Optimization", "Wellbore Stability",
+        "Post-Well Review", or "Custom".
+
+    Returns
+    -------
+    list of str
+        Canonical channel names.  Returns an empty list for unknown intents.
+    """
+    return list(_INTENT_CHANNEL_MAP.get(intent_name, []))
+
+
+# ---------------------------------------------------------------------------
+# Hardware-adaptive channel ceiling
+# ---------------------------------------------------------------------------
+
+def max_channels(vram_gb: float, sm_count: int, window: int = 2000) -> int:
+    """Compute the hardware-adaptive maximum number of channels.
+
+    Estimates a safe channel ceiling based on GPU VRAM and SM (streaming
+    multiprocessor) count so that the point-cloud engine doesn't exceed
+    available memory or compute resources.
+
+    Parameters
+    ----------
+    vram_gb : float
+        Total GPU VRAM in gigabytes (0 for CPU-only).
+    sm_count : int
+        Number of GPU streaming multiprocessors (0 for CPU-only).
+    window : int, optional
+        Sliding time-window length in samples (default 2000).
+
+    Returns
+    -------
+    int
+        Maximum recommended channel count, capped at 512.
+        Returns 50 for CPU-only (vram_gb <= 0 or sm_count <= 0).
+    """
+    if vram_gb <= 0 or sm_count <= 0:
+        return 50  # CPU-only fallback
+    usable = vram_gb * 0.55
+    n_mem = int((usable * 1e9 / ((window + 3) * 4)) ** 0.5)
+    n_comp = int(sm_count * 7)
+    return min(n_mem, n_comp, 512)
