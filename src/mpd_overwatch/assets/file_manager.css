@@ -1,0 +1,214 @@
+/* MPD Overwatch — File Manager Page Styles */
+/* Dark theme consistent with style.css */
+
+/* ── File Drop Zone ────────────────────────────────────────────────────── */
+.file-drop-zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    border: 2px dashed #2d4a7a;
+    border-radius: 8px;
+    background-color: #0d1220;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    text-align: center;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.dragging {
+    border-color: #3b82f6;
+    background-color: #111827;
+    color: #e2e8f0;
+}
+
+.drop-label-primary {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.drop-label-or {
+    font-size: 1rem;
+    color: #64748b;
+}
+
+.drop-label-link {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #3b82f6;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.drop-label-hint {
+    font-size: 0.8rem;
+    color: #475569;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+/* ── Well Header Card ───────────────────────────────────────────────────── */
+.well-header-card {
+    background: linear-gradient(135deg, #0d1220 0%, #111827 100%);
+    border: 1px solid #1e2d4a;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    color: #e2e8f0;
+}
+
+.well-header-card .card-placeholder {
+    color: #475569;
+    font-style: italic;
+    text-align: center;
+    margin: 0;
+}
+
+.well-header-card .well-header-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #3b82f6;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #1e2d4a;
+    padding-bottom: 0.5rem;
+}
+
+.well-header-card .well-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.well-header-card .well-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.well-header-card .well-info-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.well-header-card .well-info-value {
+    font-size: 0.9rem;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    color: #cbd5e1;
+}
+
+.well-header-card .curve-count-badge {
+    display: inline-block;
+    background-color: #1e3a5f;
+    color: #93c5fd;
+    border: 1px solid #2d4a7a;
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.well-header-card .index-type-badge {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-left: 0.5rem;
+}
+
+.well-header-card .index-type-depth {
+    background-color: #1a3a2a;
+    color: #4ade80;
+    border: 1px solid #22543d;
+}
+
+.well-header-card .index-type-time {
+    background-color: #2d1a3a;
+    color: #c084fc;
+    border: 1px solid #4a2272;
+}
+
+/* ── Recent Files List ──────────────────────────────────────────────────── */
+.recent-files-section {
+    margin-bottom: 1.5rem;
+}
+
+.recent-files-section .section-heading {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.recent-files-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.recent-files-list .recent-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    background-color: #0d1220;
+    border: 1px solid #1a2744;
+    margin-bottom: 0.4rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.recent-files-list .recent-file-item:hover {
+    border-color: #2d4a7a;
+    background-color: #111827;
+}
+
+.recent-files-list .recent-file-name {
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+}
+
+.recent-files-list .recent-file-meta {
+    font-size: 0.72rem;
+    color: #475569;
+    flex-shrink: 0;
+}
+
+/* ── Page-level scaffolding ─────────────────────────────────────────────── */
+.file-manager-page {
+    padding: 1.5rem 2rem;
+    max-width: 960px;
+}
+
+.file-manager-page .page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 0.25rem;
+}
+
+.file-manager-page .page-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-bottom: 1.5rem;
+}
