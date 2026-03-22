@@ -65,17 +65,13 @@ def page_topology(channel_map_data: dict | None = None):
     Parameters
     ----------
     channel_map_data : dict or None
-        Serialized channel map from dcc.Store.  If None or empty, the page
-        attempts to use demo data and shows a placeholder notice when that
-        also fails.
+        Serialized channel map from dcc.Store.  If None or empty, synthetic
+        placeholder data is used.
     """
-    from mpd_overwatch.pointcloud.ingestion import ingest_dataframe
-
     # ------------------------------------------------------------------ #
-    # Attempt to build a PointCloud4D from real channel data or demo data  #
+    # Attempt to build a PointCloud4D from real channel data               #
     # ------------------------------------------------------------------ #
     pc = None
-    dd = None
     using_placeholder = False
 
     if channel_map_data:
@@ -87,40 +83,27 @@ def page_topology(channel_map_data: dict | None = None):
         except Exception:
             pass
 
-    if pc is None:
+    # Build depth/channel arrays for plotting — use real data if available, else synthetic
+    if pc is not None and channel_map_data:
         try:
-            from mpd_overwatch.data.demo_generator import generate_demo_well_data
-            data = generate_demo_well_data()
-            dd = data["drilling_data"]
-            pc = ingest_dataframe(
-                dd, depth_col="MD", time_col="Timestamp",
-                channel_map={
-                    "Gamma_Ray": "gamma_ray", "ROP": "rop", "APWD": "apwd",
-                    "Flow_In": "flow_in", "Flow_Out": "flow_out", "WOB": "wob",
-                    "Torque": "torque", "SPP": "spp", "RPM": "rpm",
-                    "Choke_Pressure": "choke_pressure",
-                },
-                well_name="Hensley 1-24H",
-            )
-            using_placeholder = True
+            from mpd_overwatch.dashboard.app_state import deserialize_channel_map as _dcm
+            _cm = _dcm(channel_map_data)
+            md_arr = np.asarray(_cm.get("depth_md", np.linspace(10000, 16000, 200)), dtype=float)
+            gamma_arr = np.asarray(_cm.get("gamma_ray", np.random.default_rng(42).normal(80, 20, len(md_arr))), dtype=float)
+            apwd_arr = np.asarray(_cm.get("apwd", np.random.default_rng(43).normal(6800, 120, len(md_arr))), dtype=float)
+            # Align lengths
+            _n = min(len(md_arr), len(gamma_arr), len(apwd_arr))
+            md_arr, gamma_arr, apwd_arr = md_arr[:_n], gamma_arr[:_n], apwd_arr[:_n]
         except Exception:
-            pc = None
-
-    if pc is None or dd is None:
-        # dd may still be None if we used a channel_map path; try to get arrays
+            md_arr = np.linspace(10000, 16000, 200)
+            gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
+            apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
+            using_placeholder = True
+    else:
         md_arr = np.linspace(10000, 16000, 200)
         gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
         apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
         using_placeholder = True
-    else:
-        if dd is not None:
-            md_arr = dd["MD"].values
-            gamma_arr = dd["Gamma_Ray"].values
-            apwd_arr = dd["APWD"].values
-        else:
-            md_arr = np.linspace(10000, 16000, 200)
-            gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
-            apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
 
     # ------------------------------------------------------------------ #
     # Run sheaf coherence analysis                                         #
