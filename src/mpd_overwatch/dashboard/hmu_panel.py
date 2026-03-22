@@ -9,29 +9,72 @@ import plotly.graph_objects as go
 from dash import dcc, html
 
 from mpd_overwatch.config import COLORS, DEFAULTS
-from mpd_overwatch.data.demo_generator import generate_demo_well_data
+from mpd_overwatch.core.engine_wrappers import compute_ecd, compute_bhp_static
+from mpd_overwatch.components.tooltip import render_engineering_value
+from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
-def page_hmu():
-    """Return the HMU Operator Panel layout."""
-    DEMO = generate_demo_well_data()
-    dd = DEMO["drilling_data"]
-    well = DEMO["well_info"]
+def page_hmu(channel_map_data: dict | None = None):
+    """Return the HMU Operator Panel layout.
 
-    # --- Current state values (latest data point) ---
-    current_md = dd["MD"].iloc[-1]
-    current_tvd = dd["TVD"].iloc[-1]
-    current_bhp_psi = dd["APWD"].iloc[-1]
-    current_sbp = dd["Choke_Pressure"].iloc[-1]
-    current_flow_in = dd["Flow_In"].iloc[-1]
-    current_flow_out = dd["Flow_Out"].iloc[-1]
-    current_wob = dd["WOB"].iloc[-1]
-    current_torque = dd["Torque"].iloc[-1]
+    Parameters
+    ----------
+    channel_map_data : dict or None
+        Serialized channel map from dcc.Store (channel name → list of floats).
+        If None or empty, placeholder values are used.
+    """
+    # --- Resolve channel data or use defaults ---
+    channel_map = None
+    if channel_map_data:
+        try:
+            channel_map = deserialize_channel_map(channel_map_data)
+        except Exception:
+            channel_map = None
 
-    # Derived values
-    target_bhp = 0.052 * DEFAULTS["mpd_mud_weight"] * current_tvd + current_sbp
-    current_ecd = current_bhp_psi / (0.052 * current_tvd)
-    flow_ratio = current_flow_out / current_flow_in
+    def _last(key: str, default: float) -> float:
+        """Return the last value of a channel, or default if not available."""
+        if channel_map and key in channel_map and len(channel_map[key]) > 0:
+            return float(channel_map[key][-1])
+        return default
+
+    # --- Current state values (latest data point or placeholder defaults) ---
+    current_md = _last("depth_md", 15_200.0)
+    current_tvd = _last("tvd", 10_300.0)
+    current_bhp_psi = _last("apwd", 6_850.0)
+    current_sbp = _last("spp", 140.0)
+    current_flow_in = _last("flow_in", 720.0)
+    # flow_out may be stored as a percentage channel or raw gpm
+    flow_out_raw = _last("flow_out_pct", None if channel_map and "flow_out_pct" in (channel_map or {}) else 98.5)
+    # Treat values <= 2.0 as a fraction of flow_in; otherwise use as raw gpm
+    if flow_out_raw <= 2.0:
+        current_flow_out = flow_out_raw * current_flow_in
+    else:
+        current_flow_out = flow_out_raw
+    current_wob = _last("wob", 28_000.0)
+    current_torque = _last("torque", 14_500.0)
+    current_mud_weight = _last("mud_weight", DEFAULTS["mpd_mud_weight"])
+
+    # AFP estimation: approximate from SBP and hydrostatic context (placeholder)
+    # When real annular friction pressure channel is not available, use a fraction of SBP
+    afp_default = max(current_sbp * 0.6, 80.0)
+    current_afp = _last("differential_pressure", afp_default)
+
+    # --- Derived values via engine wrappers ---
+    ecd_result = compute_ecd(
+        mw=current_mud_weight,
+        afp=current_afp,
+        tvd=current_tvd,
+    )
+    current_ecd = ecd_result.value
+
+    bhp_static_result = compute_bhp_static(
+        mw=current_mud_weight,
+        tvd=current_tvd,
+        sbp=current_sbp,
+    )
+    target_bhp = bhp_static_result.value
+
+    flow_ratio = current_flow_out / current_flow_in if current_flow_in > 0 else 1.0
     choke_position = (current_sbp / 500) * 100  # % of 500 psi max range
 
     # Pore pressure and fracture gradient at current TVD
@@ -45,7 +88,7 @@ def page_hmu():
 
     # Recommended SBP: enough to keep BHP above pore pressure
     # BHP = 0.052 * MW * TVD + SBP >= PP_psi + margin
-    recommended_sbp = pp_psi + 50 - (0.052 * DEFAULTS["mpd_mud_weight"] * current_tvd)
+    recommended_sbp = pp_psi + 50 - (0.052 * current_mud_weight * current_tvd)
     recommended_sbp = max(recommended_sbp, 50)
 
     # ================================================================
@@ -243,7 +286,7 @@ def page_hmu():
     # ================================================================
     # CONNECTION SEQUENCE PANEL
     # ================================================================
-    # Simulate last 5 connection events from the drilling data
+    # Simulate last 5 connection events from the current depth context
     np.random.seed(99)
     connection_events = []
     conn_depths = np.linspace(current_md - 500, current_md - 50, 5)
@@ -332,14 +375,29 @@ def page_hmu():
         )
 
     # ================================================================
+    # DATA-LOADED INDICATOR
+    # ================================================================
+    data_status = (
+        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                                       "fontWeight": "700", "fontFamily": "Consolas, monospace"})
+        if channel_map
+        else html.Span("PLACEHOLDER — load a LAS/EDR file to see real values",
+                       style={"color": COLORS["warning"], "fontSize": "11px",
+                              "fontStyle": "italic"})
+    )
+
+    # ================================================================
     # ASSEMBLE LAYOUT
     # ================================================================
     return html.Div([
         # Page Header
         html.Div([
             html.H1("HMU Operator Panel"),
-            html.P("Choke operator real-time cockpit | Hydraulics Management Unit",
-                   className="description"),
+            html.Div([
+                html.P("Choke operator real-time cockpit | Hydraulics Management Unit",
+                       className="description", style={"display": "inline", "marginRight": "16px"}),
+                data_status,
+            ]),
         ], className="page-header"),
 
         # Primary Gauges Row
@@ -362,6 +420,27 @@ def page_hmu():
             "display": "flex", "gap": "12px", "flexWrap": "wrap",
             "marginBottom": "16px",
         }),
+
+        # ECD Tooltip Detail Row
+        html.Div([
+            html.Div("COMPUTED VALUES", className="card-header",
+                     style={"marginBottom": "8px"}),
+            html.Div([
+                html.Div([
+                    render_engineering_value(ecd_result),
+                ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                          "backgroundColor": COLORS["card"],
+                          "borderRadius": "6px",
+                          "border": f"1px solid {COLORS['card_border']}"}),
+                html.Div([
+                    render_engineering_value(bhp_static_result),
+                ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                          "backgroundColor": COLORS["card"],
+                          "borderRadius": "6px",
+                          "border": f"1px solid {COLORS['card_border']}"}),
+            ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
+                      "marginBottom": "16px"}),
+        ]),
 
         # Lower section: Connection Sequence + Alert Panel side by side
         html.Div([
