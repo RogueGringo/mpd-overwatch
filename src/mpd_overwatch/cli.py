@@ -78,12 +78,12 @@ def main(argv=None):
 
 
 def _cmd_serve(args, logger):
-    """Start the Dash dashboard."""
+    """Start the Dash dashboard via the launcher."""
     logger.info("Starting MPD Overwatch dashboard on %s:%d", args.host, args.port)
     try:
-        from mpd_overwatch.app import create_app
-        app = create_app()
-        app.run(debug=not args.no_debug, host=args.host, port=args.port)
+        from mpd_overwatch.launcher import launch
+        log_level = "DEBUG" if not args.no_debug else "INFO"
+        launch(port=args.port, host=args.host, log_level=log_level)
     except ImportError as e:
         logger.error("Dashboard dependencies not available: %s", e)
         return 1
