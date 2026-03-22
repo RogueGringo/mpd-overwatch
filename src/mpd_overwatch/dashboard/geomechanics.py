@@ -10,23 +10,61 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
-from mpd_overwatch.data.demo_generator import generate_demo_well_data
+from mpd_overwatch.core.engine_wrappers import compute_mse, compute_ucs, compute_brittleness
+from mpd_overwatch.components.tooltip import render_engineering_value
+from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
-def page_geomechanics():
-    """Render the geomechanics analysis page."""
-    data = generate_demo_well_data()
-    dd = data["drilling_data"]
+def page_geomechanics(channel_map_data: dict | None = None):
+    """Render the geomechanics analysis page.
 
-    md = dd["MD"].values
-    rop = dd["ROP"].values
-    wob = dd["WOB"].values * 1000  # klbs to lbs
-    torque = dd["Torque"].values
-    rpm = dd["RPM"].values
-    gamma = dd["Gamma_Ray"].values
+    Parameters
+    ----------
+    channel_map_data : dict or None
+        Serialized channel map from dcc.Store (channel name → list of floats).
+        If None or empty, placeholder synthetic values are used.
+    """
+    # --- Resolve channel data or use placeholder defaults ---
+    channel_map = None
+    if channel_map_data:
+        try:
+            channel_map = deserialize_channel_map(channel_map_data)
+        except Exception:
+            channel_map = None
+
+    def _channel(key: str, default: np.ndarray) -> np.ndarray:
+        """Return channel array or default if not available."""
+        if channel_map and key in channel_map and len(channel_map[key]) > 0:
+            return np.asarray(channel_map[key], dtype=float)
+        return default
+
+    # --- Build placeholder arrays when no real data is loaded ---
+    n = 500
+    _md_default = np.linspace(9500, 17500, n)
+    _rop_default = np.abs(np.random.default_rng(42).normal(80, 20, n)).clip(5, 200)
+    _wob_default = np.abs(np.random.default_rng(7).normal(28000, 4000, n)).clip(5000, 55000)
+    _torque_default = np.abs(np.random.default_rng(13).normal(14500, 2000, n)).clip(2000, 30000)
+    _rpm_default = np.abs(np.random.default_rng(21).normal(120, 15, n)).clip(20, 250)
+    _gamma_default = np.abs(np.random.default_rng(33).normal(65, 20, n)).clip(5, 200)
+
+    md = _channel("depth_md", _md_default)
+    rop = _channel("rop", _rop_default)
+    wob = _channel("wob", _wob_default)          # lbs
+    torque = _channel("torque", _torque_default)  # ft-lbs
+    rpm = _channel("rpm", _rpm_default)
+    gamma = _channel("gamma_ray", _gamma_default)
     bit_diameter = 8.75  # inches
 
-    # Calculate MSE
+    # Align lengths in case channels differ
+    n = min(len(md), len(rop), len(wob), len(torque), len(rpm), len(gamma))
+    md = md[:n]
+    rop = rop[:n]
+    wob = wob[:n]
+    torque = torque[:n]
+    rpm = rpm[:n]
+    gamma = gamma[:n]
+
+    # --- Calculate MSE, UCS, Brittleness arrays (vectorised, same formulas as before) ---
     with np.errstate(divide="ignore", invalid="ignore"):
         mse_rotary = np.where(
             (rop > 0) & (rpm > 0),
@@ -54,10 +92,33 @@ def page_geomechanics():
     de = np.where(mse > 0, ucs / mse, 0)
 
     # Fracability score (brittleness weighted)
-    fracability = bi * 0.7 + (1 - gamma / np.max(gamma)) * 0.3
+    gamma_max = np.max(gamma) if np.max(gamma) > 0 else 1.0
+    fracability = bi * 0.7 + (1 - gamma / gamma_max) * 0.3
     fracability = np.clip(fracability, 0, 1)
 
-    # Build multi-panel figure
+    # --- Summary stats for scalar tooltip values ---
+    avg_mse = float(np.mean(mse[mse > 0])) if np.any(mse > 0) else 0.0
+    avg_ucs = float(np.mean(ucs[ucs > 0])) if np.any(ucs > 0) else 0.0
+    avg_bi = float(np.mean(bi[bi > 0])) if np.any(bi > 0) else 0.0
+    brittle_pct = float(np.sum(bi > 0.5) / len(bi) * 100)
+    avg_frac = float(np.mean(fracability))
+    avg_wob = float(np.mean(wob))
+    avg_torque = float(np.mean(torque))
+    avg_rpm = float(np.mean(rpm))
+    avg_rop = float(np.mean(rop))
+
+    # --- Engine-wrapper results for scalar KPI tooltips ---
+    mse_result = compute_mse(
+        wob=avg_wob,
+        torque=avg_torque,
+        rpm=avg_rpm,
+        rop=avg_rop,
+        bit_diameter=bit_diameter,
+    )
+    ucs_result = compute_ucs(mse=avg_mse)
+    brittleness_result = compute_brittleness(ucs=avg_ucs)
+
+    # --- Build multi-panel figure ---
     fig = make_subplots(
         rows=5, cols=1, shared_xaxes=True,
         subplot_titles=(
@@ -73,12 +134,14 @@ def page_geomechanics():
         x=md, y=mse, name="MSE",
         mode="lines", line=dict(color=COLORS["primary"], width=1),
     ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=md, y=np.full_like(md, np.median(mse[mse > 0])),
-        name="MSE Median", mode="lines",
-        line=dict(color=COLORS["text_dim"], width=1, dash="dash"),
-        showlegend=False,
-    ), row=1, col=1)
+    mse_positive = mse[mse > 0]
+    if len(mse_positive) > 0:
+        fig.add_trace(go.Scatter(
+            x=md, y=np.full_like(md, np.median(mse_positive)),
+            name="MSE Median", mode="lines",
+            line=dict(color=COLORS["text_dim"], width=1, dash="dash"),
+            showlegend=False,
+        ), row=1, col=1)
 
     # UCS
     fig.add_trace(go.Scatter(
@@ -95,7 +158,8 @@ def page_geomechanics():
     # Threshold line at 0.5 (brittle/ductile boundary)
     fig.add_hline(y=0.5, row=3, col=1,
                   line=dict(color=COLORS["text_dim"], dash="dash", width=1),
-                  annotation_text="Brittle/Ductile", annotation_font_color=COLORS["text_dim"])
+                  annotation_text="Brittle/Ductile",
+                  annotation_font_color=COLORS["text_dim"])
 
     # Drilling Efficiency
     fig.add_trace(go.Scatter(
@@ -125,27 +189,68 @@ def page_geomechanics():
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
     fig.update_xaxes(title="Measured Depth (ft)", row=5, col=1)
 
-    # Summary stats
-    avg_mse = np.mean(mse[mse > 0])
-    avg_ucs = np.mean(ucs[ucs > 0])
-    avg_bi = np.mean(bi[bi > 0])
-    brittle_pct = np.sum(bi > 0.5) / len(bi) * 100
-    avg_frac = np.mean(fracability)
+    # --- Data-loaded indicator ---
+    data_status = (
+        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                                      "fontWeight": "700", "fontFamily": "Consolas, monospace"})
+        if channel_map
+        else html.Span("PLACEHOLDER — load a LAS/EDR file to see real values",
+                       style={"color": COLORS["warning"], "fontSize": "11px",
+                              "fontStyle": "italic"})
+    )
 
     return html.Div([
         html.Div([
             html.H1("Geomechanics Analysis"),
-            html.P("MSE-derived rock properties, brittleness, and fracability along the lateral",
-                   className="description"),
+            html.Div([
+                html.P("MSE-derived rock properties, brittleness, and fracability along the lateral",
+                       className="description",
+                       style={"display": "inline", "marginRight": "16px"}),
+                data_status,
+            ]),
         ], className="page-header"),
 
+        # KPI row — MSE, UCS, Brittleness wrapped in render_engineering_value()
+        html.Div("COMPUTED VALUES", className="card-header",
+                 style={"marginBottom": "8px"}),
         html.Div([
-            _kpi("Avg MSE", f"{avg_mse:,.0f} psi", "cyan"),
-            _kpi("Avg UCS", f"{avg_ucs:,.0f} psi", "gold"),
-            _kpi("Avg Brittleness", f"{avg_bi:.2f}", "orange",
-                 f"{brittle_pct:.0f}% brittle"),
+            # MSE tooltip card
+            html.Div([
+                render_engineering_value(mse_result),
+                html.Div(f"Avg: {avg_mse:,.0f} psi",
+                         style={"color": COLORS["text_muted"], "fontSize": "11px",
+                                "marginTop": "4px"}),
+            ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                      "backgroundColor": COLORS["card"],
+                      "borderRadius": "6px",
+                      "border": f"1px solid {COLORS['card_border']}"}),
+
+            # UCS tooltip card
+            html.Div([
+                render_engineering_value(ucs_result),
+                html.Div(f"Avg: {avg_ucs:,.0f} psi",
+                         style={"color": COLORS["text_muted"], "fontSize": "11px",
+                                "marginTop": "4px"}),
+            ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                      "backgroundColor": COLORS["card"],
+                      "borderRadius": "6px",
+                      "border": f"1px solid {COLORS['card_border']}"}),
+
+            # Brittleness tooltip card
+            html.Div([
+                render_engineering_value(brittleness_result),
+                html.Div(f"Avg: {avg_bi:.2f}  |  {brittle_pct:.0f}% brittle",
+                         style={"color": COLORS["text_muted"], "fontSize": "11px",
+                                "marginTop": "4px"}),
+            ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                      "backgroundColor": COLORS["card"],
+                      "borderRadius": "6px",
+                      "border": f"1px solid {COLORS['card_border']}"}),
+
+            # Fracability plain KPI (no wrapper — not a core engine value)
             _kpi("Avg Fracability", f"{avg_frac:.2f}", "green"),
-        ], className="kpi-row"),
+        ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
+                  "marginBottom": "16px"}),
 
         html.Div([
             html.Div("LATERAL GEOMECHANICS PROFILE", className="card-header"),
@@ -158,20 +263,31 @@ def page_geomechanics():
                 html.Li([
                     html.Span("MSE: ", style={"color": COLORS["primary"], "fontWeight": "bold"}),
                     "Mechanical Specific Energy shows total energy consumed per unit volume of rock drilled. ",
-                    "Lower MSE = more efficient drilling. Spikes indicate formation changes or bit wear.",
+                    "Lower MSE = more efficient drilling. Spikes indicate formation changes or bit wear. ",
+                    html.Span("(Teale 1965)",
+                              style={"color": COLORS["text_dim"], "fontSize": "11px",
+                                     "fontStyle": "italic"}),
                 ], style={"marginBottom": "8px", "fontSize": "13px"}),
                 html.Li([
                     html.Span("UCS: ", style={"color": COLORS["warning"], "fontWeight": "bold"}),
                     f"Estimated Unconfined Compressive Strength (avg {avg_ucs:,.0f} psi). ",
-                    "Derived from MSE with PDC bit efficiency factor of 0.35.",
+                    "Derived from MSE with PDC bit efficiency factor of 0.35. ",
+                    html.Span("(Dupriest & Koederitz 2005, SPE 92194)",
+                              style={"color": COLORS["text_dim"], "fontSize": "11px",
+                                     "fontStyle": "italic"}),
                 ], style={"marginBottom": "8px", "fontSize": "13px"}),
                 html.Li([
-                    html.Span("Brittleness: ", style={"color": COLORS["secondary"], "fontWeight": "bold"}),
+                    html.Span("Brittleness: ",
+                              style={"color": COLORS["secondary"], "fontWeight": "bold"}),
                     f"{brittle_pct:.0f}% of the lateral is in brittle rock (BI > 0.5). ",
-                    "Brittle rock fractures more completely during stimulation - target these zones.",
+                    "Brittle rock fractures more completely during stimulation — target these zones. ",
+                    html.Span("(Jarvie 2007; Rickman et al. 2008, SPE 115258)",
+                              style={"color": COLORS["text_dim"], "fontSize": "11px",
+                                     "fontStyle": "italic"}),
                 ], style={"marginBottom": "8px", "fontSize": "13px"}),
                 html.Li([
-                    html.Span("Fracability: ", style={"color": COLORS["success"], "fontWeight": "bold"}),
+                    html.Span("Fracability: ",
+                              style={"color": COLORS["success"], "fontWeight": "bold"}),
                     "Combined score of brittleness (70%) and reservoir quality from gamma (30%). ",
                     "High scores indicate optimal zones for hydraulic fracturing.",
                 ], style={"fontSize": "13px"}),
