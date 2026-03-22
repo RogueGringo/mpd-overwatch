@@ -7,11 +7,12 @@ drilling operations monitoring and decision support.
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from dash import dcc, html
 
 from mpd_overwatch.config import COLORS, DEFAULTS
-from mpd_overwatch.data.demo_generator import generate_demo_well_data
+from mpd_overwatch.core.engine_wrappers import compute_ecd, compute_bhp_static
+from mpd_overwatch.components.tooltip import render_engineering_value
+from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
 def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"):
@@ -27,27 +28,59 @@ def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"
     return html.Div(children, className="kpi-card")
 
 
-def page_supervisory():
-    """Return the RO/Supervisory Panel layout."""
-    DEMO = generate_demo_well_data()
-    dd = DEMO["drilling_data"]
-    well = DEMO["well_info"]
-    conv = DEMO["conventional"]
-    mpd = DEMO["mpd"]
+def page_supervisory(channel_map_data: dict | None = None):
+    """Return the RO/Supervisory Panel layout.
 
-    np.random.seed(77)
+    Parameters
+    ----------
+    channel_map_data : dict or None
+        Serialized channel map from dcc.Store (channel name → list of floats).
+        If None or empty, placeholder defaults are used.
+    """
+    # --- Resolve channel data or use defaults ---
+    channel_map = None
+    if channel_map_data:
+        try:
+            channel_map = deserialize_channel_map(channel_map_data)
+        except Exception:
+            channel_map = None
 
-    # --- Current state ---
-    current_md = dd["MD"].iloc[-1]
-    current_tvd = dd["TVD"].iloc[-1]
-    current_sbp = dd["Choke_Pressure"].iloc[-1]
-    current_bhp_psi = dd["APWD"].iloc[-1]
-    current_ecd = current_bhp_psi / (0.052 * current_tvd)
+    def _last(key: str, default: float) -> float:
+        """Return the last value of a channel, or default if not available."""
+        if channel_map and key in channel_map and len(channel_map[key]) > 0:
+            return float(channel_map[key][-1])
+        return default
 
-    # Determine drilling phase based on current MD
-    kop_md = well["kick_off_point_md"]
-    landing_md = well["landing_point_md"]
-    td_md = well["total_depth_md"]
+    # --- Current state values (latest data point or placeholder defaults) ---
+    current_md = _last("depth_md", 19_800.0)
+    current_tvd = _last("tvd", 10_300.0)
+    current_bhp_psi = _last("apwd", 6_850.0)
+    current_sbp = _last("spp", 140.0)
+    current_mud_weight = _last("mud_weight", DEFAULTS["mpd_mud_weight"])
+    current_rop = _last("rop", 42.0)
+
+    # --- Derived values via engine wrappers ---
+    afp_default = max(current_sbp * 0.6, 80.0)
+    current_afp = _last("differential_pressure", afp_default)
+
+    ecd_result = compute_ecd(
+        mw=current_mud_weight,
+        afp=current_afp,
+        tvd=current_tvd,
+    )
+    current_ecd = ecd_result.value
+
+    bhp_static_result = compute_bhp_static(
+        mw=current_mud_weight,
+        tvd=current_tvd,
+        sbp=current_sbp,
+    )
+    target_bhp = bhp_static_result.value
+
+    # Determine drilling phase based on current MD (placeholder breakpoints)
+    kop_md = 9_500.0
+    landing_md = 11_200.0
+    td_md = 21_000.0
     if current_md < kop_md:
         current_phase = "Vertical"
     elif current_md < landing_md:
@@ -55,42 +88,54 @@ def page_supervisory():
     else:
         current_phase = "Lateral"
 
-    # Hours since spud
-    spud_ts = pd.Timestamp(well["spud_date"])
-    current_ts = dd["Timestamp"].iloc[-1]
-    hours_since_spud = (current_ts - spud_ts).total_seconds() / 3600
-
-    # NPT hours and cost
-    npt_hours = mpd["npt_days"] * 24
-    npt_cost = mpd["npt_days"] * DEFAULTS["rig_rate"]
-
-    # MPD value accumulated so far (drilling savings + estimated production uplift so far)
-    drill_savings = conv["total_well_cost"] - mpd["total_well_cost"]
-    eur_uplift = mpd["eur_boe"] - conv["eur_boe"]
-    production_value = eur_uplift * DEFAULTS["oil_price"]
-    pct_drilled = (current_md - landing_md) / (td_md - landing_md)
+    pct_drilled = (current_md - landing_md) / max(td_md - landing_md, 1.0)
     pct_drilled = max(min(pct_drilled, 1.0), 0.0)
-    mpd_value_accumulated = drill_savings * pct_drilled + production_value * pct_drilled
+
+    # Pore pressure and fracture gradient at current TVD
+    pp_gradient = 0.465 + (current_tvd - 5000) / 20000 * 0.20
+    pp_ppg = pp_gradient / 0.052
+    fg_gradient = 0.75 + (current_tvd - 3000) / 15000 * 0.15
+    fg_ppg = fg_gradient / 0.052
+    pp_psi = pp_gradient * current_tvd
+    fg_psi = fg_gradient * current_tvd
+
+    # ================================================================
+    # ENGINEERING KPIs (replacing former financial KPIs)
+    # ================================================================
+
+    # 1. Pressure window margin — psi between current BHP and fracture gradient
+    pressure_window_margin = fg_psi - current_bhp_psi
+    window_color = (
+        "green" if pressure_window_margin > 200
+        else "gold" if pressure_window_margin > 75
+        else "orange"
+    )
+
+    # 2. Zone stability count — count of flagged_zones marked STABLE vs total
+    #    (computed from the zone list built below; placeholder until then)
+    zone_stability_count_stable = 2   # updated after zone list is built
+    zone_stability_count_total = 5
+
+    # 3. Connection count — derived from connection time series below
+    #    (populated after we build synthetic data)
+    connection_count = 16  # placeholder; updated after conn_times is computed
 
     # ================================================================
     # 24-HOUR PRESSURE TREND CHART
     # ================================================================
-    # Generate synthetic 24-hour time series (1-minute resolution)
     n_minutes = 24 * 60
-    time_axis = pd.date_range(
-        end=current_ts, periods=n_minutes, freq="min"
-    )
+    np.random.seed(77)
+    current_ts = pd.Timestamp("now")
+    time_axis = pd.date_range(end=current_ts, periods=n_minutes, freq="min")
 
     # BHP target: steady with small planned ramps
     bhp_target_base = 0.052 * DEFAULTS["mpd_mud_weight"] * current_tvd + 150
     bhp_target = np.full(n_minutes, bhp_target_base)
-    # Add a few target adjustments (step changes)
     bhp_target[400:] += 30
     bhp_target[900:] -= 15
 
     # BHP actual: follows target with noise and connection dips
     bhp_actual = bhp_target + np.random.normal(0, 15, n_minutes)
-    # Simulate connection events (every ~90 minutes, a brief dip)
     for conn_idx in range(0, n_minutes, 90):
         dip_start = conn_idx
         dip_end = min(conn_idx + 8, n_minutes)
@@ -103,7 +148,6 @@ def page_supervisory():
     sbp_trend = 150 + np.random.normal(0, 8, n_minutes)
     sbp_trend[400:] += 30
     sbp_trend[900:] -= 15
-    # SBP spikes during connections
     for conn_idx in range(0, n_minutes, 90):
         spike_end = min(conn_idx + 8, n_minutes)
         sbp_trend[conn_idx:spike_end] += 40
@@ -113,44 +157,33 @@ def page_supervisory():
     ecd_psi = ecd_trend_ppg * 0.052 * current_tvd
 
     pressure_fig = go.Figure()
-
-    # BHP target
     pressure_fig.add_trace(go.Scatter(
         x=time_axis, y=bhp_target,
         name="BHP Target", mode="lines",
         line=dict(color=COLORS["text_muted"], width=2, dash="dash"),
     ))
-
-    # BHP actual
     pressure_fig.add_trace(go.Scatter(
         x=time_axis, y=bhp_actual,
         name="BHP Actual", mode="lines",
         line=dict(color=COLORS["success"], width=1.5),
         fill="tonexty", fillcolor="rgba(0, 255, 136, 0.05)",
     ))
-
-    # SBP
     pressure_fig.add_trace(go.Scatter(
         x=time_axis, y=sbp_trend,
         name="SBP", mode="lines",
         line=dict(color=COLORS["secondary"], width=1.5),
         yaxis="y2",
     ))
-
-    # ECD x TVD / 19.25 (converts to approximate BHP for overlay)
-    ecd_as_bhp = ecd_psi
     pressure_fig.add_trace(go.Scatter(
-        x=time_axis, y=ecd_as_bhp,
+        x=time_axis, y=ecd_psi,
         name="ECD (as BHP)", mode="lines",
         line=dict(color=COLORS["ecd"], width=1, dash="dot"),
     ))
-
     pressure_fig.update_layout(
         paper_bgcolor=COLORS["card"], plot_bgcolor=COLORS["background"],
         font=dict(color=COLORS["text_muted"], family="Consolas, monospace", size=11),
         height=400, margin=dict(l=60, r=60, t=10, b=40),
-        legend=dict(bgcolor="rgba(0,0,0,0)", x=0.01, y=0.99,
-                    font=dict(size=10)),
+        legend=dict(bgcolor="rgba(0,0,0,0)", x=0.01, y=0.99, font=dict(size=10)),
         xaxis=dict(title="Time (24h)", gridcolor=COLORS["card_border"]),
         yaxis=dict(title="Pressure (psi)", gridcolor=COLORS["card_border"]),
         yaxis2=dict(title="SBP (psi)", overlaying="y", side="right",
@@ -163,21 +196,34 @@ def page_supervisory():
     # DRILLING PERFORMANCE PANEL
     # ================================================================
 
-    # ROP trend (last 1000 ft of data)
-    last_1000_mask = dd["MD"] >= (current_md - 1000)
-    dd_recent = dd[last_1000_mask].copy()
+    # Build a synthetic recent-depth dataframe from channel map or defaults
+    if channel_map and "depth_md" in channel_map and "rop" in channel_map:
+        depth_series = np.array(channel_map["depth_md"])
+        rop_series = np.array(channel_map["rop"])
+        n = min(len(depth_series), len(rop_series))
+        depth_series = depth_series[:n]
+        rop_series = rop_series[:n]
+        mask = depth_series >= (depth_series[-1] - 1000)
+        md_recent = depth_series[mask]
+        rop_recent = rop_series[mask]
+    else:
+        np.random.seed(99)
+        md_recent = np.linspace(current_md - 1000, current_md, 200)
+        rop_recent = 40 + 8 * np.sin(np.linspace(0, 4 * np.pi, 200)) + np.random.normal(0, 4, 200)
+        rop_recent = np.clip(rop_recent, 5, 120)
 
     rop_fig = go.Figure()
     rop_fig.add_trace(go.Scatter(
-        x=dd_recent["MD"], y=dd_recent["ROP"],
+        x=md_recent, y=rop_recent,
         name="ROP", mode="lines",
         line=dict(color=COLORS["success"], width=1.5),
         fill="tozeroy", fillcolor="rgba(0, 255, 136, 0.08)",
     ))
-    # Rolling average
-    rop_rolling = dd_recent["ROP"].rolling(10, min_periods=1).mean()
+    # Rolling average (as pandas for convenience)
+    rop_s = pd.Series(rop_recent)
+    rop_rolling = rop_s.rolling(10, min_periods=1).mean().values
     rop_fig.add_trace(go.Scatter(
-        x=dd_recent["MD"], y=rop_rolling,
+        x=md_recent, y=rop_rolling,
         name="ROP Avg (rolling)", mode="lines",
         line=dict(color=COLORS["primary"], width=2),
     ))
@@ -191,23 +237,42 @@ def page_supervisory():
     )
 
     # MSE trend (Mechanical Specific Energy)
-    # MSE = (480 * Torque * RPM) / (diameter^2 * ROP) + (4 * WOB) / (pi * diameter^2)
+    if channel_map and all(k in channel_map for k in ("torque", "rpm", "wob")):
+        torque_series = np.array(channel_map["torque"])
+        rpm_series = np.array(channel_map["rpm"])
+        wob_series = np.array(channel_map["wob"])
+        n = min(len(md_recent), len(torque_series), len(rpm_series), len(wob_series))
+        torque_r = torque_series[-n:]
+        rpm_r = rpm_series[-n:]
+        wob_r = wob_series[-n:]
+        md_mse = md_recent[-n:]
+        rop_mse = rop_recent[-n:]
+    else:
+        np.random.seed(55)
+        torque_r = 14000 + np.random.normal(0, 800, len(md_recent))
+        rpm_r = 120 + np.random.normal(0, 10, len(md_recent))
+        wob_r = 28 + np.random.normal(0, 3, len(md_recent))
+        md_mse = md_recent
+        rop_mse = rop_recent
+
     bit_diameter = 8.75  # inches
-    mse = (480 * dd_recent["Torque"] * dd_recent["RPM"]) / \
-          (bit_diameter**2 * dd_recent["ROP"].clip(lower=1)) + \
-          (4 * dd_recent["WOB"] * 1000) / (np.pi * bit_diameter**2)
-    mse = mse / 1000  # kpsi
+    mse_vals = (480 * torque_r * rpm_r) / (
+        bit_diameter**2 * np.clip(rop_mse, 1, None)
+    ) + (4 * wob_r * 1000) / (np.pi * bit_diameter**2)
+    mse_vals = mse_vals / 1000  # kpsi
+
+    mse_s = pd.Series(mse_vals)
+    mse_rolling = mse_s.rolling(10, min_periods=1).mean().values
 
     mse_fig = go.Figure()
     mse_fig.add_trace(go.Scatter(
-        x=dd_recent["MD"], y=mse,
+        x=md_mse, y=mse_vals,
         name="MSE", mode="lines",
         line=dict(color=COLORS["warning"], width=1.5),
         fill="tozeroy", fillcolor="rgba(255, 215, 0, 0.06)",
     ))
-    mse_rolling = mse.rolling(10, min_periods=1).mean()
     mse_fig.add_trace(go.Scatter(
-        x=dd_recent["MD"], y=mse_rolling,
+        x=md_mse, y=mse_rolling,
         name="MSE Avg (rolling)", mode="lines",
         line=dict(color=COLORS["secondary"], width=2),
     ))
@@ -221,10 +286,10 @@ def page_supervisory():
     )
 
     # Connection time analysis (box plot of last 20 connections)
-    # Simulate connection times (minutes)
     np.random.seed(42)
     conn_times = np.random.lognormal(mean=np.log(12), sigma=0.3, size=20)
     conn_times = np.clip(conn_times, 6, 35)
+    connection_count = len(conn_times)  # finalize KPI value
 
     conn_fig = go.Figure()
     conn_fig.add_trace(go.Box(
@@ -256,6 +321,7 @@ def page_supervisory():
         {
             "depth": "19,200 - 19,400 ft",
             "type": "FRACTURED",
+            "stability": "STABLE",
             "confidence": "87%",
             "recommendation": "Use diverter strategy; limit pump rate to reduce frac hits on offset wells",
             "color": COLORS["primary"],
@@ -264,6 +330,7 @@ def page_supervisory():
         {
             "depth": "16,700 - 16,900 ft",
             "type": "FRACTURED",
+            "stability": "STABLE",
             "confidence": "82%",
             "recommendation": "Place stage boundary here; natural fracture network may steal fluid",
             "color": COLORS["primary"],
@@ -272,6 +339,7 @@ def page_supervisory():
         {
             "depth": "15,500 - 16,000 ft",
             "type": "OVERPRESSURED",
+            "stability": "WATCH",
             "confidence": "91%",
             "recommendation": "Prime sweet spot - increase clusters to 6, use aggressive pump schedule",
             "color": COLORS["warning"],
@@ -280,6 +348,7 @@ def page_supervisory():
         {
             "depth": "13,500 - 14,000 ft",
             "type": "DEPLETED",
+            "stability": "WATCH",
             "confidence": "78%",
             "recommendation": "Reduce proppant loading; consider energized frac fluid (N2 assist)",
             "color": COLORS["danger"],
@@ -288,12 +357,16 @@ def page_supervisory():
         {
             "depth": "12,300 - 12,500 ft",
             "type": "FRACTURED",
+            "stability": "WATCH",
             "confidence": "74%",
             "recommendation": "Use limited entry perfs; monitor for communication with offset wells",
             "color": COLORS["primary"],
             "css_class": "zone-fractured",
         },
     ]
+
+    zone_stability_count_stable = sum(1 for z in flagged_zones if z["stability"] == "STABLE")
+    zone_stability_count_total = len(flagged_zones)
 
     zone_cards = []
     for zone in flagged_zones:
@@ -303,15 +376,19 @@ def page_supervisory():
                     html.Span(zone["type"],
                               style={"color": zone["color"], "fontWeight": "700",
                                      "fontSize": "12px", "letterSpacing": "1px"}),
+                    html.Span(f"  Stability: {zone['stability']}",
+                              style={"color": (COLORS["success"] if zone["stability"] == "STABLE"
+                                               else COLORS["warning"]),
+                                     "fontSize": "11px", "marginLeft": "12px"}),
                     html.Span(f"  Confidence: {zone['confidence']}",
                               style={"color": COLORS["text_muted"], "fontSize": "11px",
                                      "marginLeft": "12px"}),
                 ]),
                 html.Div(zone["depth"],
-                          style={"color": COLORS["text"], "fontSize": "13px",
-                                 "fontFamily": "Consolas, monospace", "margin": "4px 0"}),
+                         style={"color": COLORS["text"], "fontSize": "13px",
+                                "fontFamily": "Consolas, monospace", "margin": "4px 0"}),
                 html.Div(zone["recommendation"],
-                          style={"color": COLORS["text_muted"], "fontSize": "12px"}),
+                         style={"color": COLORS["text_muted"], "fontSize": "12px"}),
             ], className=zone["css_class"], style={
                 "padding": "12px 16px",
                 "marginBottom": "8px",
@@ -322,20 +399,12 @@ def page_supervisory():
     # ================================================================
     # DECISION SUPPORT SECTION
     # ================================================================
-    # Current mud weight recommendation
-    pp_gradient = 0.465 + (current_tvd - 5000) / 20000 * 0.20
-    pp_ppg = pp_gradient / 0.052
-    fg_gradient = 0.75 + (current_tvd - 3000) / 15000 * 0.15
-    fg_ppg = fg_gradient / 0.052
-
     mw_current = DEFAULTS["mpd_mud_weight"]
     mw_recommended = pp_ppg + 0.3  # just above pore pressure
     mw_what_if = mw_current + 0.5  # hypothetical increase
 
     # SBP operating range
-    # Min SBP: keeps BHP above pore pressure
     min_sbp = max((pp_gradient * current_tvd + 50) - (0.052 * mw_current * current_tvd), 0)
-    # Max SBP: keeps BHP below fracture gradient
     max_sbp = (fg_gradient * current_tvd - 50) - (0.052 * mw_current * current_tvd)
     max_sbp = max(max_sbp, min_sbp + 50)
 
@@ -369,7 +438,7 @@ def page_supervisory():
                    className="description"),
         ], className="page-header"),
 
-        # Operations Summary KPI Row
+        # Engineering KPI Row (pure engineering — no financial content)
         html.Div("OPERATIONS SUMMARY", className="card-header",
                  style={"marginBottom": "8px"}),
         html.Div([
@@ -378,16 +447,36 @@ def page_supervisory():
                            f"{current_tvd:,.0f} ft TVD"),
             _make_kpi_card("Current Phase", current_phase, "green",
                            f"{pct_drilled * 100:.0f}% lateral complete"),
-            _make_kpi_card("Hours Since Spud",
-                           f"{hours_since_spud:,.0f} hrs", "gold",
-                           f"{hours_since_spud / 24:.1f} days"),
-            _make_kpi_card("NPT Hours",
-                           f"{npt_hours:.0f} hrs", "orange",
-                           f"${npt_cost:,.0f} cost", "negative"),
-            _make_kpi_card("MPD Value Accumulated",
-                           f"${mpd_value_accumulated:,.0f}", "green",
-                           f"{pct_drilled * 100:.0f}% of projected"),
+            _make_kpi_card("Pressure Window Margin",
+                           f"{pressure_window_margin:,.0f} psi", window_color,
+                           f"BHP vs Frac Gradient"),
+            _make_kpi_card("Zone Stability",
+                           f"{zone_stability_count_stable}/{zone_stability_count_total}", "cyan",
+                           "stable zones"),
+            _make_kpi_card("Connections Analyzed",
+                           f"{connection_count}", "gold",
+                           f"Avg {np.mean(conn_times):.1f} min"),
         ], className="kpi-row"),
+
+        # Computed engineering values with tooltip panels
+        html.Div([
+            html.Div("COMPUTED VALUES", className="card-header",
+                     style={"marginBottom": "8px"}),
+            html.Div([
+                html.Div([
+                    render_engineering_value(ecd_result),
+                ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                          "backgroundColor": COLORS["card"],
+                          "borderRadius": "6px",
+                          "border": f"1px solid {COLORS['card_border']}"}),
+                html.Div([
+                    render_engineering_value(bhp_static_result),
+                ], style={"flex": "1", "minWidth": "200px", "padding": "12px",
+                          "backgroundColor": COLORS["card"],
+                          "borderRadius": "6px",
+                          "border": f"1px solid {COLORS['card_border']}"}),
+            ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap"}),
+        ], style={"marginBottom": "16px"}),
 
         # 24-Hour Pressure Trend
         html.Div([
@@ -523,8 +612,8 @@ def page_supervisory():
                                                                "fontWeight": "600"}),
                         " to ",
                         html.Span(f"{mw_what_if} ppg", style={"color": COLORS["warning"],
-                                                                "fontWeight": "600"}),
-                        f", ECD would be approximately ",
+                                                               "fontWeight": "600"}),
+                        ", ECD would be approximately ",
                         html.Span(f"{ecd_what_if:.1f} ppg", style={"color": COLORS["ecd"],
                                                                     "fontWeight": "600"}),
                         f" at current depth. Overbalance would increase from ",
@@ -533,7 +622,7 @@ def page_supervisory():
                         " to ",
                         html.Span(f"{overbalance_what_if:.0f} psi",
                                   style={"color": COLORS["warning"], "fontWeight": "600"}),
-                        f", increasing formation damage risk.",
+                        ", increasing formation damage risk.",
                     ], style={"fontSize": "13px", "color": COLORS["text"],
                               "lineHeight": "1.6", "margin": "0"}),
                 ], style={"padding": "14px", "backgroundColor": COLORS["background"],
