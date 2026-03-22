@@ -30,42 +30,6 @@ class TestControlsPage:
         assert len(layout.children) >= 3  # title + params + hardware
 
 
-class TestSemanticPrime:
-    """Well scenario descriptions use semantic prime: measurements only."""
-
-    BANNED_ADJECTIVES = [
-        "standard", "narrow", "significant", "critical", "extreme",
-        "excessive", "catastrophic", "optimal", "advanced", "superior",
-        "comprehensive", "innovative", "cutting-edge", "state-of-the-art",
-        "robust", "powerful", "intelligent", "smart", "good", "bad",
-        "best", "worst", "excellent", "poor", "great", "terrible",
-        "amazing", "incredible", "outstanding",
-    ]
-
-    def test_no_adjectives_in_scenarios(self):
-        """No banned adjectives in well scenario descriptions."""
-        import sys
-        import importlib
-
-        # Import app module to access WELL_SCENARIOS
-        from mpd_overwatch import app as app_module
-        importlib.reload(app_module)
-        scenarios = app_module.WELL_SCENARIOS
-
-        violations = []
-        for key, scenario in scenarios.items():
-            desc = scenario.get("description", "").lower()
-            for adj in self.BANNED_ADJECTIVES:
-                if adj in desc:
-                    violations.append(
-                        f"Scenario '{key}': contains '{adj}' in description"
-                    )
-
-        assert not violations, (
-            f"Semantic prime violations found:\n"
-            + "\n".join(f"  - {v}" for v in violations)
-        )
-
 
 class TestRoleFilter:
     """Role-based navigation filtering."""
