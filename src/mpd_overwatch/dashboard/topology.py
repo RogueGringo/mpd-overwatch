@@ -3,7 +3,7 @@
 Visualizes the 4D point cloud topology: coherence log, spectral gaps,
 and persistent homology features mapped to drilling context.
 
-Language: semantic prime (measurements and equations only).
+Language: plain operational names first; technical detail available via [?] tooltip.
 """
 
 import numpy as np
@@ -12,47 +12,141 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+from mpd_overwatch.components.tooltip import render_engineering_value
+from mpd_overwatch.core.engineering_result import EngineeringResult, Method, Provenance
 
 
-def page_topology():
-    """Render the topology analysis page."""
-    from mpd_overwatch.data.demo_generator import generate_demo_well_data
-    from mpd_overwatch.pointcloud.ingestion import ingest_dataframe
+# ---------------------------------------------------------------------------
+# Plain-language name mapping (operational -> technical)
+# ---------------------------------------------------------------------------
+# "Sheaf Laplacian Coherence" -> "Channel Agreement"
+# "Spectral Gap"              -> "Agreement Strength"
+# "Betti Number beta0"           -> "Connected Regimes"
+# "Betti Number beta1"           -> "Cyclic Patterns"
+# "Vietoris-Rips eps_max"       -> "Analysis Resolution"
 
-    data = generate_demo_well_data()
-    dd = data["drilling_data"]
 
-    pc = ingest_dataframe(
-        dd, depth_col="MD", time_col="Timestamp",
-        channel_map={
-            "Gamma_Ray": "gamma_ray", "ROP": "rop", "APWD": "apwd",
-            "Flow_In": "flow_in", "Flow_Out": "flow_out", "WOB": "wob",
-            "Torque": "torque", "SPP": "spp", "RPM": "rpm",
-            "Choke_Pressure": "choke_pressure",
-        },
-        well_name="Hensley 1-24H",
+def _novel_method(technical_name: str, equation: str = "") -> Method:
+    return Method(
+        name=technical_name,
+        reference="ATFT Framework --- novel method",
+        equation=equation,
+        novel=True,
     )
 
-    # Run sheaf coherence analysis
-    try:
-        from mpd_overwatch.pointcloud.sheaf_analysis import CoherenceAnalyzer, coherence_log
-        analyzer = CoherenceAnalyzer()
-        result = analyzer.analyze(pc, n_bins=50, k_eig=10)
-        depths_coh, coh_values = coherence_log(pc, window_ft=800, stride_ft=200)
-        has_sheaf = True
-    except Exception:
-        has_sheaf = False
-        depths_coh, coh_values = [], []
 
-    md = dd["MD"].values
-    gamma = dd["Gamma_Ray"].values
-    apwd = dd["APWD"].values
+def _topo_result(
+    label: str,
+    value: float,
+    unit: str,
+    plain_explanation: str,
+    threshold_green: str,
+    threshold_amber: str,
+    threshold_red: str,
+    technical_name: str,
+    equation: str = "",
+) -> EngineeringResult:
+    return EngineeringResult(
+        label=label,
+        value=value,
+        unit=unit,
+        provenance=Provenance.COMPUTED,
+        method=_novel_method(technical_name, equation),
+        plain_explanation=plain_explanation,
+        threshold_green=threshold_green,
+        threshold_amber=threshold_amber,
+        threshold_red=threshold_red,
+    )
 
-    # Build multi-panel figure
+
+def page_topology(channel_map_data: dict | None = None):
+    """Render the topology analysis page.
+
+    Parameters
+    ----------
+    channel_map_data : dict or None
+        Serialized channel map from dcc.Store.  If None or empty, the page
+        attempts to use demo data and shows a placeholder notice when that
+        also fails.
+    """
+    from mpd_overwatch.pointcloud.ingestion import ingest_dataframe
+
+    # ------------------------------------------------------------------ #
+    # Attempt to build a PointCloud4D from real channel data or demo data  #
+    # ------------------------------------------------------------------ #
+    pc = None
+    dd = None
+    using_placeholder = False
+
+    if channel_map_data:
+        try:
+            from mpd_overwatch.dashboard.app_state import deserialize_channel_map
+            from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
+            cm = deserialize_channel_map(channel_map_data)
+            pc = ingest_channel_map(cm)
+        except Exception:
+            pass
+
+    if pc is None:
+        try:
+            from mpd_overwatch.data.demo_generator import generate_demo_well_data
+            data = generate_demo_well_data()
+            dd = data["drilling_data"]
+            pc = ingest_dataframe(
+                dd, depth_col="MD", time_col="Timestamp",
+                channel_map={
+                    "Gamma_Ray": "gamma_ray", "ROP": "rop", "APWD": "apwd",
+                    "Flow_In": "flow_in", "Flow_Out": "flow_out", "WOB": "wob",
+                    "Torque": "torque", "SPP": "spp", "RPM": "rpm",
+                    "Choke_Pressure": "choke_pressure",
+                },
+                well_name="Hensley 1-24H",
+            )
+            using_placeholder = True
+        except Exception:
+            pc = None
+
+    if pc is None or dd is None:
+        # dd may still be None if we used a channel_map path; try to get arrays
+        md_arr = np.linspace(10000, 16000, 200)
+        gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
+        apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
+        using_placeholder = True
+    else:
+        if dd is not None:
+            md_arr = dd["MD"].values
+            gamma_arr = dd["Gamma_Ray"].values
+            apwd_arr = dd["APWD"].values
+        else:
+            md_arr = np.linspace(10000, 16000, 200)
+            gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
+            apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
+
+    # ------------------------------------------------------------------ #
+    # Run sheaf coherence analysis                                         #
+    # ------------------------------------------------------------------ #
+    has_sheaf = False
+    depths_coh: list = []
+    coh_values: list = []
+    result = None
+
+    if pc is not None:
+        try:
+            from mpd_overwatch.pointcloud.sheaf_analysis import CoherenceAnalyzer, coherence_log
+            analyzer = CoherenceAnalyzer()
+            result = analyzer.analyze(pc, n_bins=50, k_eig=10)
+            depths_coh, coh_values = coherence_log(pc, window_ft=800, stride_ft=200)
+            has_sheaf = True
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------ #
+    # Build multi-panel figure                                             #
+    # ------------------------------------------------------------------ #
     n_rows = 4 if has_sheaf else 2
-    titles = ["gamma_ray (API)", "APWD (psi)"]
+    titles = ["Gamma Ray (API)", "APWD (psi)"]
     if has_sheaf:
-        titles.extend(["Sheaf Coherence (0-1)", "Eigenvalue Spectrum"])
+        titles.extend(["Channel Agreement (0--1)", "Eigenvalue Spectrum"])
 
     fig = make_subplots(
         rows=n_rows, cols=1, shared_xaxes=True,
@@ -61,40 +155,35 @@ def page_topology():
         row_heights=[0.25] * n_rows,
     )
 
-    # Gamma ray
     fig.add_trace(go.Scatter(
-        x=md, y=gamma, mode="lines", name="gamma_ray",
+        x=md_arr, y=gamma_arr, mode="lines", name="Gamma Ray",
         line=dict(color=COLORS["success"], width=1),
     ), row=1, col=1)
 
-    # APWD
     fig.add_trace(go.Scatter(
-        x=md, y=apwd, mode="lines", name="APWD",
+        x=md_arr, y=apwd_arr, mode="lines", name="APWD",
         line=dict(color=COLORS["primary"], width=1),
     ), row=2, col=1)
 
     if has_sheaf:
-        # Coherence log
         coh_arr = np.array(coh_values)
         dep_arr = np.array(depths_coh)
 
         fig.add_trace(go.Scatter(
-            x=dep_arr, y=coh_arr, mode="lines", name="Coherence",
+            x=dep_arr, y=coh_arr, mode="lines", name="Channel Agreement",
             line=dict(color=COLORS["warning"], width=2),
             fill="tozeroy", fillcolor="rgba(255,215,0,0.1)",
         ), row=3, col=1)
 
-        # Mark anomaly depths
         if hasattr(result, "anomaly_depths") and result.anomaly_depths:
             for ad, sev in zip(result.anomaly_depths, result.anomaly_severities):
                 fig.add_vline(x=ad, row=3, col=1,
-                             line=dict(color=COLORS["danger"], width=1, dash="dot"))
+                              line=dict(color=COLORS["danger"], width=1, dash="dot"))
 
-        # Eigenvalue spectrum (bar chart)
         if hasattr(result, "eigenvalues"):
             eig_idx = list(range(len(result.eigenvalues)))
             fig.add_trace(go.Bar(
-                x=eig_idx, y=result.eigenvalues, name="eigenvalues",
+                x=eig_idx, y=result.eigenvalues, name="Eigenvalues",
                 marker=dict(color=COLORS["primary"]),
             ), row=4, col=1)
 
@@ -109,37 +198,190 @@ def page_topology():
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
     fig.update_xaxes(title="Measured Depth (ft)", row=n_rows, col=1)
 
-    # KPIs
-    kpis = [
-        _kpi("Points", f"{pc.n_points:,}", "cyan"),
-        _kpi("Channels", str(pc.n_channels), "cyan"),
+    # ------------------------------------------------------------------ #
+    # KPI row --- plain-language names with [?] tooltips                    #
+    # ------------------------------------------------------------------ #
+    n_points = pc.n_points if pc is not None else 0
+    n_channels = pc.n_channels if pc is not None else 0
+
+    kpi_items: list = [
+        _kpi("Points", f"{n_points:,}", "cyan"),
+        _kpi("Channels", str(n_channels), "cyan"),
     ]
-    if has_sheaf:
-        kpis.extend([
-            _kpi("Coherence", f"{result.coherence_score:.3f}", "gold"),
-            _kpi("Spectral Gap", f"{result.spectral_gap:.4f}", "green"),
-            _kpi("Anomalies", str(len(result.anomaly_depths)), "orange"),
+
+    if has_sheaf and result is not None:
+        coherence_score = float(result.coherence_score)
+        spectral_gap = float(result.spectral_gap)
+        n_anomalies = len(result.anomaly_depths)
+
+        channel_agreement_result = _topo_result(
+            label="Channel Agreement",
+            value=round(coherence_score, 3),
+            unit="",
+            plain_explanation=(
+                "How consistently all sensor channels agree with each other across depth. "
+                "A score near 1.0 means the physics of the wellbore is uniform and coherent. "
+                "Drops indicate zones where channels diverge --- possible formation change, "
+                "equipment issue, or influx."
+            ),
+            threshold_green=">0.70 --- channels are in agreement",
+            threshold_amber="0.40--0.70 --- partial divergence, investigate",
+            threshold_red="<0.40 --- significant channel breakdown",
+            technical_name="Sheaf Laplacian Coherence",
+            equation="coherence = 1 - (mean_defect / sigma_defect)",
+        )
+
+        agreement_strength_result = _topo_result(
+            label="Agreement Strength",
+            value=round(spectral_gap, 4),
+            unit="",
+            plain_explanation=(
+                "The gap between the two lowest eigenvalues of the channel-agreement operator. "
+                "A larger gap means the agreement pattern is robust and unlikely to be noise. "
+                "Small gap means the channels are borderline --- agreement could be coincidental."
+            ),
+            threshold_green=">0.05 --- robust agreement signal",
+            threshold_amber="0.01--0.05 --- moderate confidence",
+            threshold_red="<0.01 --- weak or noise-level signal",
+            technical_name="Spectral Gap",
+            equation="gap = lam1 - lam0  (sheaf Laplacian eigenvalues)",
+        )
+
+        kpi_items.extend([
+            html.Div([
+                render_engineering_value(channel_agreement_result),
+            ], style={"padding": "8px 12px", "backgroundColor": COLORS["card"],
+                      "borderRadius": "6px", "border": f"1px solid {COLORS['card_border']}",
+                      "minWidth": "200px"}),
+            html.Div([
+                render_engineering_value(agreement_strength_result),
+            ], style={"padding": "8px 12px", "backgroundColor": COLORS["card"],
+                      "borderRadius": "6px", "border": f"1px solid {COLORS['card_border']}",
+                      "minWidth": "200px"}),
+            _kpi("Anomalies", str(n_anomalies), "orange"),
         ])
 
-    # Anomaly table
+    # ------------------------------------------------------------------ #
+    # Anomaly table                                                        #
+    # ------------------------------------------------------------------ #
     anomaly_rows = []
-    if has_sheaf and result.anomaly_depths:
+    if has_sheaf and result is not None and result.anomaly_depths:
         for d, s in zip(result.anomaly_depths, result.anomaly_severities):
-            sev_color = COLORS["danger"] if s > 3 else COLORS["warning"] if s > 2 else COLORS["text"]
+            sev_color = (
+                COLORS["danger"] if s > 3
+                else COLORS["warning"] if s > 2
+                else COLORS["text"]
+            )
             anomaly_rows.append(html.Tr([
                 html.Td(f"{d:.0f} ft"),
                 html.Td(f"{s:.2f}", style={"color": sev_color}),
                 html.Td("transport residual exceeds 2 sigma"),
             ]))
 
+    # ------------------------------------------------------------------ #
+    # Additional topology metrics (Betti numbers, Analysis Resolution)     #
+    # ------------------------------------------------------------------ #
+    topology_metric_cards: list = []
+    if has_sheaf and result is not None:
+        # Betti numbers if available
+        if hasattr(result, "betti_0"):
+            b0 = _topo_result(
+                label="Connected Regimes",
+                value=float(result.betti_0),
+                unit="",
+                plain_explanation=(
+                    "Number of independent drilling regimes detected in the wellbore. "
+                    "A value of 1 means the well is in a single consistent regime. "
+                    "Higher values indicate the wellbore passes through multiple distinct zones."
+                ),
+                threshold_green="1 --- single coherent regime",
+                threshold_amber="2--3 --- multiple regimes, review zone boundaries",
+                threshold_red=">3 --- highly fragmented, check data quality",
+                technical_name="Betti Number beta0",
+                equation="beta0 = rank(H0) of Vietoris-Rips complex",
+            )
+            b1 = _topo_result(
+                label="Cyclic Patterns",
+                value=float(result.betti_1),
+                unit="",
+                plain_explanation=(
+                    "Number of cyclic (loop-like) patterns detected in the channel data. "
+                    "Non-zero values suggest repeating or oscillating behavior in sensor readings "
+                    "that may indicate stick-slip, cyclic loading, or formation cyclicity."
+                ),
+                threshold_green="0 --- no cyclic pattern",
+                threshold_amber="1--2 --- minor cyclicity, monitor",
+                threshold_red=">2 --- significant oscillation detected",
+                technical_name="Betti Number beta1",
+                equation="beta1 = rank(H1) of Vietoris-Rips complex",
+            )
+            topology_metric_cards.extend([
+                html.Div([render_engineering_value(b0)],
+                         style={"padding": "8px 12px", "backgroundColor": COLORS["card"],
+                                "borderRadius": "6px",
+                                "border": f"1px solid {COLORS['card_border']}",
+                                "minWidth": "200px"}),
+                html.Div([render_engineering_value(b1)],
+                         style={"padding": "8px 12px", "backgroundColor": COLORS["card"],
+                                "borderRadius": "6px",
+                                "border": f"1px solid {COLORS['card_border']}",
+                                "minWidth": "200px"}),
+            ])
+
+        if hasattr(result, "epsilon_max"):
+            eps = _topo_result(
+                label="Analysis Resolution",
+                value=round(float(result.epsilon_max), 4),
+                unit="",
+                plain_explanation=(
+                    "The scale at which the topological analysis was performed. "
+                    "Smaller values capture fine-grained channel relationships; "
+                    "larger values reflect broad-scale structure. "
+                    "Automatically chosen to maximize topological signal."
+                ),
+                threshold_green="<0.3 --- fine-grained analysis",
+                threshold_amber="0.3--0.6 --- medium scale",
+                threshold_red=">0.6 --- coarse analysis, may miss detail",
+                technical_name="Vietoris-Rips eps_max",
+                equation="eps_max = argmax persistence(H_k, eps)",
+            )
+            topology_metric_cards.append(
+                html.Div([render_engineering_value(eps)],
+                         style={"padding": "8px 12px", "backgroundColor": COLORS["card"],
+                                "borderRadius": "6px",
+                                "border": f"1px solid {COLORS['card_border']}",
+                                "minWidth": "200px"}),
+            )
+
+    # ------------------------------------------------------------------ #
+    # Placeholder notice                                                   #
+    # ------------------------------------------------------------------ #
+    placeholder_notice = html.Div()
+    if using_placeholder:
+        placeholder_notice = html.Div(
+            "PLACEHOLDER --- load a LAS/EDR file via the File Manager to analyse real well data",
+            style={"color": COLORS["warning"], "fontSize": "11px",
+                   "fontStyle": "italic", "marginBottom": "12px"},
+        )
+
     return html.Div([
         html.Div([
             html.H1("Point Cloud Topology"),
-            html.P("Sheaf Laplacian coherence and spectral analysis of the 4D drilling data point cloud",
-                   style={"color": COLORS["text_muted"], "fontSize": "13px"}),
+            html.P(
+                "Channel Agreement and spectral analysis of the 4D drilling data point cloud",
+                style={"color": COLORS["text_muted"], "fontSize": "13px"},
+            ),
         ], className="page-header"),
 
-        html.Div(kpis, className="kpi-row"),
+        placeholder_notice,
+
+        html.Div(kpi_items, className="kpi-row"),
+
+        # Extra topology metrics row (Betti numbers, Analysis Resolution)
+        (html.Div(topology_metric_cards,
+                  style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
+                         "marginBottom": "16px"})
+         if topology_metric_cards else html.Div()),
 
         html.Div([
             html.Div("TOPOLOGY COMPOSITE LOG", className="card-header"),

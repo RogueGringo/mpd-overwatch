@@ -1,9 +1,9 @@
 """MPD Command - ATFT Topological Analysis Page
 
 Displays sheaf coherence, anomaly classification, zone flagging,
-Gini routing status, and well fingerprint from the ATFTEngine.
+routing confidence, and well fingerprint from the ATFTEngine.
 
-Language: semantic prime. Every display element is a measurement.
+Language: plain operational names first; technical detail via [?] tooltip.
 No adjectives. No claims without computation.
 """
 
@@ -13,7 +13,21 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+from mpd_overwatch.components.tooltip import render_engineering_value
+from mpd_overwatch.core.engineering_result import EngineeringResult, Method, Provenance
 
+
+# ---------------------------------------------------------------------------
+# Plain-language name mapping
+# ---------------------------------------------------------------------------
+# "Gini Trajectory"   -> "Routing Confidence"
+# STABLE              -> "Zone: Stable"
+# TRANSITIONAL        -> "Zone: Changing"
+# ANOMALOUS           -> "Zone: Anomaly Detected"
+# ASCEND              -> "Action: Promote Analysis"
+# REPROBE             -> "Action: Recheck Sensors"
+# HOLD                -> "Action: Continue Monitoring"
+# SPLIT               -> "Action: Multiple Regimes"
 
 # Classification color map
 ANOMALY_COLORS = {
@@ -38,51 +52,130 @@ ROUTING_COLORS = {
     "SPLIT": "#ffb627",
 }
 
+# Human-readable zone labels
+_ZONE_LABELS = {
+    "STABLE": "Zone: Stable",
+    "TRANSITIONAL": "Zone: Changing",
+    "ANOMALOUS": "Zone: Anomaly Detected",
+}
 
-def page_atft_analysis():
-    """Render the ATFT topological analysis page."""
-    from mpd_overwatch.data.demo_generator import generate_demo_well_data
-    from mpd_overwatch.pointcloud.ingestion import ingest_dataframe
+# Human-readable routing action labels
+_ROUTING_LABELS = {
+    "ASCEND": "Action: Promote Analysis",
+    "REPROBE": "Action: Recheck Sensors",
+    "HOLD": "Action: Continue Monitoring",
+    "SPLIT": "Action: Multiple Regimes",
+}
+
+
+def _novel_method(technical_name: str, equation: str = "") -> Method:
+    return Method(
+        name=technical_name,
+        reference="ATFT Framework --- novel method",
+        equation=equation,
+        novel=True,
+    )
+
+
+def _atft_result(
+    label: str,
+    value: float,
+    unit: str,
+    plain_explanation: str,
+    threshold_green: str,
+    threshold_amber: str,
+    threshold_red: str,
+    technical_name: str,
+    equation: str = "",
+    implication: str = "",
+) -> EngineeringResult:
+    return EngineeringResult(
+        label=label,
+        value=value,
+        unit=unit,
+        provenance=Provenance.COMPUTED,
+        method=_novel_method(technical_name, equation),
+        plain_explanation=plain_explanation,
+        threshold_green=threshold_green,
+        threshold_amber=threshold_amber,
+        threshold_red=threshold_red,
+        implication=implication,
+    )
+
+
+def page_atft_analysis(channel_map_data: dict | None = None):
+    """Render the ATFT topological analysis page.
+
+    Parameters
+    ----------
+    channel_map_data : dict or None
+        Serialized channel map from dcc.Store.  If None or empty, the page
+        shows a placeholder notice and skips analysis.
+    """
     from mpd_overwatch.pointcloud.atft_engine import ATFTEngine
     from mpd_overwatch.pointcloud.sheaf_analysis import coherence_log
 
-    data = generate_demo_well_data()
-    dd = data["drilling_data"]
+    # ------------------------------------------------------------------ #
+    # Resolve PointCloud4D from real channel data only (no demo fallback)  #
+    # ------------------------------------------------------------------ #
+    pc = None
+    using_placeholder = True
 
-    pc = ingest_dataframe(
-        dd, depth_col="MD", time_col="Timestamp",
-        channel_map={
-            "Gamma_Ray": "gamma_ray", "ROP": "rop", "APWD": "apwd",
-            "Flow_In": "flow_in", "Flow_Out": "flow_out", "WOB": "wob",
-            "Torque": "torque", "SPP": "spp", "RPM": "rpm",
-            "Choke_Pressure": "choke_pressure",
-        },
-        well_name="Hensley 1-24H",
-    )
+    if channel_map_data:
+        try:
+            from mpd_overwatch.dashboard.app_state import deserialize_channel_map
+            from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
+            cm = deserialize_channel_map(channel_map_data)
+            pc = ingest_channel_map(cm)
+            using_placeholder = False
+        except Exception:
+            pc = None
 
-    # Run ATFT analysis
+    # ------------------------------------------------------------------ #
+    # Run ATFT analysis                                                    #
+    # ------------------------------------------------------------------ #
     engine = ATFTEngine(mud_weight=10.0, anomaly_threshold=1.5)
-    try:
-        result = engine.analyze(pc, n_bins=50, k_eig=10)
-        log_depths, log_coherence = coherence_log(
-            pc, window_ft=800, stride_ft=200, mud_weight=10.0
-        )
-        has_result = True
-    except Exception:
-        has_result = False
-        result = None
-        log_depths, log_coherence = np.array([]), np.array([])
+    has_result = False
+    result = None
+    log_depths: np.ndarray = np.array([])
+    log_coherence: np.ndarray = np.array([])
 
-    # Build layout
+    if pc is not None:
+        try:
+            result = engine.analyze(pc, n_bins=50, k_eig=10)
+            log_depths, log_coherence = coherence_log(
+                pc, window_ft=800, stride_ft=200, mud_weight=10.0
+            )
+            has_result = True
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------ #
+    # Build layout                                                         #
+    # ------------------------------------------------------------------ #
+    well_name = pc.well_name if pc is not None else "---"
+    n_points = pc.n_points if pc is not None else 0
+    n_channels = pc.n_channels if pc is not None else 0
+    depth_range = pc.depth_range if pc is not None else (0.0, 0.0)
+
+    placeholder_notice = html.Div()
+    if using_placeholder:
+        placeholder_notice = html.Div(
+            "PLACEHOLDER --- load a LAS/EDR file via the File Manager to analyse real well data",
+            style={"color": COLORS["warning"], "fontSize": "11px",
+                   "fontStyle": "italic", "marginBottom": "12px"},
+        )
+
     children = [
         html.H2("ATFT Topological Analysis", style={"marginBottom": "8px"}),
         html.P(
-            f"Well: {pc.well_name}. "
-            f"Points: {pc.n_points:,}. "
-            f"Channels: {pc.n_channels}. "
-            f"Depth: {pc.depth_range[0]:,.0f} - {pc.depth_range[1]:,.0f} ft MD.",
-            style={"color": "#7b8ba3", "marginBottom": "20px"},
+            f"Well: {well_name}. "
+            f"Points: {n_points:,}. "
+            f"Channels: {n_channels}. "
+            f"Depth: {depth_range[0]:,.0f} -- {depth_range[1]:,.0f} ft MD.",
+            style={"color": "#7b8ba3", "marginBottom": "12px"},
         ),
+        placeholder_notice,
     ]
 
     if not has_result:
@@ -92,34 +185,88 @@ def page_atft_analysis():
         ))
         return html.Div(children, className="page-content")
 
-    # --- Status Cards ---
-    routing_color = ROUTING_COLORS.get(result.routing_decision, "#64748b")
+    # ------------------------------------------------------------------ #
+    # Status cards --- plain-language names with [?] tooltips               #
+    # ------------------------------------------------------------------ #
+    routing_raw = result.routing_decision
+    routing_label = _ROUTING_LABELS.get(routing_raw, routing_raw)
+    routing_color = ROUTING_COLORS.get(routing_raw, "#64748b")
+
+    coherence_score = float(result.coherence.coherence_score)
+    spectral_gap = float(result.coherence.spectral_gap)
+
+    channel_agreement_result = _atft_result(
+        label="Channel Agreement",
+        value=round(coherence_score, 3),
+        unit="",
+        plain_explanation=(
+            "How consistently all sensor channels agree with each other across depth. "
+            "Near 1.0 means uniform, coherent wellbore physics. "
+            "Drops indicate zones where channels diverge."
+        ),
+        threshold_green=">0.70 --- channels in agreement",
+        threshold_amber="0.40--0.70 --- partial divergence, investigate",
+        threshold_red="<0.40 --- significant channel breakdown",
+        technical_name="Sheaf Laplacian Coherence",
+        equation="coherence = 1 - (mean_defect / sigma_defect)",
+    )
+
+    routing_confidence_result = _atft_result(
+        label="Routing Confidence",
+        value=round(spectral_gap, 4),
+        unit="",
+        plain_explanation=(
+            "Confidence in the current routing decision, derived from the slope of the "
+            "Gini trajectory at the onset scale. "
+            "High confidence means the analysis recommends the same action across nearby scales. "
+            "Low confidence means the decision is borderline."
+        ),
+        threshold_green=">0.05 --- high confidence routing",
+        threshold_amber="0.01--0.05 --- moderate confidence",
+        threshold_red="<0.01 --- low confidence, review manually",
+        technical_name="Gini Trajectory Slope at Onset Scale",
+        equation="G_1(eps*) = Gini(eigenvalue distribution at eps*)",
+        implication=f"Current action: {routing_label}",
+    )
+
+    topo_zones_result = _atft_result(
+        label="Topological Zones",
+        value=float(len(result.topological_zones)),
+        unit="",
+        plain_explanation=(
+            "Number of distinct zones identified by segmenting the coherence profile. "
+            "Each zone represents a depth interval with consistent channel agreement character."
+        ),
+        threshold_green="1--3 --- few distinct zones, manageable",
+        threshold_amber="4--6 --- multiple zones, review boundaries",
+        threshold_red=">6 --- highly segmented wellbore",
+        technical_name="Coherence Profile Segmentation",
+        equation="zones = segment(coherence_log, threshold=0.5)",
+    )
+
     cards = html.Div([
-        _metric_card(
-            "Coherence Score",
-            f"{result.coherence.coherence_score:.3f}",
-            "sheaf Laplacian mean eigenvalue mapping",
-        ),
-        _metric_card(
-            "Routing Decision",
-            result.routing_decision,
-            "Gini trajectory slope at onset scale",
-            value_color=routing_color,
-        ),
+        html.Div([render_engineering_value(channel_agreement_result)],
+                 style={"padding": "8px 12px", "backgroundColor": "#131a2b",
+                        "border": "1px solid #1e2d4a", "borderRadius": "6px",
+                        "minWidth": "200px", "flex": "1"}),
+        html.Div([render_engineering_value(routing_confidence_result)],
+                 style={"padding": "8px 12px", "backgroundColor": "#131a2b",
+                        "border": "1px solid #1e2d4a", "borderRadius": "6px",
+                        "minWidth": "200px", "flex": "1"}),
+        html.Div([render_engineering_value(topo_zones_result)],
+                 style={"padding": "8px 12px", "backgroundColor": "#131a2b",
+                        "border": "1px solid #1e2d4a", "borderRadius": "6px",
+                        "minWidth": "200px", "flex": "1"}),
         _metric_card(
             "Anomalies Detected",
             str(len(result.classified_anomalies)),
             "vertex defect > mean + threshold * sigma",
         ),
         _metric_card(
-            "Topological Zones",
-            str(len(result.topological_zones)),
-            "coherence profile segmentation",
-        ),
-        _metric_card(
-            "Spectral Gap",
-            f"{result.coherence.spectral_gap:.4f}",
-            "lambda_1 - lambda_0 of sheaf Laplacian",
+            routing_label,
+            routing_raw,
+            "routing action from Gini trajectory analysis",
+            value_color=routing_color,
         ),
     ], style={
         "display": "flex", "gap": "12px", "marginBottom": "24px",
@@ -127,17 +274,18 @@ def page_atft_analysis():
     })
     children.append(cards)
 
-    # --- Coherence Log Plot ---
+    # ------------------------------------------------------------------ #
+    # Coherence log plot                                                   #
+    # ------------------------------------------------------------------ #
     if len(log_depths) > 0:
         fig_coh = go.Figure()
         fig_coh.add_trace(go.Scatter(
             x=log_coherence, y=log_depths,
             mode="lines",
             line=dict(color="#00d4ff", width=2),
-            name="coherence",
+            name="Channel Agreement",
         ))
 
-        # Add zone overlays
         for zone in result.topological_zones:
             fig_coh.add_shape(
                 type="rect",
@@ -148,7 +296,6 @@ def page_atft_analysis():
                 layer="below",
             )
 
-        # Add anomaly markers
         for anom in result.classified_anomalies:
             fig_coh.add_trace(go.Scatter(
                 x=[0.5], y=[anom.depth],
@@ -163,8 +310,8 @@ def page_atft_analysis():
             ))
 
         fig_coh.update_layout(
-            title="Sheaf Coherence Log with Zone Classification",
-            xaxis_title="coherence (0 = breakdown, 1 = consistent physics)",
+            title="Channel Agreement Log with Zone Classification",
+            xaxis_title="Channel Agreement (0 = breakdown, 1 = consistent physics)",
             yaxis_title="depth (ft MD)",
             yaxis=dict(autorange="reversed"),
             template="plotly_dark",
@@ -175,22 +322,22 @@ def page_atft_analysis():
         )
         children.append(dcc.Graph(figure=fig_coh))
 
-    # --- Anomaly Classification Table ---
+    # ------------------------------------------------------------------ #
+    # Anomaly classification table                                         #
+    # ------------------------------------------------------------------ #
     if result.classified_anomalies:
         rows = []
         for a in result.classified_anomalies:
             color = ANOMALY_COLORS.get(a.classification, "#64748b")
             rows.append(html.Tr([
                 html.Td(f"{a.depth:,.0f}", style={"fontFamily": "JetBrains Mono"}),
-                html.Td(
-                    a.classification,
-                    style={"color": color, "fontWeight": "600"},
-                ),
+                html.Td(a.classification, style={"color": color, "fontWeight": "600"}),
                 html.Td(f"{a.severity:.1f} sigma"),
                 html.Td(a.dominant_transport),
             ]))
 
-        table = html.Table([
+        children.append(html.H3("Classified Anomalies"))
+        children.append(html.Table([
             html.Thead(html.Tr([
                 html.Th("Depth (ft MD)"),
                 html.Th("Classification"),
@@ -198,64 +345,83 @@ def page_atft_analysis():
                 html.Th("Transport Violated"),
             ])),
             html.Tbody(rows),
-        ], style={
-            "width": "100%", "borderCollapse": "collapse",
-            "marginBottom": "24px",
-        })
+        ], style={"width": "100%", "borderCollapse": "collapse", "marginBottom": "24px"}))
 
-        children.append(html.H3("Classified Anomalies"))
-        children.append(table)
-
-    # --- Zone Classification Table ---
+    # ------------------------------------------------------------------ #
+    # Zone classification table --- plain-language zone labels              #
+    # ------------------------------------------------------------------ #
     if result.topological_zones:
         zone_rows = []
         for z in result.topological_zones:
+            zone_display = _ZONE_LABELS.get(z.dominant_character, z.dominant_character)
             color = {
                 "STABLE": "#00ff88",
                 "TRANSITIONAL": "#ffb627",
                 "ANOMALOUS": "#ff3d5a",
             }.get(z.dominant_character, "#64748b")
             zone_rows.append(html.Tr([
-                html.Td(f"{z.top_depth:,.0f} - {z.bottom_depth:,.0f}"),
-                html.Td(
-                    z.dominant_character,
-                    style={"color": color, "fontWeight": "600"},
-                ),
+                html.Td(f"{z.top_depth:,.0f} -- {z.bottom_depth:,.0f}"),
+                html.Td(zone_display, style={"color": color, "fontWeight": "600"}),
                 html.Td(f"{z.coherence_mean:.3f}"),
                 html.Td(z.gini_trend),
                 html.Td(str(z.waypoint_count)),
             ]))
 
-        zone_table = html.Table([
+        children.append(html.H3("Topological Zones"))
+        children.append(html.Table([
             html.Thead(html.Tr([
                 html.Th("Depth Range (ft MD)"),
                 html.Th("Character"),
-                html.Th("Mean Coherence"),
-                html.Th("Gini Trend"),
+                html.Th("Channel Agreement (mean)"),
+                html.Th("Routing Confidence Trend"),
                 html.Th("Waypoints"),
             ])),
             html.Tbody(zone_rows),
-        ], style={
-            "width": "100%", "borderCollapse": "collapse",
-            "marginBottom": "24px",
-        })
+        ], style={"width": "100%", "borderCollapse": "collapse", "marginBottom": "24px"}))
 
-        children.append(html.H3("Topological Zones"))
-        children.append(zone_table)
-
-    # --- Waypoint Signature ---
+    # ------------------------------------------------------------------ #
+    # Waypoint signature --- Routing Confidence detail                       #
+    # ------------------------------------------------------------------ #
     if result.waypoint_signature is not None:
         ws = result.waypoint_signature
+
+        gini_slope = float(ws.gini_derivative_at_onset)
+        routing_conf_detail = _atft_result(
+            label="Routing Confidence",
+            value=round(float(ws.gini_at_onset), 4),
+            unit="",
+            plain_explanation=(
+                "The Gini coefficient at the onset scale measures how concentrated the "
+                "channel-agreement energy is. A rising slope indicates increasing separation "
+                "between strong and weak channels --- the system is routing toward a decision. "
+                "A falling slope means convergence --- channels are becoming more uniform."
+            ),
+            threshold_green="slope > 0 --- routing toward a clear decision",
+            threshold_amber="slope near 0 --- borderline, monitor",
+            threshold_red="slope < -0.05 --- convergence, decision may reverse",
+            technical_name="Gini Trajectory G1(eps*)",
+            equation="G_1(eps*) at onset scale eps* (Definition 2.6, ATFT Framework)",
+            implication=(
+                f"Onset scale: {ws.onset_scale:.4f} | "
+                f"Waypoints: {len(ws.waypoint_scales)} | "
+                f"Slope: {gini_slope:+.4f}"
+            ),
+        )
+
         children.append(html.H3("Waypoint Signature W(C)"))
         children.append(html.Div([
-            _metric_card("Onset Scale", f"{ws.onset_scale:.4f}", "epsilon* (Definition 2.6)"),
-            _metric_card("Waypoints", str(len(ws.waypoint_scales)), "topological phase transitions"),
-            _metric_card("Gini at Onset", f"{ws.gini_at_onset:.4f}", "G_1(epsilon*) hierarchy measure"),
+            html.Div([render_engineering_value(routing_conf_detail)],
+                     style={"padding": "8px 12px", "backgroundColor": "#131a2b",
+                            "border": "1px solid #1e2d4a", "borderRadius": "6px",
+                            "minWidth": "220px", "flex": "1"}),
+            _metric_card("Onset Scale", f"{ws.onset_scale:.4f}", "eps* (Definition 2.6)"),
+            _metric_card("Waypoints", str(len(ws.waypoint_scales)),
+                         "topological phase transitions"),
             _metric_card(
                 "Gini Slope",
-                f"{ws.gini_derivative_at_onset:+.4f}",
-                "dG_1/d_epsilon at onset",
-                value_color="#00ff88" if ws.gini_derivative_at_onset > 0 else "#ff3d5a",
+                f"{gini_slope:+.4f}",
+                "dG_1/deps at onset",
+                value_color="#00ff88" if gini_slope > 0 else "#ff3d5a",
             ),
         ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap"}))
 
@@ -263,7 +429,7 @@ def page_atft_analysis():
 
 
 def _metric_card(label, value, subtitle, value_color=None):
-    """Render a single metric card."""
+    """Render a single metric card (non-tooltip variant)."""
     return html.Div([
         html.Div(label, style={
             "fontSize": "11px", "color": "#7b8ba3",
