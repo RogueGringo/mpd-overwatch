@@ -129,6 +129,37 @@ def page_controls():
             _hardware_info(),
         ]),
 
+        # --- Re-select Channels ---
+        html.Div([
+            html.H3("Channel Selection", style={"marginTop": "32px", "marginBottom": "8px"}),
+            html.P(
+                "Return to the channel selector to remap input columns.",
+                style={"color": "#7b8ba3", "fontSize": "12px", "marginBottom": "12px"},
+            ),
+            dcc.Link(
+                html.Button(
+                    "Re-select Channels",
+                    style={
+                        "padding": "10px 24px",
+                        "background": "transparent",
+                        "color": "#00d4ff",
+                        "border": "1px solid #00d4ff",
+                        "borderRadius": "4px",
+                        "fontWeight": "600",
+                        "fontSize": "13px",
+                        "cursor": "pointer",
+                    },
+                ),
+                href="/channels",
+            ),
+        ]),
+
+        # --- Session Log Viewer ---
+        html.Div([
+            html.H3("Session Log", style={"marginTop": "32px", "marginBottom": "8px"}),
+            _log_viewer(n_lines=40),
+        ]),
+
         # Results placeholder
         html.Div(
             id="ctrl-results",
@@ -165,38 +196,167 @@ def _slider_control(id, label, min_val, max_val, step, value, equation):
 
 
 def _hardware_info():
-    """Render hardware detection results."""
+    """Render hardware detection results including GPU name, VRAM, SM count, and channel budget."""
     try:
         from mpd_overwatch.pointcloud.hardware import detect_compute_backend
+        from mpd_overwatch.pointcloud.channel_registry import max_channels
+
         hw = detect_compute_backend()
 
-        items = [
-            f"Backend: {hw.get('backend', 'cpu')}",
-            f"CPU cores: {hw.get('cpu_cores', 'unknown')}",
-            f"RAM: {hw.get('ram_gb', 'unknown'):.1f} GB" if isinstance(hw.get('ram_gb'), (int, float)) else "RAM: unknown",
-            f"Max points: {hw.get('recommended_max_points', 'unknown'):,}" if isinstance(hw.get('recommended_max_points'), (int, float)) else "",
-        ]
+        # Gather GPU SM count if CUDA is available
+        sm_count = 0
+        try:
+            import torch
+            if torch.cuda.is_available():
+                props = torch.cuda.get_device_properties(0)
+                sm_count = getattr(props, "multi_processor_count", 0)
+        except Exception:
+            sm_count = 0
 
-        if hw.get('gpu_name'):
-            items.insert(1, f"GPU: {hw['gpu_name']}")
-            if hw.get('gpu_memory_gb'):
-                items.insert(2, f"GPU memory: {hw['gpu_memory_gb']:.1f} GB")
+        vram_gb = hw.get("gpu_memory_gb") or 0.0
+        channel_budget = max_channels(vram_gb, sm_count)
 
-        return html.Div([
-            html.Div(item, style={
-                "fontSize": "12px", "fontFamily": "JetBrains Mono",
-                "color": "#7b8ba3", "marginBottom": "4px",
-            })
-            for item in items if item
-        ], style={
+        rows = []
+
+        # Backend
+        backend = hw.get("backend", "cpu")
+        backend_color = "#2aaa66" if backend in ("cuda", "rocm") else "#e8a840"
+        rows.append(_hw_row("Backend", backend.upper(), color=backend_color))
+
+        # GPU info
+        gpu_name = hw.get("gpu_name")
+        if gpu_name:
+            rows.append(_hw_row("GPU", gpu_name))
+            if vram_gb:
+                rows.append(_hw_row("VRAM", f"{vram_gb:.1f} GB"))
+            if sm_count > 0:
+                rows.append(_hw_row("SM count", str(sm_count)))
+
+        # CPU info
+        cpu_cores = hw.get("cpu_cores")
+        if cpu_cores:
+            rows.append(_hw_row("CPU cores", str(cpu_cores)))
+
+        ram_gb = hw.get("ram_gb")
+        if isinstance(ram_gb, (int, float)):
+            rows.append(_hw_row("RAM", f"{ram_gb:.1f} GB"))
+
+        # Channel budget
+        budget_color = "#2aaa66" if channel_budget >= 100 else "#e8a840"
+        rows.append(_hw_row("Channel budget", str(channel_budget), color=budget_color))
+
+        # Max points
+        max_pts = hw.get("recommended_max_points")
+        if isinstance(max_pts, (int, float)):
+            rows.append(_hw_row("Max points", f"{int(max_pts):,}"))
+
+        return html.Div(rows, style={
             "background": "#131a2b",
             "border": "1px solid #1e2d4a",
             "borderRadius": "6px",
             "padding": "16px",
-            "maxWidth": "400px",
+            "maxWidth": "420px",
         })
-    except Exception:
-        return html.Div("Hardware detection unavailable.", style={"color": "#64748b"})
+
+    except Exception as exc:
+        return html.Div(
+            f"Hardware detection unavailable: {exc}",
+            style={"color": "#64748b", "fontSize": "12px"},
+        )
+
+
+def _hw_row(label: str, value: str, color: str = "#7b8ba3") -> html.Div:
+    """Render a single hardware info row."""
+    return html.Div([
+        html.Span(f"{label}: ", style={
+            "fontSize": "12px", "color": "#4a5568",
+            "fontFamily": "JetBrains Mono",
+        }),
+        html.Span(value, style={
+            "fontSize": "12px", "color": color,
+            "fontFamily": "JetBrains Mono", "fontWeight": "600",
+        }),
+    ], style={"marginBottom": "4px"})
+
+
+def _log_viewer(n_lines: int = 40) -> html.Div:
+    """Render the last N lines of the current session log.
+
+    Wraps get_log() in a try/except so this degrades gracefully if the
+    ComputationLog has not been initialized (e.g., during unit testing or
+    when the app is opened before any computation has been triggered).
+    """
+    try:
+        from mpd_overwatch.computation_log import get_log
+        log_obj = get_log()
+        filepath = log_obj.filepath
+
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
+                all_lines = fh.readlines()
+        except OSError as exc:
+            return html.Div(
+                f"Log file not readable: {exc}",
+                style={"color": "#64748b", "fontSize": "11px"},
+            )
+
+        tail = all_lines[-n_lines:] if len(all_lines) > n_lines else all_lines
+        line_count = len(all_lines)
+
+        log_text = "".join(tail) if tail else "(log is empty)"
+
+        return html.Div([
+            html.Div([
+                html.Span(
+                    f"File: {filepath}",
+                    style={"fontSize": "10px", "color": "#4a5568",
+                           "fontFamily": "JetBrains Mono"},
+                ),
+                html.Span(
+                    f"  ({line_count} lines total, showing last {min(n_lines, line_count)})",
+                    style={"fontSize": "10px", "color": "#4a5568"},
+                ),
+            ], style={"marginBottom": "6px"}),
+            html.Pre(
+                log_text,
+                style={
+                    "backgroundColor": "#0a0e17",
+                    "border": "1px solid #1e2d4a",
+                    "borderRadius": "4px",
+                    "padding": "12px",
+                    "fontSize": "10px",
+                    "fontFamily": "Consolas, monospace",
+                    "color": "#7b8ba3",
+                    "overflowX": "auto",
+                    "overflowY": "auto",
+                    "maxHeight": "320px",
+                    "whiteSpace": "pre-wrap",
+                    "wordBreak": "break-all",
+                },
+            ),
+        ])
+
+    except RuntimeError:
+        # ComputationLog not initialized yet — show placeholder
+        return html.Div(
+            "Session log not yet initialized. Log entries appear after the first computation.",
+            style={
+                "color": "#4a5568",
+                "fontSize": "11px",
+                "fontFamily": "JetBrains Mono",
+                "padding": "12px",
+                "background": "#0a0e17",
+                "border": "1px solid #1e2d4a",
+                "borderRadius": "4px",
+                "maxWidth": "600px",
+            },
+        )
+
+    except Exception as exc:
+        return html.Div(
+            f"Log viewer error: {exc}",
+            style={"color": "#64748b", "fontSize": "11px"},
+        )
 
 
 # Role-based navigation filtering
