@@ -2,21 +2,34 @@
 MPD Overwatch — File Manager Page
 ===================================
 
-LAS file loading via file path (primary) or drag-drop upload (secondary).
-Data is read server-side and cached in data_store — never serialized to
-the browser.  Same read path as the CLI ``report`` and ``analyze`` commands.
+Five ways to open a LAS file, because humans don't all work the same way:
+
+1. Browse — native OS file dialog (tkinter)
+2. Type path — power users who know where their files are
+3. Drag & drop — for users with Explorer already open
+4. Recent files — quick re-open of previously loaded files
+5. Directory scan — explore a folder tree for all LAS files
+
+All paths converge to data_store.load_file() — same pipeline as the CLI.
 """
 
 from __future__ import annotations
 
 import base64
-import io
 import logging
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
+
+# Check tkinter availability (not present on all systems)
+_HAS_TK = True
+try:
+    import tkinter as tk
+    from tkinter import filedialog as tk_filedialog
+except ImportError:
+    _HAS_TK = False
 
 
 # ---------------------------------------------------------------------------
@@ -31,11 +44,8 @@ def parse_las_header(filepath: str) -> Dict[str, Any]:
 
     def _hdr(key: str, default: str = "") -> str:
         try:
-            item = las.well[key]
-            val = item.value
-            if val is None:
-                return default
-            return str(val).strip() or default
+            val = las.well[key].value
+            return str(val).strip() if val else default
         except (KeyError, IndexError, AttributeError):
             return default
 
@@ -49,12 +59,9 @@ def parse_las_header(filepath: str) -> Dict[str, Any]:
     curve_units: Dict[str, str] = {c.mnemonic: str(c.unit).strip() for c in las.curves}
 
     try:
-        null_val: Any = las.well["NULL"].value
-        null_value = float(null_val)
+        null_value = float(las.well["NULL"].value)
     except (KeyError, ValueError, TypeError):
         null_value = -999.25
-
-    start_unit = _hdr_unit("STRT")
 
     return {
         "well_name": _hdr("WELL") or Path(filepath).stem,
@@ -67,7 +74,7 @@ def parse_las_header(filepath: str) -> Dict[str, Any]:
         "curve_units": curve_units,
         "start": _hdr("STRT"),
         "stop": _hdr("STOP"),
-        "start_unit": start_unit,
+        "start_unit": _hdr_unit("STRT"),
         "null_value": null_value,
     }
 
@@ -76,15 +83,11 @@ def _read_las(lasio_module: Any, filepath: str) -> Any:
     """Attempt a full lasio read; fall back to header-only on reshape errors."""
     try:
         return lasio_module.read(filepath)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(
-            "lasio full read failed for %s (%s) — retrying with ignore_data=True",
-            filepath, exc,
-        )
+    except Exception as exc:
+        logger.debug("Full read failed for %s (%s), retrying header-only", filepath, exc)
         try:
             return lasio_module.read(filepath, ignore_data=True)
-        except Exception as exc2:  # noqa: BLE001
-            logger.warning("lasio header-only read also failed for %s: %s", filepath, exc2)
+        except Exception:
             raise
 
 
@@ -107,126 +110,216 @@ def detect_index_type(header_info: Dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Native file dialog
+# ---------------------------------------------------------------------------
+
+def _open_file_dialog() -> str | None:
+    """Open a native OS file dialog. Returns selected path or None."""
+    if not _HAS_TK:
+        return None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        root.focus_force()
+        filepath = tk_filedialog.askopenfilename(
+            title="Select LAS File",
+            filetypes=[("LAS files", "*.las *.LAS"), ("All files", "*.*")],
+        )
+        root.destroy()
+        return filepath if filepath else None
+    except Exception as exc:
+        logger.debug("File dialog failed: %s", exc)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Dash layout
 # ---------------------------------------------------------------------------
 
 def file_manager_layout():
-    """Return the Dash layout for the File Manager page.
-
-    Primary: file path text input + Load button (reads directly from disk).
-    Secondary: dcc.Upload drag-drop (decoded and written to temp, then same path).
-    """
+    """Return the Dash layout for the File Manager page."""
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
+    from mpd_overwatch.dashboard.data_store import get_recent_files
 
-    return html.Div(
-        className="file-manager-page",
-        children=[
-            html.H2("File Manager", className="page-title"),
-            html.P(
-                "Open a LAS file to begin analysis.",
-                className="page-subtitle",
-            ),
+    # Load recent files for the dropdown
+    recent = get_recent_files()
+    recent_options = [
+        {"label": f"{r['well_name']} — {r['name']}", "value": r["path"]}
+        for r in recent
+    ]
 
-            # ---- PRIMARY: file path input ----
-            html.Div(
-                className="file-path-section",
-                style={"marginBottom": "20px"},
-                children=[
-                    html.Label(
-                        "File Path",
-                        style={
-                            "color": COLORS["text_muted"],
-                            "fontSize": "12px",
-                            "fontWeight": "600",
-                            "marginBottom": "4px",
-                            "display": "block",
-                        },
-                    ),
-                    html.Div(
-                        style={"display": "flex", "gap": "8px", "alignItems": "center"},
-                        children=[
-                            dcc.Input(
-                                id="file-path-input",
-                                type="text",
-                                placeholder="C:\\path\\to\\well_data.las",
-                                debounce=True,
-                                style={
-                                    "flex": "1",
-                                    "padding": "8px 12px",
-                                    "backgroundColor": COLORS["card"],
-                                    "border": f"1px solid {COLORS['card_border']}",
-                                    "borderRadius": "4px",
-                                    "color": COLORS["text"],
-                                    "fontFamily": "Consolas, monospace",
-                                    "fontSize": "13px",
-                                },
-                            ),
-                            html.Button(
-                                "Load",
-                                id="load-file-btn",
-                                n_clicks=0,
-                                style={
-                                    "padding": "8px 20px",
-                                    "backgroundColor": COLORS["primary"],
-                                    "color": COLORS["background"],
-                                    "border": "none",
-                                    "borderRadius": "4px",
-                                    "fontWeight": "600",
-                                    "fontSize": "13px",
-                                    "cursor": "pointer",
-                                },
-                            ),
-                        ],
-                    ),
-                ],
-            ),
+    section_style = {
+        "backgroundColor": COLORS["card"],
+        "border": f"1px solid {COLORS['card_border']}",
+        "borderRadius": "6px",
+        "padding": "16px",
+        "marginBottom": "16px",
+    }
+    heading_style = {
+        "color": COLORS["text"],
+        "fontSize": "14px",
+        "fontWeight": "600",
+        "marginBottom": "10px",
+        "marginTop": "0",
+    }
+    input_style = {
+        "flex": "1",
+        "padding": "8px 12px",
+        "backgroundColor": COLORS["background"],
+        "border": f"1px solid {COLORS['card_border']}",
+        "borderRadius": "4px",
+        "color": COLORS["text"],
+        "fontFamily": "Consolas, monospace",
+        "fontSize": "13px",
+    }
+    btn_primary_style = {
+        "padding": "8px 20px",
+        "backgroundColor": COLORS["primary"],
+        "color": COLORS["background"],
+        "border": "none",
+        "borderRadius": "4px",
+        "fontWeight": "600",
+        "fontSize": "13px",
+        "cursor": "pointer",
+    }
+    btn_secondary_style = {
+        **btn_primary_style,
+        "backgroundColor": COLORS["card_border"],
+        "color": COLORS["text"],
+    }
 
-            # ---- SECONDARY: drag-drop upload ----
-            html.Details(
-                style={"marginBottom": "20px"},
-                children=[
-                    html.Summary(
-                        "Or drag & drop a file",
-                        style={
-                            "color": COLORS["text_dim"],
-                            "fontSize": "12px",
-                            "cursor": "pointer",
-                        },
-                    ),
-                    dcc.Upload(
-                        id="upload-las-file",
-                        children=html.Div(
-                            [
-                                html.Span("Drop LAS file here", className="drop-label-primary"),
-                                html.Br(),
-                                html.Span(
-                                    "Supports LAS 2.0 and LAS 3.0 (.las)",
-                                    className="drop-label-hint",
-                                ),
-                            ]
+    children = [
+        html.H2("File Manager", className="page-title"),
+        html.P("Open a LAS file to begin analysis.", className="page-subtitle"),
+
+        # ---- SECTION 1: Open File ----
+        html.Div(
+            style=section_style,
+            children=[
+                html.H4("Open File", style=heading_style),
+                html.Div(
+                    style={"display": "flex", "gap": "8px", "alignItems": "center"},
+                    children=[
+                        dcc.Input(
+                            id="file-path-input",
+                            type="text",
+                            placeholder="C:\\path\\to\\well_data.las",
+                            debounce=True,
+                            style=input_style,
                         ),
-                        className="file-drop-zone",
-                        style={"marginTop": "8px"},
-                        multiple=False,
-                        accept=".las,.LAS",
-                    ),
-                ],
-            ),
+                    ] + ([
+                        html.Button("Browse...", id="browse-btn", n_clicks=0, style=btn_secondary_style),
+                    ] if _HAS_TK else []) + [
+                        html.Button("Load", id="load-file-btn", n_clicks=0, style=btn_primary_style),
+                    ],
+                ),
+                # Drag-drop (collapsible)
+                html.Details(
+                    style={"marginTop": "12px"},
+                    children=[
+                        html.Summary(
+                            "Or drag & drop a file",
+                            style={"color": COLORS["text_dim"], "fontSize": "12px", "cursor": "pointer"},
+                        ),
+                        dcc.Upload(
+                            id="upload-las-file",
+                            children=html.Div(
+                                [
+                                    html.Span("Drop LAS file here", style={"color": COLORS["text_muted"]}),
+                                    html.Br(),
+                                    html.Span(
+                                        "Supports LAS 2.0 and LAS 3.0",
+                                        style={"color": COLORS["text_dim"], "fontSize": "11px"},
+                                    ),
+                                ]
+                            ),
+                            style={
+                                "marginTop": "8px",
+                                "padding": "20px",
+                                "border": f"2px dashed {COLORS['card_border']}",
+                                "borderRadius": "6px",
+                                "textAlign": "center",
+                                "cursor": "pointer",
+                            },
+                            multiple=False,
+                            accept=".las,.LAS",
+                        ),
+                    ],
+                ),
+            ],
+        ),
 
-            # Well header preview card
-            html.Div(
-                id="well-header-card",
-                className="well-header-card",
-                children=[
-                    html.P(
-                        "No file loaded.",
-                        className="card-placeholder",
-                    )
-                ],
-            ),
-        ],
-    )
+        # ---- SECTION 2: Recent Files ----
+        html.Div(
+            style=section_style,
+            children=[
+                html.H4("Recent Files", style=heading_style),
+                dcc.Dropdown(
+                    id="recent-files-dropdown",
+                    options=recent_options,
+                    placeholder="Select a recently opened file..." if recent_options else "No recent files",
+                    style={
+                        "backgroundColor": COLORS["background"],
+                        "color": COLORS["text"],
+                        "fontSize": "13px",
+                    },
+                    disabled=not recent_options,
+                ),
+            ],
+        ),
+
+        # ---- SECTION 3: Directory Scanner ----
+        html.Div(
+            style=section_style,
+            children=[
+                html.H4("Scan Directory for LAS Files", style=heading_style),
+                html.Div(
+                    style={"display": "flex", "gap": "8px", "alignItems": "center", "marginBottom": "10px"},
+                    children=[
+                        dcc.Input(
+                            id="scan-dir-input",
+                            type="text",
+                            placeholder="C:\\path\\to\\data\\folder",
+                            debounce=True,
+                            style=input_style,
+                        ),
+                        html.Button("Scan", id="scan-dir-btn", n_clicks=0, style=btn_secondary_style),
+                    ],
+                ),
+                html.Div(id="scan-status", style={"marginBottom": "8px"}),
+                dcc.Dropdown(
+                    id="scan-files-dropdown",
+                    options=[],
+                    placeholder="Scan a directory first...",
+                    style={
+                        "backgroundColor": COLORS["background"],
+                        "color": COLORS["text"],
+                        "fontSize": "13px",
+                    },
+                    disabled=True,
+                ),
+            ],
+        ),
+
+        # ---- Well header card (populated after load) ----
+        html.Div(
+            id="well-header-card",
+            className="well-header-card",
+            children=[
+                html.P(
+                    "No file loaded.",
+                    className="card-placeholder",
+                    style={"color": COLORS["text_dim"], "fontSize": "13px"},
+                )
+            ],
+        ),
+
+        # Hidden dummy for browse button (needed if tkinter unavailable)
+    ] + ([] if _HAS_TK else [html.Div(id="browse-btn", style={"display": "none"})])
+
+    return html.Div(className="file-manager-page", children=children)
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +346,11 @@ def _render_header_card(info: Dict[str, Any]) -> List:
         "fontFamily": "Consolas, monospace",
     }
 
-    data_status = "Header only (data unreadable)" if info.get("header_only") else str(info.get("row_count", 0))
+    data_status = (
+        "Header only (data unreadable)"
+        if info.get("header_only")
+        else f"{info.get('row_count', 0):,}"
+    )
 
     rows_data = [
         ("Well", info.get("well_name", "")),
@@ -342,19 +439,84 @@ def _error_card(filename: str, error: str) -> List:
 
 
 # ---------------------------------------------------------------------------
+# Common load helper
+# ---------------------------------------------------------------------------
+
+def _load_and_build(filepath: str):
+    """Load a file via data_store and build the header card + app state.
+
+    Returns (card_children, app_state_dict).
+    Raises on failure.
+    """
+    from mpd_overwatch.dashboard.data_store import load_file
+
+    header_info = load_file(filepath)
+    card = _render_header_card(header_info)
+    app_state = {
+        "stage": "channel_select",
+        "filename": header_info["filename"],
+        "filepath": header_info["filepath"],
+        "well_name": header_info["well_name"],
+        "curve_names": header_info["curve_names"],
+        "curve_units": header_info["curve_units"],
+        "has_data": not header_info["header_only"],
+        "row_count": header_info["row_count"],
+    }
+    return card, app_state
+
+
+def _recent_dropdown_options() -> List[Dict]:
+    """Build dropdown options from the current recent files list."""
+    from mpd_overwatch.dashboard.data_store import get_recent_files
+
+    return [
+        {"label": f"{r['well_name']} — {r['name']}", "value": r["path"]}
+        for r in get_recent_files()
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Dash callbacks
 # ---------------------------------------------------------------------------
 
 def register_file_manager_callbacks(app):
-    """Register callbacks for file loading (path input and drag-drop upload)."""
+    """Register callbacks for all five file-opening methods."""
     from dash import Input, Output, State, no_update
     from dash.exceptions import PreventUpdate
-    from mpd_overwatch.dashboard.data_store import load_file
 
-    # ---- PRIMARY: load from file path ----
+    # ---- 1. Browse button (native OS file dialog) ----
     @app.callback(
+        Output("file-path-input", "value"),
         Output("well-header-card", "children"),
         Output("app-state", "data"),
+        Output("recent-files-dropdown", "options"),
+        Input("browse-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def on_browse(n_clicks):
+        if not n_clicks:
+            raise PreventUpdate
+
+        filepath = _open_file_dialog()
+        if not filepath:
+            raise PreventUpdate
+
+        p = Path(filepath)
+        if not p.exists() or p.suffix.lower() != ".las":
+            raise PreventUpdate
+
+        try:
+            card, app_state = _load_and_build(filepath)
+        except Exception as exc:
+            return filepath, _error_card(p.name, str(exc)), no_update, no_update
+
+        return filepath, card, app_state, _recent_dropdown_options()
+
+    # ---- 2. Load from typed path ----
+    @app.callback(
+        Output("well-header-card", "children", allow_duplicate=True),
+        Output("app-state", "data", allow_duplicate=True),
+        Output("recent-files-dropdown", "options", allow_duplicate=True),
         Input("load-file-btn", "n_clicks"),
         State("file-path-input", "value"),
         prevent_initial_call=True,
@@ -367,32 +529,23 @@ def register_file_manager_callbacks(app):
         p = Path(filepath)
 
         if not p.exists():
-            return _error_card(p.name, f"File not found: {filepath}"), no_update
-        if not p.suffix.lower() == ".las":
-            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update
+            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update
+        if p.suffix.lower() != ".las":
+            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update, no_update
 
         try:
-            header_info = load_file(filepath)
+            card, app_state = _load_and_build(filepath)
         except Exception as exc:
-            return _error_card(p.name, str(exc)), no_update
+            return _error_card(p.name, str(exc)), no_update, no_update
 
-        card = _render_header_card(header_info)
-        app_state = {
-            "stage": "channel_select",
-            "filename": header_info["filename"],
-            "filepath": header_info["filepath"],
-            "well_name": header_info["well_name"],
-            "curve_names": header_info["curve_names"],
-            "curve_units": header_info["curve_units"],
-            "has_data": not header_info["header_only"],
-            "row_count": header_info["row_count"],
-        }
-        return card, app_state
+        return card, app_state, _recent_dropdown_options()
 
-    # ---- SECONDARY: load from drag-drop upload ----
+    # ---- 3. Drag-drop upload ----
     @app.callback(
         Output("well-header-card", "children", allow_duplicate=True),
         Output("app-state", "data", allow_duplicate=True),
+        Output("file-path-input", "value", allow_duplicate=True),
+        Output("recent-files-dropdown", "options", allow_duplicate=True),
         Input("upload-las-file", "contents"),
         State("upload-las-file", "filename"),
         prevent_initial_call=True,
@@ -401,8 +554,7 @@ def register_file_manager_callbacks(app):
         if not contents:
             raise PreventUpdate
 
-        # Decode base64 content from browser, write to temp file, then
-        # use the same file-path pipeline as the CLI.
+        # Decode browser upload, write to temp file, use same pipeline
         _, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
         text = decoded.decode("utf-8", errors="replace")
@@ -411,19 +563,109 @@ def register_file_manager_callbacks(app):
         tmp.write_text(text, encoding="utf-8")
 
         try:
-            header_info = load_file(str(tmp))
+            card, app_state = _load_and_build(str(tmp))
         except Exception as exc:
-            return _error_card(filename, str(exc)), no_update
+            return _error_card(filename, str(exc)), no_update, no_update, no_update
 
-        card = _render_header_card(header_info)
-        app_state = {
-            "stage": "channel_select",
-            "filename": filename,
-            "filepath": header_info["filepath"],
-            "well_name": header_info["well_name"],
-            "curve_names": header_info["curve_names"],
-            "curve_units": header_info["curve_units"],
-            "has_data": not header_info["header_only"],
-            "row_count": header_info["row_count"],
-        }
-        return card, app_state
+        return card, app_state, str(tmp), _recent_dropdown_options()
+
+    # ---- 4. Recent files dropdown ----
+    @app.callback(
+        Output("well-header-card", "children", allow_duplicate=True),
+        Output("app-state", "data", allow_duplicate=True),
+        Output("file-path-input", "value", allow_duplicate=True),
+        Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Input("recent-files-dropdown", "value"),
+        prevent_initial_call=True,
+    )
+    def on_recent_select(filepath):
+        if not filepath:
+            raise PreventUpdate
+
+        p = Path(filepath)
+        if not p.exists():
+            return (
+                _error_card(p.name, f"File no longer exists: {filepath}"),
+                no_update,
+                no_update,
+                _recent_dropdown_options(),
+            )
+
+        try:
+            card, app_state = _load_and_build(filepath)
+        except Exception as exc:
+            return _error_card(p.name, str(exc)), no_update, no_update, no_update
+
+        return card, app_state, filepath, _recent_dropdown_options()
+
+    # ---- 5a. Scan directory ----
+    @app.callback(
+        Output("scan-files-dropdown", "options"),
+        Output("scan-files-dropdown", "disabled"),
+        Output("scan-status", "children"),
+        Input("scan-dir-btn", "n_clicks"),
+        State("scan-dir-input", "value"),
+        prevent_initial_call=True,
+    )
+    def on_scan_directory(n_clicks, dirpath):
+        if not n_clicks or not dirpath:
+            raise PreventUpdate
+
+        from dash import html
+        from mpd_overwatch.config import COLORS
+        from mpd_overwatch.dashboard.data_store import scan_for_las_files
+
+        dirpath = dirpath.strip().strip('"').strip("'")
+        p = Path(dirpath)
+
+        if not p.is_dir():
+            return [], True, html.Span(
+                f"Directory not found: {dirpath}",
+                style={"color": COLORS["danger"], "fontSize": "12px"},
+            )
+
+        results = scan_for_las_files(dirpath)
+        if not results:
+            return [], True, html.Span(
+                "No LAS files found in this directory.",
+                style={"color": COLORS["warning"], "fontSize": "12px"},
+            )
+
+        options = [
+            {
+                "label": f"{r['name']} ({r['size_mb']:.1f} MB) -- {r['parent']}",
+                "value": r["path"],
+            }
+            for r in results
+        ]
+
+        status = html.Span(
+            f"Found {len(results)} LAS file{'s' if len(results) != 1 else ''}",
+            style={"color": COLORS["success"], "fontSize": "12px"},
+        )
+
+        return options, False, status
+
+    # ---- 5b. Load from scan results ----
+    @app.callback(
+        Output("well-header-card", "children", allow_duplicate=True),
+        Output("app-state", "data", allow_duplicate=True),
+        Output("file-path-input", "value", allow_duplicate=True),
+        Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Input("scan-files-dropdown", "value"),
+        prevent_initial_call=True,
+    )
+    def on_scan_file_select(filepath):
+        if not filepath:
+            raise PreventUpdate
+
+        p = Path(filepath)
+        if not p.exists():
+            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update, no_update
+
+        try:
+            card, app_state = _load_and_build(filepath)
+        except Exception as exc:
+            return _error_card(p.name, str(exc)), no_update, no_update, no_update
+
+        return card, app_state, filepath, _recent_dropdown_options()

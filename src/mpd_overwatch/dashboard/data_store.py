@@ -11,13 +11,21 @@ numpy arrays land here, everything downstream pulls from this cache.
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# ---- recent files persistence ---------------------------------------------
+
+_RECENT_DIR = Path.home() / ".mpd-overwatch"
+_RECENT_FILE = _RECENT_DIR / "recent_files.json"
+_MAX_RECENT = 20
 
 # ---- module-level cache (lives for the server process lifetime) -----------
 
@@ -107,6 +115,10 @@ def load_file(filepath: str) -> Dict[str, Any]:
         "Cached %d channels, %d rows from %s (header_only=%s)",
         len(channel_data), row_count, Path(filepath).name, header_only,
     )
+
+    # Track in recent files
+    _add_recent(filepath, well_name)
+
     return header_info
 
 
@@ -173,3 +185,72 @@ def clear():
     _curve_names = []
     _curve_units = {}
     _header_only = False
+
+
+# ---- recent files ---------------------------------------------------------
+
+def _add_recent(filepath: str, well_name: str):
+    """Add a file to the recent files list (persisted to disk)."""
+    recent = get_recent_files()
+    # Remove duplicates, add to front
+    recent = [r for r in recent if r["path"] != filepath]
+    recent.insert(0, {
+        "path": filepath,
+        "name": Path(filepath).name,
+        "well_name": well_name,
+        "timestamp": datetime.now().isoformat(),
+    })
+    recent = recent[:_MAX_RECENT]
+    try:
+        _RECENT_DIR.mkdir(parents=True, exist_ok=True)
+        _RECENT_FILE.write_text(json.dumps(recent, indent=2))
+    except OSError as exc:
+        logger.debug("Could not write recent files: %s", exc)
+
+
+def get_recent_files() -> List[Dict[str, str]]:
+    """Return the recent files list (most recent first)."""
+    try:
+        if _RECENT_FILE.exists():
+            data = json.loads(_RECENT_FILE.read_text())
+            # Filter to files that still exist
+            return [r for r in data if Path(r["path"]).exists()]
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.debug("Could not read recent files: %s", exc)
+    return []
+
+
+# ---- directory scanning ---------------------------------------------------
+
+def scan_for_las_files(dirpath: str) -> List[Dict[str, Any]]:
+    """Scan a directory recursively for LAS files.
+
+    Returns a list of dicts with keys: path, name, size_mb, parent, modified.
+    """
+    p = Path(dirpath)
+    if not p.is_dir():
+        return []
+
+    results: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    for f in p.rglob("*"):
+        if f.suffix.lower() != ".las":
+            continue
+        resolved = str(f.resolve())
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        try:
+            stat = f.stat()
+            results.append({
+                "path": resolved,
+                "name": f.name,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "parent": str(f.parent.relative_to(p)),
+                "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            })
+        except OSError:
+            continue
+
+    return sorted(results, key=lambda x: x["path"])

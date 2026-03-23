@@ -346,16 +346,16 @@ def build_channel_map(
 def channel_selector_layout():
     """Return a Dash layout for the channel selector page.
 
-    The layout provides:
-    - Intent buttons (MPD Operations, Drilling Optimization, etc.)
-    - Channel list with tier-coloured rows
-    - Budget counter showing selected channel count
+    Pre-populates the channel list from server-side data_store if a file
+    is loaded — no callback round-trip needed for initial display.
     """
-    try:
-        from dash import dcc, html
-        import dash_bootstrap_components as dbc
-    except ImportError:
-        return None
+    from dash import dcc, html
+    from mpd_overwatch.config import COLORS
+    from mpd_overwatch.dashboard.data_store import (
+        get_curve_names,
+        get_curve_units,
+        is_loaded,
+    )
 
     INTENTS = [
         "MPD Operations",
@@ -365,41 +365,56 @@ def channel_selector_layout():
         "Custom",
     ]
 
-    intent_buttons = html.Div(
-        id="intent-button-group",
-        className="intent-button-group",
-        children=[
-            html.Button(
-                intent,
-                id={"type": "intent-btn", "index": intent},
-                className="intent-button",
-                n_clicks=0,
-            )
-            for intent in INTENTS
-        ],
-    )
+    btn_style = {
+        "padding": "6px 14px",
+        "backgroundColor": COLORS["card"],
+        "color": COLORS["text"],
+        "border": f"1px solid {COLORS['card_border']}",
+        "borderRadius": "4px",
+        "fontSize": "12px",
+        "cursor": "pointer",
+        "marginRight": "6px",
+        "marginBottom": "6px",
+    }
+    confirm_style = {
+        "padding": "10px 24px",
+        "backgroundColor": COLORS["primary"],
+        "color": COLORS["background"],
+        "border": "none",
+        "borderRadius": "4px",
+        "fontWeight": "600",
+        "fontSize": "13px",
+        "cursor": "pointer",
+    }
 
-    budget_counter = html.Div(
-        id="channel-budget-counter",
-        className="channel-budget-counter",
-        children="0 channels selected",
-    )
+    # Pre-populate channel list from server-side data if available
+    initial_rows = []
+    initial_budget = "No file loaded"
+    initial_store = {}
 
-    channel_list_header = html.Div(
-        className="channel-list-header",
-        children=[
-            html.Span("Channel Name", className="col-name"),
-            html.Span("Unit", className="col-unit"),
-            html.Span("Tier", className="col-tier"),
-            html.Span("Selected", className="col-selected"),
-        ],
-    )
+    if is_loaded():
+        curve_names = get_curve_names()
+        curve_units = get_curve_units()
+        registry = ChannelRegistry()
+        channel_list = build_channel_list(curve_names, curve_units, registry)
 
-    channel_list = html.Div(
-        id="channel-list-container",
-        className="channel-list-container",
-        children=[],
-    )
+        # Default: select all CORE channels
+        for item in channel_list:
+            item["selected"] = item["tier"] == ChannelTier.CORE
+
+        initial_rows = _render_channel_rows(channel_list)
+        selected_count = sum(1 for ch in channel_list if ch.get("selected", False))
+        initial_budget = f"{selected_count} channels selected"
+        initial_store = [
+            {
+                "vendor_mnemonic": ch["vendor_mnemonic"],
+                "canonical": ch["canonical"],
+                "tier": ch["tier"].value if isinstance(ch["tier"], ChannelTier) else ch["tier"],
+                "unit": ch["unit"],
+                "selected": ch.get("selected", False),
+            }
+            for ch in channel_list
+        ]
 
     layout = html.Div(
         id="channel-selector-page",
@@ -412,37 +427,88 @@ def channel_selector_layout():
                 className="page-subtitle",
             ),
             html.Div(
-                className="intent-section",
+                style={
+                    "backgroundColor": COLORS["card"],
+                    "border": f"1px solid {COLORS['card_border']}",
+                    "borderRadius": "6px",
+                    "padding": "16px",
+                    "marginBottom": "16px",
+                },
                 children=[
-                    html.H4("Analysis Intent"),
-                    intent_buttons,
+                    html.H4("Analysis Intent", style={"color": COLORS["text"], "marginTop": "0"}),
+                    html.Div(
+                        id="intent-button-group",
+                        children=[
+                            html.Button(
+                                intent,
+                                id={"type": "intent-btn", "index": intent},
+                                n_clicks=0,
+                                style=btn_style,
+                            )
+                            for intent in INTENTS
+                        ],
+                    ),
                 ],
             ),
             html.Div(
-                className="channel-section",
+                style={
+                    "backgroundColor": COLORS["card"],
+                    "border": f"1px solid {COLORS['card_border']}",
+                    "borderRadius": "6px",
+                    "padding": "16px",
+                    "marginBottom": "16px",
+                },
                 children=[
-                    html.H4("Channel Classification"),
-                    budget_counter,
-                    channel_list_header,
-                    channel_list,
+                    html.H4("Channel Classification", style={"color": COLORS["text"], "marginTop": "0"}),
+                    html.Div(
+                        id="channel-budget-counter",
+                        children=initial_budget,
+                        style={
+                            "color": COLORS["primary"],
+                            "fontSize": "13px",
+                            "fontWeight": "600",
+                            "marginBottom": "10px",
+                        },
+                    ),
+                    html.Div(
+                        style={
+                            "display": "flex",
+                            "padding": "6px 8px",
+                            "borderBottom": f"1px solid {COLORS['card_border']}",
+                            "fontSize": "11px",
+                            "fontWeight": "700",
+                            "color": COLORS["text_dim"],
+                            "letterSpacing": "1px",
+                        },
+                        children=[
+                            html.Span("CHANNEL", style={"flex": "1"}),
+                            html.Span("UNIT", style={"width": "80px"}),
+                            html.Span("TIER", style={"width": "80px"}),
+                            html.Span("SEL", style={"width": "40px", "textAlign": "center"}),
+                        ],
+                    ),
+                    html.Div(
+                        id="channel-list-container",
+                        children=initial_rows,
+                        style={"maxHeight": "400px", "overflowY": "auto"},
+                    ),
                 ],
             ),
-            # Confirm selection button
+            # Confirm button
             html.Div(
-                className="confirm-section",
+                style={"marginTop": "16px"},
                 children=[
                     html.Button(
                         "Confirm Selection & Proceed to Analysis",
                         id="confirm-channels-btn",
-                        className="confirm-button",
                         n_clicks=0,
+                        style=confirm_style,
                     ),
-                    html.Div(id="confirm-status", className="confirm-status"),
+                    html.Div(id="confirm-status", style={"marginTop": "8px"}),
                 ],
-                style={"marginTop": "20px"},
             ),
 
-            dcc.Store(id="channel-selector-store", data={}),
+            dcc.Store(id="channel-selector-store", data=initial_store),
         ],
     )
 
@@ -555,59 +621,54 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
 # ---------------------------------------------------------------------------
 
 def register_channel_selector_callbacks(app):
-    """Register callbacks for channel classification, intent selection, and confirmation."""
+    """Register callbacks for intent selection and channel confirmation."""
     import json as _json
     from dash import ALL, Input, Output, State, callback_context, no_update
     from dash.exceptions import PreventUpdate
     from mpd_overwatch.config import COLORS
+    from mpd_overwatch.dashboard.data_store import (
+        get_curve_names,
+        get_curve_units,
+        is_loaded,
+    )
 
+    # Intent buttons re-classify channels (layout handles initial population)
     @app.callback(
         Output("channel-list-container", "children"),
         Output("channel-budget-counter", "children"),
         Output("channel-selector-store", "data"),
-        Input("app-state", "data"),
         Input({"type": "intent-btn", "index": ALL}, "n_clicks"),
-        State("channel-selector-store", "data"),
         prevent_initial_call=True,
     )
-    def update_channel_list(app_state, intent_clicks, store_data):
+    def on_intent_click(intent_clicks):
         ctx = callback_context
-        if not ctx.triggered:
+        if not ctx.triggered or not is_loaded():
             raise PreventUpdate
 
-        # Need curve names from app-state
-        if not app_state or "curve_names" not in app_state:
-            return [], "No file loaded", {}
-
-        curve_names = app_state["curve_names"]
-        curve_units = app_state.get("curve_units", {})
-
-        # Build channel list from registry
-        registry = ChannelRegistry()
-        channel_list = build_channel_list(curve_names, curve_units, registry)
-
-        # Determine which input triggered this callback
+        # Find which intent button was clicked
         trigger_id = ctx.triggered[0]["prop_id"]
         intent_name = None
-        if "intent-btn" in trigger_id:
-            # Extract intent name from pattern-matching ID
-            try:
-                trigger_dict = _json.loads(trigger_id.rsplit(".", 1)[0])
-                intent_name = trigger_dict["index"]
-            except (ValueError, KeyError):
-                pass
+        try:
+            trigger_dict = _json.loads(trigger_id.rsplit(".", 1)[0])
+            intent_name = trigger_dict["index"]
+        except (ValueError, KeyError):
+            raise PreventUpdate
+
+        # Build channel list from server-side data
+        registry = ChannelRegistry()
+        channel_list = build_channel_list(
+            get_curve_names(), get_curve_units(), registry,
+        )
 
         if intent_name and intent_name != "Custom":
             channel_list = apply_intent(intent_name, channel_list)
         else:
-            # Default: select all CORE channels
             for item in channel_list:
                 item["selected"] = item["tier"] == ChannelTier.CORE
 
         selected_count = sum(1 for ch in channel_list if ch.get("selected", False))
         rows = _render_channel_rows(channel_list)
 
-        # Serialize for store (ChannelTier enum → string)
         store = [
             {
                 "vendor_mnemonic": ch["vendor_mnemonic"],
@@ -619,8 +680,7 @@ def register_channel_selector_callbacks(app):
             for ch in channel_list
         ]
 
-        budget_text = f"{selected_count} channels selected"
-        return rows, budget_text, store
+        return rows, f"{selected_count} channels selected", store
 
     @app.callback(
         Output("app-state", "data", allow_duplicate=True),
