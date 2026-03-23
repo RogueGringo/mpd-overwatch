@@ -42,31 +42,73 @@ _header_only: bool = False
 def load_file(filepath: str) -> Dict[str, Any]:
     """Read a LAS file from disk and cache its data server-side.
 
-    Returns the header info dict (same structure the GUI needs for display).
-    Raises on unreadable files.
+    Three-tier loading strategy:
+      1. lasio full read (works for well-formed LAS 2.0/3.0)
+      2. lasio header + raw ~ section data parse (when lasio can't reshape)
+      3. Full raw ~ section parse (when lasio fails entirely)
+
+    Returns the header info dict.  Raises only if the file is unreadable.
     """
     global _file_path, _channel_data, _header_info
     global _curve_names, _curve_units, _header_only
 
-    import lasio
-
     filepath = str(Path(filepath).resolve())
     logger.info("Loading LAS file: %s", filepath)
 
-    # Read with fallback for LAS 3.0 reshape issues
-    header_only = False
+    # --- Tier 1: lasio full read ---
     try:
+        import lasio
         las = lasio.read(filepath)
+        return _cache_from_lasio(las, filepath, header_only=False)
     except Exception as exc:
-        logger.debug("Full read failed (%s), retrying header-only", exc)
-        try:
-            las = lasio.read(filepath, ignore_data=True)
-            header_only = True
-        except Exception:
-            raise
+        logger.debug("Tier 1 (lasio full) failed: %s", exc)
 
-    # Extract header
-    def hdr(key: str, default: str = "") -> str:
+    # --- Tier 2: lasio headers + raw data parse ---
+    try:
+        import lasio
+        las = lasio.read(filepath, ignore_data=True)
+        curve_names = [c.mnemonic for c in las.curves]
+        curve_units = {c.mnemonic: str(c.unit).strip() for c in las.curves}
+
+        # Parse the ~A data section ourselves
+        raw_text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+        channel_data, row_count = _parse_data_section(raw_text, curve_names)
+
+        if channel_data:
+            logger.info("Tier 2: lasio headers + raw data parse succeeded (%d channels, %d rows)",
+                        len(channel_data), row_count)
+
+            def hdr(key, default=""):
+                try:
+                    v = las.well[key].value
+                    return str(v).strip() if v else default
+                except (KeyError, IndexError, AttributeError):
+                    return default
+
+            return _cache_result(
+                filepath=filepath,
+                well_name=hdr("WELL") or Path(filepath).stem,
+                company=hdr("COMP"), service_company=hdr("SRVC"),
+                field=hdr("FLD"), api=hdr("API") or hdr("UWI"),
+                start=hdr("STRT"), stop=hdr("STOP"),
+                curve_names=curve_names, curve_units=curve_units,
+                channel_data=channel_data, row_count=row_count,
+            )
+    except Exception as exc:
+        logger.debug("Tier 2 (lasio header + raw data) failed: %s", exc)
+
+    # --- Tier 3: Full raw ~ section parse (no lasio at all) ---
+    try:
+        raw_text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+        return _parse_raw_las(raw_text, filepath)
+    except Exception as exc:
+        logger.error("All three tiers failed for %s: %s", filepath, exc)
+        raise ValueError(f"Cannot read LAS file: {exc}") from exc
+
+
+def _cache_from_lasio(las: Any, filepath: str, header_only: bool) -> Dict[str, Any]:
+    """Extract data from a lasio LASFile object and cache it."""
+    def hdr(key, default=""):
         try:
             v = las.well[key].value
             return str(v).strip() if v else default
@@ -75,9 +117,7 @@ def load_file(filepath: str) -> Dict[str, Any]:
 
     curve_names = [c.mnemonic for c in las.curves]
     curve_units = {c.mnemonic: str(c.unit).strip() for c in las.curves}
-    well_name = hdr("WELL") or Path(filepath).stem
 
-    # Extract curve data as numpy arrays (stays server-side)
     channel_data: Dict[str, np.ndarray] = {}
     row_count = 0
     if not header_only:
@@ -86,14 +126,33 @@ def load_file(filepath: str) -> Dict[str, Any]:
                 channel_data[curve.mnemonic] = np.array(curve.data, dtype=np.float64)
                 row_count = max(row_count, len(curve.data))
 
+    return _cache_result(
+        filepath=filepath,
+        well_name=hdr("WELL") or Path(filepath).stem,
+        company=hdr("COMP"), service_company=hdr("SRVC"),
+        field=hdr("FLD"), api=hdr("API") or hdr("UWI"),
+        start=hdr("STRT"), stop=hdr("STOP"),
+        curve_names=curve_names, curve_units=curve_units,
+        channel_data=channel_data, row_count=row_count,
+    )
+
+
+def _cache_result(*, filepath, well_name, company, service_company,
+                  field, api, start, stop, curve_names, curve_units,
+                  channel_data, row_count) -> Dict[str, Any]:
+    """Store parsed data in the module cache and return header info."""
+    global _file_path, _channel_data, _header_info
+    global _curve_names, _curve_units, _header_only
+
+    header_only = len(channel_data) == 0
     header_info = {
         "well_name": well_name,
-        "company": hdr("COMP"),
-        "service_company": hdr("SRVC"),
-        "field": hdr("FLD"),
-        "api": hdr("API") or hdr("UWI"),
-        "start": hdr("STRT"),
-        "stop": hdr("STOP"),
+        "company": company,
+        "service_company": service_company,
+        "field": field,
+        "api": api,
+        "start": start,
+        "stop": stop,
         "curve_count": len(curve_names),
         "curve_names": curve_names,
         "curve_units": curve_units,
@@ -103,7 +162,6 @@ def load_file(filepath: str) -> Dict[str, Any]:
         "filename": Path(filepath).name,
     }
 
-    # Store in module cache
     _file_path = filepath
     _channel_data = channel_data
     _header_info = header_info
@@ -120,6 +178,211 @@ def load_file(filepath: str) -> Dict[str, Any]:
     _add_recent(filepath, well_name)
 
     return header_info
+
+
+# ---------------------------------------------------------------------------
+# Raw ~ section parsers (when lasio fails)
+# ---------------------------------------------------------------------------
+
+def _split_sections(text: str) -> Dict[str, List[str]]:
+    """Split a LAS file into sections keyed by the ~ marker.
+
+    Returns dict like ``{"V": [...lines...], "W": [...], "C": [...], "A": [...]}``
+    where the key is the first letter after ``~``.
+    """
+    sections: Dict[str, List[str]] = {}
+    current_key: Optional[str] = None
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("~"):
+            # New section — key is first non-whitespace letter after ~
+            tag = stripped[1:].strip()
+            current_key = tag[0].upper() if tag else None
+            sections.setdefault(current_key, [])
+        elif current_key is not None and stripped and not stripped.startswith("#"):
+            sections[current_key].append(line)
+
+    return sections
+
+
+def _parse_curve_section(lines: List[str]) -> tuple:
+    """Parse ~C section lines into (curve_names, curve_units).
+
+    Each line: ``MNEMONIC.UNIT  data : description``
+    """
+    names: List[str] = []
+    units: Dict[str, str] = {}
+
+    for line in lines:
+        # Standard LAS format: MNEMONIC.UNIT  value : description
+        # Split on first period to get mnemonic and the rest
+        dot_pos = line.find(".")
+        if dot_pos < 0:
+            continue
+        mnemonic = line[:dot_pos].strip()
+        rest = line[dot_pos + 1:]
+
+        # Unit is everything before the first whitespace or colon in rest
+        unit = ""
+        for i, ch in enumerate(rest):
+            if ch in (" ", "\t", ":"):
+                unit = rest[:i].strip()
+                break
+        else:
+            unit = rest.strip()
+
+        if mnemonic:
+            names.append(mnemonic)
+            units[mnemonic] = unit
+
+    return names, units
+
+
+def _parse_well_section(lines: List[str]) -> Dict[str, str]:
+    """Parse ~W section lines into a dict of well header fields.
+
+    LAS format: ``KEY.UNIT  VALUE : DESCRIPTION``
+    Unit is the non-space chars immediately after ``.``.
+    Value is everything between unit and ``:`` (trimmed).
+    The description colon is identified by preceding whitespace (2+ spaces)
+    to avoid splitting on colons inside timestamps like ``10:21:00``.
+    """
+    import re
+
+    well: Dict[str, str] = {}
+    for line in lines:
+        dot_pos = line.find(".")
+        if dot_pos < 0:
+            continue
+        key = line[:dot_pos].strip()
+
+        rest = line[dot_pos + 1:]
+        # Find the description separator: colon preceded by 2+ whitespace chars
+        m = re.search(r"\s{2,}:", rest)
+        if m:
+            colon_pos = m.end() - 1
+        else:
+            colon_pos = rest.find(":")
+            if colon_pos < 0:
+                colon_pos = len(rest)
+
+        before_colon = rest[:colon_pos]
+
+        # Unit = non-space chars right after the dot
+        unit_end = 0
+        for i, ch in enumerate(before_colon):
+            if ch in (" ", "\t"):
+                unit_end = i
+                break
+        else:
+            unit_end = len(before_colon)
+
+        value = before_colon[unit_end:].strip()
+
+        if key:
+            well[key.upper()] = value
+
+    return well
+
+
+def _parse_data_section(text: str, curve_names: List[str]) -> tuple:
+    """Parse ~A data section into channel arrays.
+
+    Detects delimiter (tab or space), reads numeric values, maps columns
+    to curve names.  Non-numeric values (dates, times, status strings)
+    are stored as NaN.
+
+    Returns (channel_data dict, row_count).
+    """
+    sections = _split_sections(text)
+    data_lines = sections.get("A", [])
+
+    if not data_lines:
+        return {}, 0
+
+    # Detect delimiter from first data line
+    first = data_lines[0]
+    if "\t" in first:
+        delimiter = "\t"
+    else:
+        delimiter = None  # whitespace split
+
+    n_curves = len(curve_names)
+    # Pre-allocate columns
+    columns: List[List[float]] = [[] for _ in range(n_curves)]
+
+    row_count = 0
+    for line in data_lines:
+        if not line.strip():
+            continue
+        if delimiter:
+            vals = line.split(delimiter)
+        else:
+            vals = line.split()
+
+        # Handle row with different column count gracefully
+        for i in range(min(len(vals), n_curves)):
+            try:
+                columns[i].append(float(vals[i]))
+            except (ValueError, IndexError):
+                columns[i].append(float("nan"))
+        # Pad short rows with NaN
+        for i in range(len(vals), n_curves):
+            columns[i].append(float("nan"))
+
+        row_count += 1
+
+    # Build channel_data dict
+    channel_data: Dict[str, np.ndarray] = {}
+    for i, name in enumerate(curve_names):
+        if columns[i]:
+            channel_data[name] = np.array(columns[i], dtype=np.float64)
+
+    return channel_data, row_count
+
+
+def _parse_raw_las(text: str, filepath: str) -> Dict[str, Any]:
+    """Full raw parse — no lasio involved.
+
+    Reads ~V, ~W, ~C, ~A sections directly from text.
+    """
+    sections = _split_sections(text)
+
+    # Parse curves
+    curve_lines = sections.get("C", [])
+    if not curve_lines:
+        raise ValueError("No ~C (curve) section found in file")
+
+    curve_names, curve_units = _parse_curve_section(curve_lines)
+    if not curve_names:
+        raise ValueError("No curves defined in ~C section")
+
+    # Parse well header
+    well = _parse_well_section(sections.get("W", []))
+
+    # Parse data
+    channel_data, row_count = _parse_data_section(text, curve_names)
+
+    logger.info(
+        "Tier 3 raw parse: %d curves, %d rows from %s",
+        len(curve_names), row_count, Path(filepath).name,
+    )
+
+    return _cache_result(
+        filepath=filepath,
+        well_name=well.get("WELL", "") or Path(filepath).stem,
+        company=well.get("COMP", ""),
+        service_company=well.get("SRVC", ""),
+        field=well.get("FLD", ""),
+        api=well.get("API", "") or well.get("UWI", ""),
+        start=well.get("STRT", ""),
+        stop=well.get("STOP", ""),
+        curve_names=curve_names,
+        curve_units=curve_units,
+        channel_data=channel_data,
+        row_count=row_count,
+    )
 
 
 def get_channel_data() -> Dict[str, np.ndarray]:
