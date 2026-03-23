@@ -191,6 +191,17 @@ def _resolve_display_name(mnemonic: str, registry: ChannelRegistry) -> Optional[
         except KeyError:
             pass
 
+    # 5. Config MNEMONIC_MAP (vendor mnemonic → canonical channel name)
+    from mpd_overwatch.config import MNEMONIC_MAP
+    mapped = MNEMONIC_MAP.get(mnemonic)
+    if mapped:
+        try:
+            registry.lookup(mapped)
+            return mapped
+        except KeyError:
+            # Channel name is in MNEMONIC_MAP but not in registry — still useful
+            return mapped
+
     return None
 
 
@@ -416,8 +427,256 @@ def channel_selector_layout():
                     channel_list,
                 ],
             ),
+            # Confirm selection button
+            html.Div(
+                className="confirm-section",
+                children=[
+                    html.Button(
+                        "Confirm Selection & Proceed to Analysis",
+                        id="confirm-channels-btn",
+                        className="confirm-button",
+                        n_clicks=0,
+                    ),
+                    html.Div(id="confirm-status", className="confirm-status"),
+                ],
+                style={"marginTop": "20px"},
+            ),
+
             dcc.Store(id="channel-selector-store", data={}),
         ],
     )
 
     return layout
+
+
+# ---------------------------------------------------------------------------
+# Channel list rendering
+# ---------------------------------------------------------------------------
+
+def _render_channel_rows(channel_list: List[Dict]) -> List:
+    """Build Dash components for the tiered channel list."""
+    from dash import html
+    from mpd_overwatch.config import COLORS
+
+    TIER_COLORS = {
+        ChannelTier.CORE: COLORS["success"],
+        ChannelTier.SUGGESTED: COLORS["warning"],
+        ChannelTier.PARKED: COLORS["text_dim"],
+    }
+    TIER_LABELS = {
+        ChannelTier.CORE: "CORE — Recognized drilling channels",
+        ChannelTier.SUGGESTED: "SUGGESTED — Drilling-related by unit type",
+        ChannelTier.PARKED: "PARKED — Unrecognized / ancillary",
+    }
+
+    rows = []
+    for tier in [ChannelTier.CORE, ChannelTier.SUGGESTED, ChannelTier.PARKED]:
+        tier_channels = [ch for ch in channel_list if ch["tier"] == tier]
+        if not tier_channels:
+            continue
+
+        rows.append(
+            html.Div(
+                html.Span(
+                    f"{TIER_LABELS[tier]} ({len(tier_channels)})",
+                    style={
+                        "color": TIER_COLORS[tier],
+                        "fontSize": "12px",
+                        "fontWeight": "700",
+                        "letterSpacing": "1px",
+                    },
+                ),
+                style={"padding": "12px 0 4px 0", "borderBottom": f"1px solid {COLORS['card_border']}"},
+            )
+        )
+
+        for ch in tier_channels:
+            selected = ch.get("selected", False)
+            canonical = ch.get("canonical") or ""
+            display_name = ch["vendor_mnemonic"]
+            if canonical and canonical != display_name.lower():
+                display_name = f"{ch['vendor_mnemonic']} → {canonical}"
+
+            rows.append(
+                html.Div(
+                    className="channel-row",
+                    style={
+                        "display": "flex",
+                        "alignItems": "center",
+                        "padding": "4px 8px",
+                        "borderBottom": f"1px solid {COLORS['card_border']}22",
+                        "backgroundColor": f"{COLORS['primary']}08" if selected else "transparent",
+                    },
+                    children=[
+                        html.Span(
+                            display_name,
+                            style={
+                                "flex": "1",
+                                "color": COLORS["text"] if selected else COLORS["text_muted"],
+                                "fontSize": "12px",
+                                "fontFamily": "Consolas, monospace",
+                            },
+                        ),
+                        html.Span(
+                            ch.get("unit", ""),
+                            style={
+                                "width": "80px",
+                                "color": COLORS["text_dim"],
+                                "fontSize": "11px",
+                            },
+                        ),
+                        html.Span(
+                            ch["tier"].value if isinstance(ch["tier"], ChannelTier) else ch["tier"],
+                            style={
+                                "width": "80px",
+                                "color": TIER_COLORS.get(ch["tier"], COLORS["text_dim"]),
+                                "fontSize": "10px",
+                                "fontWeight": "600",
+                            },
+                        ),
+                        html.Span(
+                            "●" if selected else "○",
+                            style={
+                                "width": "40px",
+                                "textAlign": "center",
+                                "color": COLORS["success"] if selected else COLORS["text_dim"],
+                                "fontSize": "14px",
+                            },
+                        ),
+                    ],
+                )
+            )
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Dash callbacks
+# ---------------------------------------------------------------------------
+
+def register_channel_selector_callbacks(app):
+    """Register callbacks for channel classification, intent selection, and confirmation."""
+    import json as _json
+    from dash import ALL, Input, Output, State, callback_context, no_update
+    from dash.exceptions import PreventUpdate
+    from mpd_overwatch.config import COLORS
+
+    @app.callback(
+        Output("channel-list-container", "children"),
+        Output("channel-budget-counter", "children"),
+        Output("channel-selector-store", "data"),
+        Input("app-state", "data"),
+        Input({"type": "intent-btn", "index": ALL}, "n_clicks"),
+        State("channel-selector-store", "data"),
+        prevent_initial_call=True,
+    )
+    def update_channel_list(app_state, intent_clicks, store_data):
+        ctx = callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+
+        # Need curve names from app-state
+        if not app_state or "curve_names" not in app_state:
+            return [], "No file loaded", {}
+
+        curve_names = app_state["curve_names"]
+        curve_units = app_state.get("curve_units", {})
+
+        # Build channel list from registry
+        registry = ChannelRegistry()
+        channel_list = build_channel_list(curve_names, curve_units, registry)
+
+        # Determine which input triggered this callback
+        trigger_id = ctx.triggered[0]["prop_id"]
+        intent_name = None
+        if "intent-btn" in trigger_id:
+            # Extract intent name from pattern-matching ID
+            try:
+                trigger_dict = _json.loads(trigger_id.rsplit(".", 1)[0])
+                intent_name = trigger_dict["index"]
+            except (ValueError, KeyError):
+                pass
+
+        if intent_name and intent_name != "Custom":
+            channel_list = apply_intent(intent_name, channel_list)
+        else:
+            # Default: select all CORE channels
+            for item in channel_list:
+                item["selected"] = item["tier"] == ChannelTier.CORE
+
+        selected_count = sum(1 for ch in channel_list if ch.get("selected", False))
+        rows = _render_channel_rows(channel_list)
+
+        # Serialize for store (ChannelTier enum → string)
+        store = [
+            {
+                "vendor_mnemonic": ch["vendor_mnemonic"],
+                "canonical": ch["canonical"],
+                "tier": ch["tier"].value if isinstance(ch["tier"], ChannelTier) else ch["tier"],
+                "unit": ch["unit"],
+                "selected": ch.get("selected", False),
+            }
+            for ch in channel_list
+        ]
+
+        budget_text = f"{selected_count} channels selected"
+        return rows, budget_text, store
+
+    @app.callback(
+        Output("channel-map", "data"),
+        Output("app-state", "data", allow_duplicate=True),
+        Output("confirm-status", "children"),
+        Input("confirm-channels-btn", "n_clicks"),
+        State("channel-selector-store", "data"),
+        State("raw-las-data", "data"),
+        State("app-state", "data"),
+        prevent_initial_call=True,
+    )
+    def confirm_selection(n_clicks, store_data, raw_data, app_state):
+        if not n_clicks or not store_data:
+            raise PreventUpdate
+
+        from dash import dcc, html
+
+        # Build channel map from selected channels
+        selected_channels = {}
+        for ch in store_data:
+            if not ch.get("selected"):
+                continue
+            canonical = ch.get("canonical")
+            vendor = ch["vendor_mnemonic"]
+            if canonical and raw_data and vendor in raw_data:
+                selected_channels[canonical] = raw_data[vendor]
+
+        if not selected_channels:
+            return (
+                no_update,
+                no_update,
+                html.Span(
+                    "No channels with data selected. Select channels with data available.",
+                    style={"color": COLORS["warning"], "fontSize": "12px"},
+                ),
+            )
+
+        # Update app state to analysis stage
+        updated_state = dict(app_state) if app_state else {}
+        updated_state["stage"] = "analysis"
+
+        status = html.Div([
+            html.Span(
+                f"{len(selected_channels)} channels loaded. ",
+                style={"color": COLORS["success"], "fontSize": "13px", "fontWeight": "600"},
+            ),
+            dcc.Link(
+                "Go to Well Overview →",
+                href="/well-overview",
+                style={
+                    "color": COLORS["primary"],
+                    "fontWeight": "600",
+                    "fontSize": "13px",
+                    "marginLeft": "8px",
+                },
+            ),
+        ])
+
+        return selected_channels, updated_state, status

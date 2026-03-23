@@ -367,6 +367,8 @@ def create_app() -> dash.Dash:
             dcc.Store(id="app-state", storage_type="session"),
             # Channel map: {channel_name: [float, ...]}
             dcc.Store(id="channel-map", storage_type="session"),
+            # Raw LAS curve data: {vendor_mnemonic: [float, ...]}
+            dcc.Store(id="raw-las-data", storage_type="session"),
             _make_sidebar(COLORS, __version__),
             html.Div(id="page-content", className="main-content"),
             # Status bar

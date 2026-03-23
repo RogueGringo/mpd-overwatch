@@ -8,6 +8,8 @@ for the file manager landing page (drag-drop upload + well header preview).
 
 from __future__ import annotations
 
+import base64
+import io
 import logging
 from pathlib import Path
 from typing import Any, Dict, List
@@ -194,5 +196,212 @@ def file_manager_layout():
                     )
                 ],
             ),
+
+            # Hidden div for navigation trigger
+            html.Div(id="file-upload-status", style={"display": "none"}),
         ],
     )
+
+
+# ---------------------------------------------------------------------------
+# Header card renderer
+# ---------------------------------------------------------------------------
+
+def _render_header_card(info: Dict[str, Any], filename: str) -> List:
+    """Build Dash components for the well header preview card."""
+    from dash import dcc, html
+    from mpd_overwatch.config import COLORS
+
+    label_style = {
+        "color": COLORS["text_muted"],
+        "fontSize": "12px",
+        "fontWeight": "600",
+        "padding": "4px 12px 4px 0",
+        "whiteSpace": "nowrap",
+        "verticalAlign": "top",
+    }
+    value_style = {
+        "color": COLORS["text"],
+        "fontSize": "13px",
+        "padding": "4px 0",
+        "fontFamily": "Consolas, monospace",
+    }
+
+    rows_data = [
+        ("Well", info.get("well_name", "")),
+        ("Company", info.get("company", "")),
+        ("Service Co.", info.get("service_company", "")),
+        ("Field", info.get("field", "")),
+        ("API / UWI", info.get("api", "")),
+        ("Depth Range", f"{info.get('start', '?')} → {info.get('stop', '?')}"),
+        ("Channels", str(info.get("curve_count", 0))),
+        ("Data Points", str(info.get("row_count", 0)) if not info.get("header_only") else "Header only (data unreadable)"),
+    ]
+
+    table_rows = []
+    for label, value in rows_data:
+        if not value:
+            continue
+        table_rows.append(
+            html.Tr([
+                html.Td(label, style=label_style),
+                html.Td(value, style=value_style),
+            ])
+        )
+
+    children = [
+        html.H3(
+            f"File loaded: {filename}",
+            style={"color": COLORS["success"], "fontSize": "16px", "marginBottom": "12px"},
+        ),
+        html.Table(
+            table_rows,
+            style={"borderCollapse": "collapse", "width": "100%", "marginBottom": "16px"},
+        ),
+    ]
+
+    if info.get("header_only"):
+        children.append(
+            html.P(
+                "Data columns could not be parsed (LAS 3.0 format issue). "
+                "Channel headers are available for review but curve data cannot be loaded.",
+                style={"color": COLORS["warning"], "fontSize": "12px", "marginTop": "8px"},
+            )
+        )
+    else:
+        children.append(
+            dcc.Link(
+                "Proceed to Channel Selection →",
+                href="/channels",
+                style={
+                    "display": "inline-block",
+                    "marginTop": "8px",
+                    "padding": "8px 20px",
+                    "backgroundColor": COLORS["primary"],
+                    "color": COLORS["background"],
+                    "borderRadius": "4px",
+                    "fontWeight": "600",
+                    "textDecoration": "none",
+                    "fontSize": "13px",
+                },
+            )
+        )
+
+    return children
+
+
+def _error_card(filename: str, error: str) -> List:
+    """Build an error display for failed file parsing."""
+    from dash import html
+    from mpd_overwatch.config import COLORS
+
+    return [
+        html.H3(
+            f"Error reading: {filename}",
+            style={"color": COLORS["danger"], "fontSize": "16px", "marginBottom": "8px"},
+        ),
+        html.Pre(
+            error,
+            style={
+                "color": COLORS["text_muted"],
+                "fontSize": "12px",
+                "fontFamily": "Consolas, monospace",
+                "whiteSpace": "pre-wrap",
+            },
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Dash callbacks
+# ---------------------------------------------------------------------------
+
+def register_file_manager_callbacks(app):
+    """Register callbacks for LAS file upload and header display."""
+    from dash import Output, Input, State, no_update
+    from dash.exceptions import PreventUpdate
+
+    @app.callback(
+        Output("well-header-card", "children"),
+        Output("app-state", "data"),
+        Output("raw-las-data", "data"),
+        Input("upload-las-file", "contents"),
+        State("upload-las-file", "filename"),
+        prevent_initial_call=True,
+    )
+    def on_file_upload(contents, filename):
+        if not contents:
+            raise PreventUpdate
+
+        import lasio
+        import math
+
+        # Decode base64 content from dcc.Upload
+        _, content_string = contents.split(",", 1)
+        decoded = base64.b64decode(content_string)
+        text = decoded.decode("utf-8", errors="replace")
+
+        # Parse LAS file
+        header_only = False
+        try:
+            las = lasio.read(io.StringIO(text))
+        except Exception:
+            try:
+                las = lasio.read(io.StringIO(text), ignore_data=True)
+                header_only = True
+            except Exception as exc:
+                return _error_card(filename, str(exc)), no_update, no_update
+
+        # Header extraction helper
+        def hdr(key, default=""):
+            try:
+                v = las.well[key].value
+                return str(v).strip() if v else default
+            except (KeyError, IndexError, AttributeError):
+                return default
+
+        curve_names = [c.mnemonic for c in las.curves]
+        curve_units = {c.mnemonic: str(c.unit).strip() for c in las.curves}
+        well_name = hdr("WELL") or Path(filename).stem
+
+        # Extract curve data (replace NaN with null for JSON)
+        raw_data: Dict[str, List] = {}
+        row_count = 0
+        if not header_only:
+            for curve in las.curves:
+                if hasattr(curve, "data") and curve.data is not None and len(curve.data) > 0:
+                    data_list = []
+                    for v in curve.data:
+                        if math.isnan(v) or math.isinf(v):
+                            data_list.append(None)
+                        else:
+                            data_list.append(float(v))
+                    raw_data[curve.mnemonic] = data_list
+                    row_count = max(row_count, len(curve.data))
+
+        header_info = {
+            "well_name": well_name,
+            "company": hdr("COMP"),
+            "service_company": hdr("SRVC"),
+            "field": hdr("FLD"),
+            "api": hdr("API") or hdr("UWI"),
+            "start": hdr("STRT"),
+            "stop": hdr("STOP"),
+            "curve_count": len(curve_names),
+            "row_count": row_count,
+            "header_only": header_only,
+        }
+
+        card = _render_header_card(header_info, filename)
+
+        app_state = {
+            "stage": "channel_select",
+            "filename": filename,
+            "well_name": well_name,
+            "curve_names": curve_names,
+            "curve_units": curve_units,
+            "has_data": len(raw_data) > 0,
+            "row_count": row_count,
+        }
+
+        return card, app_state, raw_data
