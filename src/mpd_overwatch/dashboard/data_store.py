@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 _RECENT_DIR = Path.home() / ".mpd-overwatch"
 _RECENT_FILE = _RECENT_DIR / "recent_files.json"
+_MAPPINGS_FILE = _RECENT_DIR / "channel_mappings.json"
 _MAX_RECENT = 20
 
 # ---- module-level cache (lives for the server process lifetime) -----------
@@ -34,6 +35,7 @@ _channel_data: Dict[str, np.ndarray] = {}
 _header_info: Dict[str, Any] = {}
 _curve_names: List[str] = []
 _curve_units: Dict[str, str] = {}
+_curve_descriptions: Dict[str, str] = {}
 _header_only: bool = False
 
 
@@ -85,6 +87,11 @@ def load_file(filepath: str) -> Dict[str, Any]:
                 except (KeyError, IndexError, AttributeError):
                     return default
 
+            curve_descriptions = {
+                c.mnemonic: str(c.descr).strip() if hasattr(c, "descr") and c.descr else ""
+                for c in las.curves
+            }
+
             return _cache_result(
                 filepath=filepath,
                 well_name=hdr("WELL") or Path(filepath).stem,
@@ -92,6 +99,7 @@ def load_file(filepath: str) -> Dict[str, Any]:
                 field=hdr("FLD"), api=hdr("API") or hdr("UWI"),
                 start=hdr("STRT"), stop=hdr("STOP"),
                 curve_names=curve_names, curve_units=curve_units,
+                curve_descriptions=curve_descriptions,
                 channel_data=channel_data, row_count=row_count,
             )
     except Exception as exc:
@@ -117,6 +125,11 @@ def _cache_from_lasio(las: Any, filepath: str, header_only: bool) -> Dict[str, A
 
     curve_names = [c.mnemonic for c in las.curves]
     curve_units = {c.mnemonic: str(c.unit).strip() for c in las.curves}
+    # lasio stores the ~C description in curve.descr
+    curve_descriptions = {
+        c.mnemonic: str(c.descr).strip() if hasattr(c, "descr") and c.descr else ""
+        for c in las.curves
+    }
 
     channel_data: Dict[str, np.ndarray] = {}
     row_count = 0
@@ -133,16 +146,20 @@ def _cache_from_lasio(las: Any, filepath: str, header_only: bool) -> Dict[str, A
         field=hdr("FLD"), api=hdr("API") or hdr("UWI"),
         start=hdr("STRT"), stop=hdr("STOP"),
         curve_names=curve_names, curve_units=curve_units,
+        curve_descriptions=curve_descriptions,
         channel_data=channel_data, row_count=row_count,
     )
 
 
 def _cache_result(*, filepath, well_name, company, service_company,
                   field, api, start, stop, curve_names, curve_units,
-                  channel_data, row_count) -> Dict[str, Any]:
+                  curve_descriptions=None, channel_data, row_count) -> Dict[str, Any]:
     """Store parsed data in the module cache and return header info."""
     global _file_path, _channel_data, _header_info
-    global _curve_names, _curve_units, _header_only
+    global _curve_names, _curve_units, _curve_descriptions, _header_only
+
+    if curve_descriptions is None:
+        curve_descriptions = {}
 
     header_only = len(channel_data) == 0
     header_info = {
@@ -156,6 +173,7 @@ def _cache_result(*, filepath, well_name, company, service_company,
         "curve_count": len(curve_names),
         "curve_names": curve_names,
         "curve_units": curve_units,
+        "curve_descriptions": curve_descriptions,
         "row_count": row_count,
         "header_only": header_only,
         "filepath": filepath,
@@ -167,6 +185,7 @@ def _cache_result(*, filepath, well_name, company, service_company,
     _header_info = header_info
     _curve_names = curve_names
     _curve_units = curve_units
+    _curve_descriptions = curve_descriptions
     _header_only = header_only
 
     logger.info(
@@ -207,23 +226,26 @@ def _split_sections(text: str) -> Dict[str, List[str]]:
 
 
 def _parse_curve_section(lines: List[str]) -> tuple:
-    """Parse ~C section lines into (curve_names, curve_units).
+    """Parse ~C section lines into (curve_names, curve_units, descriptions).
 
     Each line: ``MNEMONIC.UNIT  data : description``
+    Handles duplicate mnemonics by appending ``:N`` suffix (same as lasio).
     """
+    import re
+
     names: List[str] = []
     units: Dict[str, str] = {}
+    descriptions: Dict[str, str] = {}
+    name_counts: Dict[str, int] = {}
 
     for line in lines:
-        # Standard LAS format: MNEMONIC.UNIT  value : description
-        # Split on first period to get mnemonic and the rest
         dot_pos = line.find(".")
         if dot_pos < 0:
             continue
-        mnemonic = line[:dot_pos].strip()
+        raw_mnemonic = line[:dot_pos].strip()
         rest = line[dot_pos + 1:]
 
-        # Unit is everything before the first whitespace or colon in rest
+        # Unit is non-space chars immediately after the dot
         unit = ""
         for i, ch in enumerate(rest):
             if ch in (" ", "\t", ":"):
@@ -232,11 +254,37 @@ def _parse_curve_section(lines: List[str]) -> tuple:
         else:
             unit = rest.strip()
 
-        if mnemonic:
-            names.append(mnemonic)
-            units[mnemonic] = unit
+        # Description is everything after the colon separator
+        # Use the same whitespace-aware colon detection as well section
+        desc = ""
+        m = re.search(r"\s{2,}:", rest)
+        if m:
+            desc = rest[m.end():].strip()
+        else:
+            colon_pos = rest.find(":")
+            if colon_pos >= 0:
+                desc = rest[colon_pos + 1:].strip()
 
-    return names, units
+        # Strip leading number+period (e.g. "4. Hook Load" -> "Hook Load")
+        desc = re.sub(r"^\d+\.\s*", "", desc)
+
+        if not raw_mnemonic:
+            continue
+
+        # Handle duplicate mnemonics with :N suffix
+        mnemonic = raw_mnemonic.upper()
+        if mnemonic in name_counts:
+            name_counts[mnemonic] += 1
+            unique_name = f"{mnemonic}:{name_counts[mnemonic]}"
+        else:
+            name_counts[mnemonic] = 1
+            unique_name = mnemonic
+
+        names.append(unique_name)
+        units[unique_name] = unit
+        descriptions[unique_name] = desc
+
+    return names, units, descriptions
 
 
 def _parse_well_section(lines: List[str]) -> Dict[str, str]:
@@ -354,7 +402,7 @@ def _parse_raw_las(text: str, filepath: str) -> Dict[str, Any]:
     if not curve_lines:
         raise ValueError("No ~C (curve) section found in file")
 
-    curve_names, curve_units = _parse_curve_section(curve_lines)
+    curve_names, curve_units, curve_descriptions = _parse_curve_section(curve_lines)
     if not curve_names:
         raise ValueError("No curves defined in ~C section")
 
@@ -380,6 +428,7 @@ def _parse_raw_las(text: str, filepath: str) -> Dict[str, Any]:
         stop=well.get("STOP", ""),
         curve_names=curve_names,
         curve_units=curve_units,
+        curve_descriptions=curve_descriptions,
         channel_data=channel_data,
         row_count=row_count,
     )
@@ -438,15 +487,69 @@ def build_selected_channel_map(selections: List[Dict]) -> Dict[str, np.ndarray]:
     return channel_map
 
 
+def get_curve_descriptions() -> Dict[str, str]:
+    """Return curve descriptions from the loaded file's ~C section."""
+    return _curve_descriptions
+
+
+# ---- user channel mappings persistence ------------------------------------
+
+def load_user_mappings() -> Dict[str, Dict[str, str]]:
+    """Load saved user channel mappings from disk.
+
+    Returns dict keyed by mapping profile name, each value is a dict of
+    ``{vendor_mnemonic: canonical_name}``.
+    """
+    try:
+        if _MAPPINGS_FILE.exists():
+            return json.loads(_MAPPINGS_FILE.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.debug("Could not read channel mappings: %s", exc)
+    return {}
+
+
+def save_user_mappings(profile_name: str, mappings: Dict[str, str]):
+    """Save a named channel mapping profile to disk.
+
+    Parameters
+    ----------
+    profile_name : str
+        User-chosen label for this mapping (e.g. "CLIENT3 561ch").
+    mappings : dict
+        ``{vendor_mnemonic: canonical_name}`` for user-assigned channels.
+    """
+    all_profiles = load_user_mappings()
+    all_profiles[profile_name] = mappings
+    try:
+        _RECENT_DIR.mkdir(parents=True, exist_ok=True)
+        _MAPPINGS_FILE.write_text(json.dumps(all_profiles, indent=2))
+        logger.info("Saved channel mapping profile '%s' (%d mappings)",
+                     profile_name, len(mappings))
+    except OSError as exc:
+        logger.warning("Could not write channel mappings: %s", exc)
+
+
+def delete_user_mapping(profile_name: str):
+    """Remove a saved mapping profile."""
+    all_profiles = load_user_mappings()
+    if profile_name in all_profiles:
+        del all_profiles[profile_name]
+        try:
+            _MAPPINGS_FILE.write_text(json.dumps(all_profiles, indent=2))
+        except OSError as exc:
+            logger.debug("Could not write channel mappings: %s", exc)
+
+
 def clear():
     """Clear all cached data."""
     global _file_path, _channel_data, _header_info
-    global _curve_names, _curve_units, _header_only
+    global _curve_names, _curve_units, _curve_descriptions, _header_only
     _file_path = None
     _channel_data = {}
     _header_info = {}
     _curve_names = []
     _curve_units = {}
+    _curve_descriptions = {}
     _header_only = False
 
 
