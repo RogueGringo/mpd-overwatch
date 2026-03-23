@@ -623,34 +623,25 @@ def register_channel_selector_callbacks(app):
         return rows, budget_text, store
 
     @app.callback(
-        Output("channel-map", "data"),
         Output("app-state", "data", allow_duplicate=True),
         Output("confirm-status", "children"),
         Input("confirm-channels-btn", "n_clicks"),
         State("channel-selector-store", "data"),
-        State("raw-las-data", "data"),
         State("app-state", "data"),
         prevent_initial_call=True,
     )
-    def confirm_selection(n_clicks, store_data, raw_data, app_state):
+    def confirm_selection(n_clicks, store_data, app_state):
         if not n_clicks or not store_data:
             raise PreventUpdate
 
         from dash import dcc, html
+        from mpd_overwatch.dashboard.data_store import build_selected_channel_map
 
-        # Build channel map from selected channels
-        selected_channels = {}
-        for ch in store_data:
-            if not ch.get("selected"):
-                continue
-            canonical = ch.get("canonical")
-            vendor = ch["vendor_mnemonic"]
-            if canonical and raw_data and vendor in raw_data:
-                selected_channels[canonical] = raw_data[vendor]
+        # Build channel map from server-side cached data (no browser round-trip)
+        channel_map = build_selected_channel_map(store_data)
 
-        if not selected_channels:
+        if not channel_map:
             return (
-                no_update,
                 no_update,
                 html.Span(
                     "No channels with data selected. Select channels with data available.",
@@ -661,14 +652,15 @@ def register_channel_selector_callbacks(app):
         # Update app state to analysis stage
         updated_state = dict(app_state) if app_state else {}
         updated_state["stage"] = "analysis"
+        updated_state["selected_channels"] = list(channel_map.keys())
 
         status = html.Div([
             html.Span(
-                f"{len(selected_channels)} channels loaded. ",
+                f"{len(channel_map)} channels loaded. ",
                 style={"color": COLORS["success"], "fontSize": "13px", "fontWeight": "600"},
             ),
             dcc.Link(
-                "Go to Well Overview →",
+                "Go to Well Overview",
                 href="/well-overview",
                 style={
                     "color": COLORS["primary"],
@@ -679,4 +671,4 @@ def register_channel_selector_callbacks(app):
             ),
         ])
 
-        return selected_channels, updated_state, status
+        return updated_state, status

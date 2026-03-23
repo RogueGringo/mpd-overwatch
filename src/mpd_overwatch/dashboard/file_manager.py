@@ -2,8 +2,9 @@
 MPD Overwatch — File Manager Page
 ===================================
 
-Provides LAS file header parsing, index-type detection, and a Dash layout
-for the file manager landing page (drag-drop upload + well header preview).
+LAS file loading via file path (primary) or drag-drop upload (secondary).
+Data is read server-side and cached in data_store — never serialized to
+the browser.  Same read path as the CLI ``report`` and ``analyze`` commands.
 """
 
 from __future__ import annotations
@@ -11,35 +12,20 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
-# LAS header parsing
+# LAS header parsing (standalone, used by CLI too)
 # ---------------------------------------------------------------------------
 
 def parse_las_header(filepath: str) -> Dict[str, Any]:
-    """Parse a LAS file and return a summary of its header information.
-
-    Uses ``lasio`` for robust parsing of both LAS 2.0 and LAS 3.0 files.
-    If the file has data that ``lasio`` cannot reshape (e.g. malformed LAS 3.0
-    column counts), falls back to a header-only read via ``ignore_data=True``.
-
-    Parameters
-    ----------
-    filepath : str
-        Path to the .las file.
-
-    Returns
-    -------
-    dict with keys:
-        ``well_name``, ``company``, ``service_company``, ``field_name``,
-        ``api``, ``curve_count``, ``curve_names``, ``curve_units``,
-        ``start``, ``stop``, ``start_unit``, ``null_value``.
-    """
-    import lasio  # local import — optional dependency
+    """Parse a LAS file and return a summary of its header information."""
+    import lasio
 
     las = _read_las(lasio, filepath)
 
@@ -62,7 +48,6 @@ def parse_las_header(filepath: str) -> Dict[str, Any]:
     curve_names: List[str] = [c.mnemonic for c in las.curves]
     curve_units: Dict[str, str] = {c.mnemonic: str(c.unit).strip() for c in las.curves}
 
-    # NULL value — stored as float in lasio but the header item value may be str
     try:
         null_val: Any = las.well["NULL"].value
         null_value = float(null_val)
@@ -94,8 +79,7 @@ def _read_las(lasio_module: Any, filepath: str) -> Any:
     except Exception as exc:  # noqa: BLE001
         logger.debug(
             "lasio full read failed for %s (%s) — retrying with ignore_data=True",
-            filepath,
-            exc,
+            filepath, exc,
         )
         try:
             return lasio_module.read(filepath, ignore_data=True)
@@ -113,23 +97,12 @@ _TIME_UNITS = {"s", "sec", "min", "hr", "h", "ms", "seconds", "minutes", "hours"
 
 
 def detect_index_type(header_info: Dict[str, Any]) -> str:
-    """Determine whether a LAS file is depth-indexed or time-indexed.
-
-    Parameters
-    ----------
-    header_info : dict
-        As returned by :func:`parse_las_header`.
-
-    Returns
-    -------
-    ``"depth"`` or ``"time"``.
-    """
+    """Determine whether a LAS file is depth-indexed or time-indexed."""
     unit = str(header_info.get("start_unit", "")).strip().lower()
     if unit in _TIME_UNITS:
         return "time"
     if unit in _DEPTH_UNITS:
         return "depth"
-    # Ambiguous or empty — default to depth
     return "depth"
 
 
@@ -140,12 +113,11 @@ def detect_index_type(header_info: Dict[str, Any]) -> str:
 def file_manager_layout():
     """Return the Dash layout for the File Manager page.
 
-    Includes:
-    - A ``dcc.Upload`` drag-drop zone for LAS files.
-    - A container for recent files list.
-    - A container for well header preview card.
+    Primary: file path text input + Load button (reads directly from disk).
+    Secondary: dcc.Upload drag-drop (decoded and written to temp, then same path).
     """
     from dash import dcc, html
+    from mpd_overwatch.config import COLORS
 
     return html.Div(
         className="file-manager-page",
@@ -156,33 +128,90 @@ def file_manager_layout():
                 className="page-subtitle",
             ),
 
-            # Drag-drop upload zone
-            dcc.Upload(
-                id="upload-las-file",
-                children=html.Div(
-                    [
-                        html.Span("Drag & Drop", className="drop-label-primary"),
-                        html.Span(" or ", className="drop-label-or"),
-                        html.Span("Browse Files", className="drop-label-link"),
-                        html.Br(),
-                        html.Span(
-                            "Supports LAS 2.0 and LAS 3.0 (.las)",
-                            className="drop-label-hint",
-                        ),
-                    ]
-                ),
-                className="file-drop-zone",
-                multiple=False,
-                accept=".las,.LAS",
+            # ---- PRIMARY: file path input ----
+            html.Div(
+                className="file-path-section",
+                style={"marginBottom": "20px"},
+                children=[
+                    html.Label(
+                        "File Path",
+                        style={
+                            "color": COLORS["text_muted"],
+                            "fontSize": "12px",
+                            "fontWeight": "600",
+                            "marginBottom": "4px",
+                            "display": "block",
+                        },
+                    ),
+                    html.Div(
+                        style={"display": "flex", "gap": "8px", "alignItems": "center"},
+                        children=[
+                            dcc.Input(
+                                id="file-path-input",
+                                type="text",
+                                placeholder="C:\\path\\to\\well_data.las",
+                                debounce=True,
+                                style={
+                                    "flex": "1",
+                                    "padding": "8px 12px",
+                                    "backgroundColor": COLORS["card"],
+                                    "border": f"1px solid {COLORS['card_border']}",
+                                    "borderRadius": "4px",
+                                    "color": COLORS["text"],
+                                    "fontFamily": "Consolas, monospace",
+                                    "fontSize": "13px",
+                                },
+                            ),
+                            html.Button(
+                                "Load",
+                                id="load-file-btn",
+                                n_clicks=0,
+                                style={
+                                    "padding": "8px 20px",
+                                    "backgroundColor": COLORS["primary"],
+                                    "color": COLORS["background"],
+                                    "border": "none",
+                                    "borderRadius": "4px",
+                                    "fontWeight": "600",
+                                    "fontSize": "13px",
+                                    "cursor": "pointer",
+                                },
+                            ),
+                        ],
+                    ),
+                ],
             ),
 
-            # Recent files list
-            html.Div(
-                [
-                    html.H3("Recent Files", className="section-heading"),
-                    html.Div(id="recent-files-list", className="recent-files-list"),
+            # ---- SECONDARY: drag-drop upload ----
+            html.Details(
+                style={"marginBottom": "20px"},
+                children=[
+                    html.Summary(
+                        "Or drag & drop a file",
+                        style={
+                            "color": COLORS["text_dim"],
+                            "fontSize": "12px",
+                            "cursor": "pointer",
+                        },
+                    ),
+                    dcc.Upload(
+                        id="upload-las-file",
+                        children=html.Div(
+                            [
+                                html.Span("Drop LAS file here", className="drop-label-primary"),
+                                html.Br(),
+                                html.Span(
+                                    "Supports LAS 2.0 and LAS 3.0 (.las)",
+                                    className="drop-label-hint",
+                                ),
+                            ]
+                        ),
+                        className="file-drop-zone",
+                        style={"marginTop": "8px"},
+                        multiple=False,
+                        accept=".las,.LAS",
+                    ),
                 ],
-                className="recent-files-section",
             ),
 
             # Well header preview card
@@ -191,14 +220,11 @@ def file_manager_layout():
                 className="well-header-card",
                 children=[
                     html.P(
-                        "No file loaded — upload a LAS file above.",
+                        "No file loaded.",
                         className="card-placeholder",
                     )
                 ],
             ),
-
-            # Hidden div for navigation trigger
-            html.Div(id="file-upload-status", style={"display": "none"}),
         ],
     )
 
@@ -207,7 +233,7 @@ def file_manager_layout():
 # Header card renderer
 # ---------------------------------------------------------------------------
 
-def _render_header_card(info: Dict[str, Any], filename: str) -> List:
+def _render_header_card(info: Dict[str, Any]) -> List:
     """Build Dash components for the well header preview card."""
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
@@ -227,15 +253,18 @@ def _render_header_card(info: Dict[str, Any], filename: str) -> List:
         "fontFamily": "Consolas, monospace",
     }
 
+    data_status = "Header only (data unreadable)" if info.get("header_only") else str(info.get("row_count", 0))
+
     rows_data = [
         ("Well", info.get("well_name", "")),
         ("Company", info.get("company", "")),
         ("Service Co.", info.get("service_company", "")),
         ("Field", info.get("field", "")),
         ("API / UWI", info.get("api", "")),
-        ("Depth Range", f"{info.get('start', '?')} → {info.get('stop', '?')}"),
+        ("Depth Range", f"{info.get('start', '?')} -- {info.get('stop', '?')}"),
         ("Channels", str(info.get("curve_count", 0))),
-        ("Data Points", str(info.get("row_count", 0)) if not info.get("header_only") else "Header only (data unreadable)"),
+        ("Data Points", data_status),
+        ("File", info.get("filepath", "")),
     ]
 
     table_rows = []
@@ -251,7 +280,7 @@ def _render_header_card(info: Dict[str, Any], filename: str) -> List:
 
     children = [
         html.H3(
-            f"File loaded: {filename}",
+            info.get("filename", "File loaded"),
             style={"color": COLORS["success"], "fontSize": "16px", "marginBottom": "12px"},
         ),
         html.Table(
@@ -264,14 +293,14 @@ def _render_header_card(info: Dict[str, Any], filename: str) -> List:
         children.append(
             html.P(
                 "Data columns could not be parsed (LAS 3.0 format issue). "
-                "Channel headers are available for review but curve data cannot be loaded.",
+                "Channel headers are available but curve data cannot be loaded.",
                 style={"color": COLORS["warning"], "fontSize": "12px", "marginTop": "8px"},
             )
         )
     else:
         children.append(
             dcc.Link(
-                "Proceed to Channel Selection →",
+                "Proceed to Channel Selection",
                 href="/channels",
                 style={
                     "display": "inline-block",
@@ -317,14 +346,53 @@ def _error_card(filename: str, error: str) -> List:
 # ---------------------------------------------------------------------------
 
 def register_file_manager_callbacks(app):
-    """Register callbacks for LAS file upload and header display."""
-    from dash import Output, Input, State, no_update
+    """Register callbacks for file loading (path input and drag-drop upload)."""
+    from dash import Input, Output, State, no_update
     from dash.exceptions import PreventUpdate
+    from mpd_overwatch.dashboard.data_store import load_file
 
+    # ---- PRIMARY: load from file path ----
     @app.callback(
         Output("well-header-card", "children"),
         Output("app-state", "data"),
-        Output("raw-las-data", "data"),
+        Input("load-file-btn", "n_clicks"),
+        State("file-path-input", "value"),
+        prevent_initial_call=True,
+    )
+    def on_load_from_path(n_clicks, filepath):
+        if not n_clicks or not filepath:
+            raise PreventUpdate
+
+        filepath = filepath.strip().strip('"').strip("'")
+        p = Path(filepath)
+
+        if not p.exists():
+            return _error_card(p.name, f"File not found: {filepath}"), no_update
+        if not p.suffix.lower() == ".las":
+            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update
+
+        try:
+            header_info = load_file(filepath)
+        except Exception as exc:
+            return _error_card(p.name, str(exc)), no_update
+
+        card = _render_header_card(header_info)
+        app_state = {
+            "stage": "channel_select",
+            "filename": header_info["filename"],
+            "filepath": header_info["filepath"],
+            "well_name": header_info["well_name"],
+            "curve_names": header_info["curve_names"],
+            "curve_units": header_info["curve_units"],
+            "has_data": not header_info["header_only"],
+            "row_count": header_info["row_count"],
+        }
+        return card, app_state
+
+    # ---- SECONDARY: load from drag-drop upload ----
+    @app.callback(
+        Output("well-header-card", "children", allow_duplicate=True),
+        Output("app-state", "data", allow_duplicate=True),
         Input("upload-las-file", "contents"),
         State("upload-las-file", "filename"),
         prevent_initial_call=True,
@@ -333,75 +401,29 @@ def register_file_manager_callbacks(app):
         if not contents:
             raise PreventUpdate
 
-        import lasio
-        import math
-
-        # Decode base64 content from dcc.Upload
+        # Decode base64 content from browser, write to temp file, then
+        # use the same file-path pipeline as the CLI.
         _, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
         text = decoded.decode("utf-8", errors="replace")
 
-        # Parse LAS file
-        header_only = False
+        tmp = Path(tempfile.gettempdir()) / f"mpd_upload_{filename}"
+        tmp.write_text(text, encoding="utf-8")
+
         try:
-            las = lasio.read(io.StringIO(text))
-        except Exception:
-            try:
-                las = lasio.read(io.StringIO(text), ignore_data=True)
-                header_only = True
-            except Exception as exc:
-                return _error_card(filename, str(exc)), no_update, no_update
+            header_info = load_file(str(tmp))
+        except Exception as exc:
+            return _error_card(filename, str(exc)), no_update
 
-        # Header extraction helper
-        def hdr(key, default=""):
-            try:
-                v = las.well[key].value
-                return str(v).strip() if v else default
-            except (KeyError, IndexError, AttributeError):
-                return default
-
-        curve_names = [c.mnemonic for c in las.curves]
-        curve_units = {c.mnemonic: str(c.unit).strip() for c in las.curves}
-        well_name = hdr("WELL") or Path(filename).stem
-
-        # Extract curve data (replace NaN with null for JSON)
-        raw_data: Dict[str, List] = {}
-        row_count = 0
-        if not header_only:
-            for curve in las.curves:
-                if hasattr(curve, "data") and curve.data is not None and len(curve.data) > 0:
-                    data_list = []
-                    for v in curve.data:
-                        if math.isnan(v) or math.isinf(v):
-                            data_list.append(None)
-                        else:
-                            data_list.append(float(v))
-                    raw_data[curve.mnemonic] = data_list
-                    row_count = max(row_count, len(curve.data))
-
-        header_info = {
-            "well_name": well_name,
-            "company": hdr("COMP"),
-            "service_company": hdr("SRVC"),
-            "field": hdr("FLD"),
-            "api": hdr("API") or hdr("UWI"),
-            "start": hdr("STRT"),
-            "stop": hdr("STOP"),
-            "curve_count": len(curve_names),
-            "row_count": row_count,
-            "header_only": header_only,
-        }
-
-        card = _render_header_card(header_info, filename)
-
+        card = _render_header_card(header_info)
         app_state = {
             "stage": "channel_select",
             "filename": filename,
-            "well_name": well_name,
-            "curve_names": curve_names,
-            "curve_units": curve_units,
-            "has_data": len(raw_data) > 0,
-            "row_count": row_count,
+            "filepath": header_info["filepath"],
+            "well_name": header_info["well_name"],
+            "curve_names": header_info["curve_names"],
+            "curve_units": header_info["curve_units"],
+            "has_data": not header_info["header_only"],
+            "row_count": header_info["row_count"],
         }
-
-        return card, app_state, raw_data
+        return card, app_state

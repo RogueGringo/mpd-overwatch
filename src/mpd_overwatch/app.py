@@ -365,10 +365,9 @@ def create_app() -> dash.Dash:
             dcc.Location(id="url", refresh=False),
             # Persistent workflow state (JSON-serialisable AppState dict)
             dcc.Store(id="app-state", storage_type="session"),
-            # Channel map: {channel_name: [float, ...]}
+            # Channel map metadata (selection list only; actual numpy data
+            # stays server-side in data_store — never serialized to browser).
             dcc.Store(id="channel-map", storage_type="session"),
-            # Raw LAS curve data: {vendor_mnemonic: [float, ...]}
-            dcc.Store(id="raw-las-data", storage_type="session"),
             _make_sidebar(COLORS, __version__),
             html.Div(id="page-content", className="main-content"),
             # Status bar
@@ -412,11 +411,7 @@ def create_app() -> dash.Dash:
         stage = None
         if app_state_data and isinstance(app_state_data, dict):
             stage = app_state_data.get("stage", "file_select")
-        channels_ready = (
-            stage == "analysis"
-            or stage == "report"
-            or (channel_map_data and len(channel_map_data) > 0)
-        )
+        channels_ready = stage in ("analysis", "report")
 
         try:
             # ---- workflow entry pages (always accessible) ---------------
