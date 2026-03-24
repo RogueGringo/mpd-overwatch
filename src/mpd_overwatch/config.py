@@ -92,6 +92,7 @@ MNEMONIC_MAP = {
     "DEPT": "depth_md", "DEPTH": "depth_md", "MD": "depth_md",
     "DMEA": "depth_md", "TDEP": "depth_md",
     "Hole.ft": "depth_md", "Hole": "depth_md",
+    "NOMD": "depth_md",  # Pason nominal depth
     "BDEP": "bit_depth", "HDEP": "hole_depth",
     "TVD": "tvd", "TVDSS": "tvd", "DTVD": "tvd", "TVDE": "tvd",
     "MTTVD": "tvd", "TVD.ft": "tvd",
@@ -102,27 +103,31 @@ MNEMONIC_MAP = {
     "APRS": "apwd", "APWD": "apwd",
     "ECD": "ecd", "ECDA": "ecd",
     "PCAS": "casing_pressure",
-    "Diff.psi": "differential_pressure",
+    "DIFF": "differential_pressure", "Diff.psi": "differential_pressure",
     "CHOKE_PRESS": "choke_pressure", "SBP": "choke_pressure", "ABP": "choke_pressure",
     "BHP": "bhp",
     # ---- Drilling mechanics ----
     "ROP": "rop", "ROP5": "rop", "ROPA": "rop", "MROP": "rop",
     "OBR": "rop", "ROP.FT/HR": "rop",
     "WOB": "wob", "WOBX": "wob", "SWOB": "wob", "Bit.klb": "wob",
+    "BIT": "wob",  # Pason bit weight
     "TQA": "torque", "TRQ": "torque", "TORQUE": "torque", "STOR": "torque",
     "TOR": "torque", "Rota.A": "torque", "Top.ft-lbf": "torque",
+    "ROTA": "rpm",  # Pason rotary (RPM variant; torque variant uses :N suffix)
     "RPM": "rpm", "RPMA": "rpm", "SRPM": "rpm",
     "RPM_P": "rpm", "Rota.RPM": "rpm", "Top.RPM": "rpm",
+    "TOP": "rpm",  # Pason top drive RPM
     "HKLA": "hookload", "HOOKLOAD": "hookload", "HKL": "hookload",
     "HKLD": "hookload", "HKL I": "hookload", "HL": "hookload",
-    "Hook.klb": "hookload",
-    "BPOS": "block_position",
+    "Hook.klb": "hookload", "HOOK": "hookload",  # Pason hookload
+    "BPOS": "block_position", "BLOC": "block_position",  # Pason block
     # ---- Flow ----
     "FLOW": "flow_out_pct", "Flow.%": "flow_out_pct",
     "FLOWIN": "flow_in", "FLOW_IN": "flow_in", "MFIA": "flow_in",
     "TPO": "flow_in", "Flow.galUS/min": "flow_in",
     "FLOWOUT": "flow_out", "FLOW_OUT": "flow_out", "MFOA": "flow_out",
     "Mud.bbl": "mud_volume", "MV": "mud_volume",
+    "MUD": "mud_weight",  # Pason mud weight (lb/galUS variant)
     # ---- MWD / Gamma ray ----
     "GR": "gamma_ray", "GRC": "gamma_ray", "GRC_P": "gamma_ray",
     "GR_EDRC": "gamma_ray", "GR_ARC": "gamma_ray", "SGR": "gamma_ray",
