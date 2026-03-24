@@ -102,7 +102,7 @@ def build_characterization_prompt(
 
 def parse_characterization_response(raw_text: str) -> List[Dict[str, Any]]:
     """Parse LLM response into a list of channel characterizations."""
-    fenced = re.search(r"```(?:json)?\s*\n?(.*?)```", raw_text, re.DOTALL)
+    fenced = re.search(r"```(?:json)?\s*\n?(.*?)\s*```", raw_text, re.DOTALL)
     text = fenced.group(1).strip() if fenced else raw_text.strip()
 
     try:
@@ -206,7 +206,7 @@ def characterize_channels(
             logger.warning("Batch %d failed, marking channels as unknown", i + 1)
             for ch in batch:
                 all_results.append({
-                    "name": ch["name"],
+                    "name": ch.get("name", ""),
                     "physics_domain": "unknown",
                     "index_relationship": "unknown",
                     "mpd_relevance": "contextual",
@@ -219,10 +219,10 @@ def characterize_channels(
         for j, ch in enumerate(batch):
             if j < len(parsed):
                 entry = parsed[j]
-                entry["name"] = ch["name"]
+                entry["name"] = ch.get("name", "")
             else:
                 entry = {
-                    "name": ch["name"],
+                    "name": ch.get("name", ""),
                     "physics_domain": "unknown",
                     "index_relationship": "unknown",
                     "mpd_relevance": "contextual",
