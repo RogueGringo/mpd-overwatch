@@ -5,7 +5,7 @@ A live log panel at the bottom tails engine lifecycle events.
 The page is ungated but "Run" buttons are disabled when no data is loaded.
 """
 
-from dash import html, dcc, callback_context
+from dash import html, dcc
 from dash.dependencies import Input, Output, State, ALL
 
 from mpd_overwatch.dashboard.engine_registry import (
@@ -296,7 +296,6 @@ def _build_log_panel() -> html.Div:
                     "fontSize": "11px",
                     "fontFamily": "monospace",
                     "padding": "2px 0",
-                    "color": "#94a3b8",
                 },
             )
         )
@@ -359,8 +358,6 @@ def engines_layout() -> html.Div:
             _build_header(statuses),
             grid,
             _build_log_panel(),
-            # Session store for UI state (expand/collapse tracking)
-            dcc.Store(id="engine-ui-state", storage_type="session"),
         ],
         style={"padding": "20px"},
     )
@@ -369,7 +366,7 @@ def engines_layout() -> html.Div:
 def register_engines_callbacks(app):
     """Register pattern-matching callbacks for expand/collapse behavior.
 
-    Clicking an engine card toggles visibility of its detail panel.
+    Accordion pattern: only one card expanded at a time.
     """
 
     @app.callback(
@@ -379,49 +376,29 @@ def register_engines_callbacks(app):
         prevent_initial_call=True,
     )
     def toggle_engine_detail(n_clicks_list, current_styles):
-        """Toggle the detail panel for the clicked engine card."""
+        """Toggle the detail panel for the clicked engine card (accordion)."""
         ctx = callback_context
-        if not ctx.triggered:
+        if not ctx.triggered_id:
             return current_styles
 
-        # Determine which card was clicked
-        triggered_id = ctx.triggered[0]["prop_id"]
+        clicked_index = ctx.triggered_id["index"]
 
-        # Parse the index from the triggered ID
-        # Format: '{"index":N,"type":"engine-card"}.n_clicks'
-        import json
-        try:
-            id_str = triggered_id.rsplit(".", 1)[0]
-            id_dict = json.loads(id_str)
-            clicked_index = id_dict["index"]
-        except (ValueError, KeyError, json.JSONDecodeError):
-            return current_styles
-
-        # Toggle the corresponding detail panel
+        # Accordion: toggle clicked, collapse all others
         new_styles = []
-        for i, style in enumerate(current_styles):
+        for style in current_styles:
             if style is None:
                 style = {}
-            # The detail panels are matched in the same order as cards
-            # We need to check if this panel corresponds to the clicked card
-            # ALL pattern-matching returns items in sorted order by index
-            # Both card and detail have the same index values
-            new_style = dict(style)
-            # The i-th detail panel corresponds to the i-th card
-            # We find which position the clicked_index is at
-            if i == _find_position(clicked_index):
-                if new_style.get("display") == "none":
-                    new_style["display"] = "block"
+            new_styles.append(dict(style))
+
+        for i, engine in enumerate(ENGINE_REGISTRY):
+            if engine["id"] == clicked_index:
+                # Toggle this one
+                if new_styles[i].get("display") == "none":
+                    new_styles[i]["display"] = "block"
                 else:
-                    new_style["display"] = "none"
-            new_styles.append(new_style)
+                    new_styles[i]["display"] = "none"
+            else:
+                # Collapse all others
+                new_styles[i]["display"] = "none"
 
         return new_styles
-
-
-def _find_position(engine_id: int) -> int:
-    """Find the position index of an engine in ENGINE_REGISTRY by ID."""
-    for i, engine in enumerate(ENGINE_REGISTRY):
-        if engine["id"] == engine_id:
-            return i
-    return -1
