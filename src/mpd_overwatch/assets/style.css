@@ -400,6 +400,370 @@ code, pre, .mono, .kpi-value, td, th {
     .kpi-row { flex-direction: column; }
 }
 
+/* ============================================================
+   BHOverwatch v0.1bl — Landing, Engines, Capabilities, Nav
+   ============================================================ */
+
+/* Full-width mode (landing page — no sidebar) */
+.main-content--full-width {
+    margin-left: 0 !important;
+    padding: 0 !important;
+}
+
+/* Landing Page */
+.landing-hero {
+    text-align: center;
+    padding: 48px 32px 32px;
+    border-bottom: 1px solid #1e2d4a;
+}
+
+.landing-hero__title {
+    color: #00d4ff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    font-family: 'Inter', sans-serif;
+    margin: 0 0 4px 0;
+}
+
+.landing-hero__subtitle {
+    color: #4a5568;
+    font-size: 11px;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+}
+
+.landing-badges {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.landing-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.landing-badge--cyan { background: rgba(0,212,255,0.1); color: #00d4ff; border: 1px solid rgba(0,212,255,0.2); }
+.landing-badge--green { background: rgba(0,255,136,0.1); color: #00ff88; border: 1px solid rgba(0,255,136,0.2); }
+.landing-badge--purple { background: rgba(192,132,252,0.1); color: #c084fc; border: 1px solid rgba(192,132,252,0.2); }
+.landing-badge--gold { background: rgba(255,215,0,0.1); color: #ffd700; border: 1px solid rgba(255,215,0,0.2); }
+
+.landing-status {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.landing-missions {
+    padding: 32px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.landing-missions__header {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+}
+
+.landing-missions__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.landing-footer {
+    border-top: 1px solid #1e2d4a;
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #4a5568;
+}
+
+/* Mission Cards */
+.mission-card {
+    background: #131a2b;
+    border: 1px solid #1e2d4a;
+    border-radius: 10px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: block;
+}
+
+.mission-card:hover {
+    transform: scale(1.01);
+}
+
+.mission-card--cyan:hover { border-color: rgba(0,212,255,0.5); }
+.mission-card--green:hover { border-color: rgba(0,255,136,0.5); }
+.mission-card--purple:hover { border-color: rgba(192,132,252,0.5); }
+.mission-card--gold:hover { border-color: rgba(255,215,0,0.5); }
+
+.mission-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.mission-card__title {
+    color: #e2e8f0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.mission-card__desc {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.mission-card__dest {
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+/* Engine Cards */
+.engine-card {
+    background: #131a2b;
+    border: 1px solid #1e2d4a;
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.engine-card:hover {
+    border-color: rgba(0,212,255,0.3);
+}
+
+.engine-card--expanded {
+    grid-column: 1 / -1;
+}
+
+.engine-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.engine-card__name {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.engine-card__status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.engine-card__effect {
+    color: #e2e8f0;
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.engine-card__attribution {
+    color: #64748b;
+    font-size: 9px;
+    font-style: italic;
+    margin-bottom: 8px;
+}
+
+.engine-card__tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.engine-detail {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: #131a2b;
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.engine-detail__column {
+    flex: 1;
+}
+
+.engine-detail__heading {
+    font-size: 10px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+/* Engine Log Panel */
+.engine-log {
+    background: #0d1220;
+    border: 1px solid #1e2d4a;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.engine-log__header {
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.engine-log__entry {
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+.engine-log__level--info { color: #00ff88; }
+.engine-log__level--warn { color: #ffd700; }
+.engine-log__level--error { color: #ff4757; }
+.engine-log__level--sys { color: #00d4ff; }
+
+/* Tier Badges */
+.tier-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.tier-badge--classical { background: rgba(0,212,255,0.1); color: #00d4ff; border: 1px solid rgba(0,212,255,0.15); }
+.tier-badge--novel { background: rgba(192,132,252,0.1); color: #c084fc; border: 1px solid rgba(192,132,252,0.15); }
+.tier-badge--infra { background: rgba(255,215,0,0.1); color: #ffd700; border: 1px solid rgba(255,215,0,0.15); }
+
+.vv-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0,255,136,0.1);
+    color: #00ff88;
+}
+
+/* Sidebar Navigation — Gated Links */
+.nav-link--gated {
+    opacity: 0.4;
+    pointer-events: none;
+    position: relative;
+}
+
+.nav-link--gated::after {
+    content: '\1F512';
+    font-size: 8px;
+    margin-left: 6px;
+}
+
+/* Sidebar Section Heading Colors */
+.nav-heading--classical { color: #00d4ff !important; }
+.nav-heading--novel { color: #c084fc !important; }
+.nav-heading--engineering { color: #00ff88 !important; }
+
+/* Status Bar — Full Width Override */
+.status-bar--full-width {
+    left: 0 !important;
+}
+
+/* Role Cards (Capabilities Page) */
+.role-card {
+    background: #131a2b;
+    border: 1px solid #1e2d4a;
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.role-card:hover {
+    border-color: rgba(0,212,255,0.3);
+}
+
+.role-card__name {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.role-card__voice {
+    color: #e2e8f0;
+    font-size: 10px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.role-card__engines {
+    color: #64748b;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Unique Cards (Capabilities Page — What's Unique section) */
+.unique-card {
+    background: #131a2b;
+    border: 1px solid rgba(192,132,252,0.2);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.unique-card__title {
+    color: #c084fc;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.unique-card__summary {
+    color: #e2e8f0;
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.unique-card__detail {
+    color: #64748b;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.unique-card__attribution {
+    color: #4a5568;
+    font-size: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 6px;
+}
+
+/* Responsive — Landing Page */
+@media (max-width: 768px) {
+    .landing-missions__grid { grid-template-columns: 1fr; }
+    .landing-footer { flex-direction: column; gap: 4px; }
+    .landing-badges { flex-direction: column; align-items: center; }
+}
+
 /* Plotly chart overrides */
 .js-plotly-plot .plotly .modebar { opacity: 0; transition: opacity 0.2s; }
 .js-plotly-plot:hover .plotly .modebar { opacity: 0.6; }
