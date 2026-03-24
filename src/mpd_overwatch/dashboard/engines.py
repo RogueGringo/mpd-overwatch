@@ -5,25 +5,16 @@ A live log panel at the bottom tails engine lifecycle events.
 The page is ungated but "Run" buttons are disabled when no data is loaded.
 """
 
-from dash import html, dcc
+from dash import html, dcc, ctx as dash_ctx
 from dash.dependencies import Input, Output, State, ALL
 
 from mpd_overwatch.dashboard.engine_registry import (
     ENGINE_REGISTRY,
     TIER_COLORS,
+    STATUS_COLORS,
     get_all_statuses,
     get_engine_status,
 )
-
-# ---------------------------------------------------------------------------
-# Status dot color mapping
-# ---------------------------------------------------------------------------
-_STATUS_COLORS = {
-    "online": "#00ff88",
-    "error": "#ff4757",
-    "degraded": "#ffd700",
-    "offline": "#4a5568",
-}
 
 
 def _tier_badge(tier: str) -> html.Span:
@@ -63,7 +54,7 @@ def _engine_card(engine: dict, status: str) -> html.Div:
     """Build a single engine card with header, effect, attribution, tags."""
     tier = engine["tier"]
     tier_color = TIER_COLORS.get(tier, "#888")
-    dot_color = _STATUS_COLORS.get(status, _STATUS_COLORS["offline"])
+    dot_color = STATUS_COLORS.get(status, STATUS_COLORS["offline"])
 
     # Header row: display name + status dot
     header = html.Div(
@@ -377,11 +368,10 @@ def register_engines_callbacks(app):
     )
     def toggle_engine_detail(n_clicks_list, current_styles):
         """Toggle the detail panel for the clicked engine card (accordion)."""
-        ctx = callback_context
-        if not ctx.triggered_id:
+        if not dash_ctx.triggered_id:
             return current_styles
 
-        clicked_index = ctx.triggered_id["index"]
+        clicked_index = dash_ctx.triggered_id["index"]
 
         # Accordion: toggle clicked, collapse all others
         new_styles = []

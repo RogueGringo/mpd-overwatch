@@ -9,19 +9,10 @@ from dash import html, dcc
 
 from mpd_overwatch.dashboard.engine_registry import (
     ENGINE_REGISTRY,
+    STATUS_COLORS,
     get_all_statuses,
 )
 from mpd_overwatch import config
-
-# ---------------------------------------------------------------------------
-# Status dot color mapping
-# ---------------------------------------------------------------------------
-_STATUS_COLORS = {
-    "online": "#00ff88",
-    "error": "#ff4757",
-    "degraded": "#ffd700",
-    "offline": "#4a5568",
-}
 
 
 def _build_proof_badges() -> html.Div:
@@ -53,7 +44,7 @@ def _build_engine_status_strip() -> html.Div:
     rows = []
     for engine in ENGINE_REGISTRY:
         status = statuses.get(engine["id"], "offline")
-        dot_color = _STATUS_COLORS.get(status, _STATUS_COLORS["offline"])
+        dot_color = STATUS_COLORS.get(status, STATUS_COLORS["offline"])
         rows.append(
             html.Div(
                 [

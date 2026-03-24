@@ -19,6 +19,13 @@ TIER_COLORS = {
     "INFRA": "#ffd700",
 }
 
+STATUS_COLORS = {
+    "online": "#00ff88",
+    "error": "#ff4757",
+    "degraded": "#ffd700",
+    "offline": "#4a5568",
+}
+
 ENGINE_REGISTRY = [
     # ---- CLASSICAL (6) — Industry-standard methods ----
     {
