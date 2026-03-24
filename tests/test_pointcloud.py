@@ -435,10 +435,12 @@ class TestSheafAnalysis:
     def test_identity_transport_zero_residual(self):
         """Identity transport produces zero residual."""
         from mpd_overwatch.pointcloud.sheaf_analysis import PhysicsTransport
+        from mpd_overwatch.pointcloud.channel_registry import DEFAULT_CHANNELS
 
         transport = PhysicsTransport()
-        v = np.array([0.5, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 0.1, 0.9,
-                       0.5, 0.3, 0.4, 0.6, 0.2, 0.1, 0.5, 0.7, 0.3])
+        n_ch = len(DEFAULT_CHANNELS)
+        rng = np.random.default_rng(99)
+        v = rng.uniform(0.1, 0.9, n_ch)
         U = transport.smoothness_transport(v, v)
         residual = np.linalg.norm(U @ v - v)
         assert residual < 1e-10, f"Identity transport residual: {residual}"

@@ -68,6 +68,21 @@ DEFAULT_CHANNELS: Dict[int, ChannelDef] = {
     15: ChannelDef(15, "temperature",     "degF",   50,      400,    "Downhole temperature"),
     16: ChannelDef(16, "mud_weight",      "ppg",     7,       20,    "Mud weight"),
     17: ChannelDef(17, "resistivity",     "ohm-m",   0.1,  10000,    "Formation resistivity"),
+    # Extended channels for richer point clouds
+    18: ChannelDef(18, "tvd",             "ft",      0,    30000,    "True vertical depth"),
+    19: ChannelDef(19, "dls",             "deg/100ft", 0,     30,    "Dogleg severity"),
+    20: ChannelDef(20, "toolface",        "deg",     0,      360,    "Toolface angle"),
+    21: ChannelDef(21, "block_position",  "ft",      0,      100,    "Travelling block position"),
+    22: ChannelDef(22, "differential_pressure", "psi", -2000, 5000,  "Differential pressure"),
+    23: ChannelDef(23, "flow_out_pct",    "%",       0,      100,    "Flow out percentage"),
+    24: ChannelDef(24, "casing_pressure", "psi",     0,     5000,    "Casing pressure"),
+    25: ChannelDef(25, "bhp",             "psi",     0,    20000,    "Bottom hole pressure"),
+    26: ChannelDef(26, "neutron_porosity","frac",    0,        1,    "Neutron porosity"),
+    27: ChannelDef(27, "bulk_density",    "g/cc",    1,        3,    "Bulk density"),
+    28: ChannelDef(28, "delta_inclination", "deg",  -5,        5,    "Change in inclination"),
+    29: ChannelDef(29, "temperature_gradient", "degF/ft", 0, 5,     "Temperature gradient"),
+    30: ChannelDef(30, "mud_volume",      "bbl",     0,     2000,    "Active mud volume"),
+    31: ChannelDef(31, "bit_depth",       "ft",      0,    30000,    "Bit depth MD"),
 }
 
 
@@ -160,6 +175,55 @@ _DEFAULT_ALIASES: Dict[str, str] = {
     "ild":      "resistivity",
     "at90":     "resistivity",
     "rt":       "resistivity",
+
+    # TVD / survey
+    "tvdss":    "tvd",
+    "dtvd":     "tvd",
+    "depth_tvd":"tvd",
+
+    # Dogleg severity
+    "dog_leg":  "dls",
+
+    # Toolface
+    "dtf":      "toolface",
+    "tf":       "toolface",
+
+    # Block position
+    "bpos":     "block_position",
+    "bloc":     "block_position",
+
+    # Differential pressure
+    "diff":     "differential_pressure",
+    "diff_press": "differential_pressure",
+
+    # Flow out percentage
+    "flow_pct": "flow_out_pct",
+
+    # Casing pressure
+    "cas_press":"casing_pressure",
+    "pcas":     "casing_pressure",
+
+    # BHP
+    "bh_press": "bhp",
+
+    # Porosity & density
+    "nphi":     "neutron_porosity",
+    "tnph":     "neutron_porosity",
+    "rhoz":     "bulk_density",
+    "zden":     "bulk_density",
+
+    # Delta inclination
+    "dinc":     "delta_inclination",
+
+    # Temperature gradient
+    "tempg":    "temperature_gradient",
+
+    # Mud volume
+    "mv":       "mud_volume",
+    "pit_vol":  "mud_volume",
+
+    # Bit depth
+    "bdep":     "bit_depth",
 }
 
 
