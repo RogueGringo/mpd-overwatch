@@ -233,7 +233,7 @@ def _placeholder_page(title: str, colors: dict, message: str = "") -> html.Div:
             html.Div(
                 [html.H1(title, style={"color": colors["text"]}),
                  html.P(
-                     message or f"{title} — coming in a future task.",
+                     message or f"{title} — scheduled for v1.1 release.",
                      style={"color": colors["text_muted"], "fontSize": "13px"},
                  )],
                 className="page-header",
@@ -461,7 +461,8 @@ def create_app() -> dash.Dash:
                 if not channels_ready:
                     return _gated_page("Hydraulics", COLORS)
                 return _placeholder_page(
-                    "Hydraulics", COLORS, "Hydraulics analysis — available in a future task."
+                    "Hydraulics", COLORS,
+                    "Real-time hydraulics analysis with ECD, BHP, and annular velocity — scheduled for v1.1."
                 )
 
             if pathname == "/geomechanics":
@@ -478,14 +479,16 @@ def create_app() -> dash.Dash:
                 if not channels_ready:
                     return _gated_page("Pore Pressure", COLORS)
                 return _placeholder_page(
-                    "Pore Pressure", COLORS, "Pore pressure analysis — available in a future task."
+                    "Pore Pressure", COLORS,
+                    "Eaton pore pressure prediction from d-exponent trends — scheduled for v1.1."
                 )
 
             if pathname == "/formation-damage":
                 if not channels_ready:
                     return _gated_page("Formation Damage", COLORS)
                 return _placeholder_page(
-                    "Formation Damage", COLORS, "Formation damage analysis — available in a future task."
+                    "Formation Damage", COLORS,
+                    "Skin factor and productivity index analysis — scheduled for v1.1."
                 )
 
             # ---- TOPOLOGY -------------------------------------------------
@@ -515,7 +518,7 @@ def create_app() -> dash.Dash:
                 return _placeholder_page(
                     "Persistent Homology",
                     COLORS,
-                    "Persistent homology — available in a future task.",
+                    "Persistence diagrams and Betti number analysis — scheduled for v1.1.",
                 )
 
             # ---- ENGINEERING ----------------------------------------------
