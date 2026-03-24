@@ -7,12 +7,15 @@ placeholder when directional data is present.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 import numpy as np
 from dash import html
 
 from mpd_overwatch.config import COLORS
+
+logger = logging.getLogger(__name__)
 from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
@@ -127,6 +130,7 @@ def page_well_overview(
         try:
             channel_map = deserialize_channel_map(channel_map_data)
         except Exception:
+            logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
     header = well_header or {}

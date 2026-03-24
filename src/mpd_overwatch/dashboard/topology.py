@@ -6,12 +6,15 @@ and persistent homology features mapped to drilling context.
 Language: plain operational names first; technical detail available via [?] tooltip.
 """
 
+import logging
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+
+logger = logging.getLogger(__name__)
 from mpd_overwatch.components.tooltip import render_engineering_value
 from mpd_overwatch.core.engineering_result import EngineeringResult, Method, Provenance
 
@@ -81,7 +84,7 @@ def page_topology(channel_map_data: dict | None = None):
             cm = deserialize_channel_map(channel_map_data)
             pc = ingest_channel_map(cm)
         except Exception:
-            pass
+            logger.warning("topology ingestion failed", exc_info=True)
 
     # Build depth/channel arrays for plotting — use real data if available, else synthetic
     if pc is not None and channel_map_data:
@@ -95,6 +98,7 @@ def page_topology(channel_map_data: dict | None = None):
             _n = min(len(md_arr), len(gamma_arr), len(apwd_arr))
             md_arr, gamma_arr, apwd_arr = md_arr[:_n], gamma_arr[:_n], apwd_arr[:_n]
         except Exception:
+            logger.warning("channel map deserialization for topology plot failed", exc_info=True)
             md_arr = np.linspace(10000, 16000, 200)
             gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
             apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
@@ -121,7 +125,7 @@ def page_topology(channel_map_data: dict | None = None):
             depths_coh, coh_values = coherence_log(pc, window_ft=800, stride_ft=200)
             has_sheaf = True
         except Exception:
-            pass
+            logger.warning("sheaf coherence analysis failed", exc_info=True)
 
     # ------------------------------------------------------------------ #
     # Build multi-panel figure                                             #

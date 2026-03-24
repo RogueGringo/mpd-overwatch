@@ -4,12 +4,15 @@ Displays MSE, rock strength, brittleness, drilling efficiency,
 and wellbore stability analysis along the lateral.
 """
 
+import logging
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+
+logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import compute_mse, compute_ucs, compute_brittleness
 from mpd_overwatch.components.tooltip import render_engineering_value
 from mpd_overwatch.dashboard.app_state import deserialize_channel_map
@@ -30,6 +33,7 @@ def page_geomechanics(channel_map_data: dict | None = None):
         try:
             channel_map = deserialize_channel_map(channel_map_data)
         except Exception:
+            logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
     def _channel(key: str, default: np.ndarray) -> np.ndarray:

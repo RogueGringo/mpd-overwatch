@@ -7,12 +7,15 @@ Language: plain operational names first; technical detail via [?] tooltip.
 No adjectives. No claims without computation.
 """
 
+import logging
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+
+logger = logging.getLogger(__name__)
 from mpd_overwatch.components.tooltip import render_engineering_value
 from mpd_overwatch.core.engineering_result import EngineeringResult, Method, Provenance
 
@@ -129,6 +132,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
             pc = ingest_channel_map(cm)
             using_placeholder = False
         except Exception:
+            logger.warning("channel map deserialization failed", exc_info=True)
             pc = None
 
     # ------------------------------------------------------------------ #
@@ -148,7 +152,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
             )
             has_result = True
         except Exception:
-            pass
+            logger.warning("ATFT analysis failed", exc_info=True)
 
     # ------------------------------------------------------------------ #
     # Build layout                                                         #
