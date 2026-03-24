@@ -20,33 +20,51 @@ from mpd_overwatch import config
 _ROLES = [
     {
         "name": "MPD Engineer",
-        "voice": "Real-time ECD tracking, choke response monitoring, automated alarm thresholds.",
-        "engines": ["Pressure & Flow", "Operations Monitor", "Pressure Control"],
+        "voice": (
+            "I need to know ECD at every depth, every second. I need to see "
+            "when choke response diverges from model."
+        ),
+        "engines": ["Pressure & Flow", "Pressure Control", "Operations Monitor", "Physics Consistency"],
     },
     {
         "name": "Drilling Engineer",
-        "voice": "Wellbore stability, trajectory planning, drilling parameter optimization.",
-        "engines": ["Rock Strength", "Pressure & Flow", "Formation Pressure"],
+        "voice": (
+            "Show me wellbore stability in real time. Flag when I'm drilling "
+            "into trouble before the mud logger calls."
+        ),
+        "engines": ["Pressure & Flow", "Rock Strength", "Formation Pressure", "Pattern Discovery"],
     },
     {
         "name": "Completions Engineer",
-        "voice": "Formation damage prevention, skin factor tracking, reservoir proximity alerts.",
-        "engines": ["Reservoir Protection", "Formation Pressure"],
+        "voice": (
+            "If we damage the pay zone while drilling it, none of the rest "
+            "matters. Track skin factor and invasion radius."
+        ),
+        "engines": ["Reservoir Protection", "Formation Pressure", "Rock Strength"],
     },
     {
         "name": "Reservoir Engineer",
-        "voice": "Pore pressure estimation, reservoir characterization, production impact analysis.",
-        "engines": ["Formation Pressure", "Reservoir Protection", "Data Normalizer"],
+        "voice": (
+            "Pore pressure drives everything. Show me the gradient, show me "
+            "the uncertainty, show me the data quality."
+        ),
+        "engines": ["Formation Pressure", "Pattern Discovery", "Physics Consistency"],
     },
     {
         "name": "Well Control",
-        "voice": "Kick detection, kill sheet generation, BHP monitoring, barrier verification.",
-        "engines": ["Pressure & Flow", "Operations Monitor", "Risk Topology"],
+        "voice": (
+            "Kill sheet ready at all times. Kick detection automated. BHP "
+            "never guessed — always computed."
+        ),
+        "engines": ["Risk Topology", "Operations Monitor", "Pressure Control"],
     },
     {
         "name": "Technical Leadership",
-        "voice": "System-wide V&V, cross-discipline validation, novel method benchmarking.",
-        "engines": ["Physics Consistency", "Pattern Discovery", "Risk Topology"],
+        "voice": (
+            "Can I trust these numbers? Show me the V&V, show me the "
+            "formulas, show me the audit trail."
+        ),
+        "engines": ["Formula Verifier", "V&V Report"],
     },
 ]
 
@@ -82,13 +100,13 @@ _UNIQUE_CARDS = [
         "attribution": "Novel formulation (ATFT)",
     },
     {
-        "title": "Universal Data Ingestion",
-        "question": "Any vendor file \u2192 unified 4D point cloud",
+        "title": "Description-First Data Resolution",
+        "question": "What does each channel measure? Physics domain? MPD relevant?",
         "answer": (
-            "LAS files from any vendor, any naming convention, normalized into a single "
-            "(time, depth, channel, value) representation."
+            "Channel characterization matches descriptions, not mnemonics. "
+            "Any vendor, any naming convention — resolved to physics meaning."
         ),
-        "attribution": "PointCloud4D",
+        "attribution": "Channel Characterizer + MNEMONIC_MAP",
     },
 ]
 
@@ -157,8 +175,8 @@ def _build_whats_unique() -> html.Div:
             html.Div(
                 [
                     html.Div(item["title"], className="unique-card__title"),
-                    html.Div(item["question"], className="unique-card__question"),
-                    html.Div(item["answer"], className="unique-card__answer"),
+                    html.Div(item["question"], className="unique-card__summary"),
+                    html.Div(item["answer"], className="unique-card__detail"),
                     html.Div(item["attribution"], className="unique-card__attribution"),
                 ],
                 className="unique-card",

@@ -777,6 +777,81 @@ code, pre, .mono, .kpi-value, td, th {
     margin-top: 6px;
 }
 
+/* Capabilities Page */
+.capabilities-page {
+    padding: 20px;
+}
+
+.capabilities-header {
+    margin-bottom: 24px;
+}
+
+.capabilities-header__title {
+    color: #00d4ff;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin: 0 0 4px 0;
+}
+
+.capabilities-header__subtitle {
+    color: #64748b;
+    font-size: 12px;
+    margin: 0;
+}
+
+.capabilities-section {
+    margin-bottom: 32px;
+}
+
+.capabilities-section__header {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+
+.capabilities-vendor__badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.capabilities-vendor__count {
+    color: #64748b;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 8px;
+}
+
+.engine-inventory__tier {
+    margin-bottom: 12px;
+}
+
+.engine-inventory__list {
+    margin-top: 6px;
+}
+
+.engine-inventory__line {
+    color: #e2e8f0;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.8;
+}
+
+.role-card__engine-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 8px;
+    background: rgba(0,212,255,0.1);
+    color: #00d4ff;
+    border: 1px solid rgba(0,212,255,0.15);
+    margin-right: 4px;
+}
+
 /* Responsive — Landing Page */
 @media (max-width: 768px) {
     .landing-missions__grid { grid-template-columns: 1fr; }
