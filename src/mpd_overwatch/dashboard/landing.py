@@ -10,7 +10,6 @@ from dash import html, dcc
 from mpd_overwatch.dashboard.engine_registry import (
     ENGINE_REGISTRY,
     get_all_statuses,
-    TIER_COLORS,
 )
 from mpd_overwatch import config
 

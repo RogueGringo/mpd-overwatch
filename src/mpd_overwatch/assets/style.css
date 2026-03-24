@@ -494,6 +494,26 @@ code, pre, .mono, .kpi-value, td, th {
     color: #4a5568;
 }
 
+.landing-footer__left,
+.landing-footer__right {
+    display: inline;
+}
+
+.landing-hero__state {
+    color: #ffd700;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.landing-status__row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* Mission Cards */
 .mission-card {
     background: #131a2b;
