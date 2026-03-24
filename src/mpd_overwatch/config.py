@@ -82,6 +82,7 @@ PAGES = {
     "/formulas": "Formula Verifier",
     "/vv-report": "V&V Report",
     "/controls": "Controls",
+    "/pipeline-results": "Pipeline Results",
 }
 
 # Vendor mnemonic mapping (from DATA_TYPES_for_System_Use_EXAMPLES analysis)

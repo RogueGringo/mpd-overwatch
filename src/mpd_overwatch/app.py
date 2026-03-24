@@ -51,6 +51,7 @@ NAV_SECTIONS = [
             ("/formulas", "Formula Verifier", "11"),
             ("/vv-report", "V&V Report", "12"),
             ("/controls", "Controls", "13"),
+            ("/pipeline-results", "Pipeline Results", "14"),
         ],
     },
 ]
@@ -73,7 +74,7 @@ ANALYSIS_PAGES = {
 }
 
 # Pages always accessible (no data required)
-ALWAYS_ACCESSIBLE = {"/", "/files", "/channels"}
+ALWAYS_ACCESSIBLE = {"/", "/files", "/channels", "/pipeline-results"}
 
 
 # ---------------------------------------------------------------------------
@@ -429,16 +430,16 @@ def create_app() -> dash.Dash:
             if pathname == "/well-overview":
                 if not channels_ready:
                     return _gated_page("Well Overview", COLORS)
-                return _placeholder_page(
-                    "Well Overview", COLORS, "Well overview — available in Task 12F."
-                )
+                from mpd_overwatch.dashboard.well_overview import page_well_overview
+                well_header = app_state_data.get("well_header") if app_state_data else None
+                return page_well_overview(well_header, channel_map_data)
 
             if pathname == "/hmu":
                 if not channels_ready:
                     return _gated_page("HMU Cockpit", COLORS)
                 try:
                     from mpd_overwatch.dashboard.hmu_panel import page_hmu
-                    return page_hmu()
+                    return page_hmu(channel_map_data)
                 except Exception as exc:
                     logger.warning("hmu_panel render failed: %s", exc)
                     return _placeholder_page("HMU Cockpit", COLORS)
@@ -450,7 +451,7 @@ def create_app() -> dash.Dash:
                     from mpd_overwatch.dashboard.supervisory_panel import (
                         page_supervisory,
                     )
-                    return page_supervisory()
+                    return page_supervisory(channel_map_data)
                 except Exception as exc:
                     logger.warning("supervisory_panel render failed: %s", exc)
                     return _placeholder_page("Supervisory", COLORS)
@@ -468,7 +469,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Geomechanics", COLORS)
                 try:
                     from mpd_overwatch.dashboard.geomechanics import page_geomechanics
-                    return page_geomechanics()
+                    return page_geomechanics(channel_map_data)
                 except Exception as exc:
                     logger.warning("geomechanics render failed: %s", exc)
                     return _placeholder_page("Geomechanics", COLORS)
@@ -493,7 +494,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Coherence Log", COLORS)
                 try:
                     from mpd_overwatch.dashboard.topology import page_topology
-                    return page_topology()
+                    return page_topology(channel_map_data)
                 except Exception as exc:
                     logger.warning("topology render failed: %s", exc)
                     return _placeholder_page("Coherence Log", COLORS)
@@ -503,7 +504,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("ATFT Engine", COLORS)
                 try:
                     from mpd_overwatch.dashboard.atft_analysis import page_atft_analysis
-                    return page_atft_analysis()
+                    return page_atft_analysis(channel_map_data)
                 except Exception as exc:
                     logger.warning("atft_analysis render failed: %s", exc)
                     return _placeholder_page("ATFT Engine", COLORS)
@@ -546,6 +547,14 @@ def create_app() -> dash.Dash:
                 except Exception as exc:
                     logger.warning("controls render failed: %s", exc)
                     return _placeholder_page("Controls", COLORS)
+
+            if pathname == "/pipeline-results":
+                try:
+                    from mpd_overwatch.dashboard.pipeline_results import page_pipeline_results
+                    return page_pipeline_results()
+                except Exception as exc:
+                    logger.warning("pipeline_results render failed: %s", exc)
+                    return _placeholder_page("Pipeline Results", COLORS)
 
             # ---- fallback: unknown route → file manager -------------------
             from mpd_overwatch.dashboard.file_manager import file_manager_layout

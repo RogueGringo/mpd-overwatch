@@ -461,6 +461,15 @@ def _load_and_build(filepath: str):
         "curve_units": header_info["curve_units"],
         "has_data": not header_info["header_only"],
         "row_count": header_info["row_count"],
+        "well_header": {
+            "well_name": header_info.get("well_name", ""),
+            "company": header_info.get("company", ""),
+            "field_name": header_info.get("field", ""),
+            "api": header_info.get("api", ""),
+            "curve_count": header_info.get("curve_count", 0),
+            "start": header_info.get("start"),
+            "stop": header_info.get("stop"),
+        },
     }
     return card, app_state
 
