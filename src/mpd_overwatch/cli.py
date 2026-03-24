@@ -7,6 +7,7 @@ Usage:
     mpd-overwatch analyze <dir>      Analyze all LAS files in a directory
     mpd-overwatch info               Show platform version and hardware
     mpd-overwatch map <las_file>     Map LAS curve mnemonics using local LLM
+    mpd-overwatch pipeline <las_file> Run full analysis pipeline on a LAS file
 """
 
 import argparse
@@ -64,6 +65,19 @@ def main(argv=None):
     p_map.add_argument("--model", default="local-model", help="Model name")
     p_map.add_argument("--no-cache", action="store_true", help="Skip cache lookup")
 
+    # pipeline
+    p_pipe = sub.add_parser("pipeline", help="Run full analysis pipeline on a LAS file")
+    p_pipe.add_argument("las_file", help="Path to LAS file")
+    p_pipe.add_argument("--output-dir", default=".", help="Output directory for .mow and PNGs")
+    p_pipe.add_argument("--base-url", default="http://localhost:1234/v1",
+                         help="LM Studio API URL")
+    p_pipe.add_argument("--model", default="liquid/lfm2.5-1.2b",
+                         help="LLM model for channel characterization")
+    p_pipe.add_argument("--no-llm", action="store_true",
+                         help="Skip LLM characterization, use deterministic mapping only")
+    p_pipe.add_argument("--no-plots", action="store_true",
+                         help="Skip PNG export")
+
     args = parser.parse_args(argv)
     setup_logging(args.log_level)
     logger = logging.getLogger(__name__)
@@ -84,6 +98,8 @@ def main(argv=None):
         return _cmd_info(logger)
     elif args.command == "map":
         return _cmd_map(args, logger)
+    elif args.command == "pipeline":
+        return _cmd_pipeline(args, logger)
 
     return 0
 
@@ -467,6 +483,245 @@ def _cmd_map(args, logger):
         return 0
     except Exception as exc:
         logger.error("Failed to map %s: %s", args.las_file, exc)
+        return 1
+
+
+def _cmd_pipeline(args, logger):
+    """Run full analysis pipeline on a LAS file."""
+    import time as _time
+    from pathlib import Path
+
+    filepath = args.las_file
+    if not Path(filepath).exists():
+        logger.error("File not found: %s", filepath)
+        return 1
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # --- Register in central data index ---
+        from mpd_overwatch.data.data_index import DataIndex
+        data_index = DataIndex()
+        idx_entry = data_index.register(filepath)
+        logger.info("Indexed as %s", idx_entry["file_hash"])
+
+        # --- Layer 1: Ingest ---
+        t0 = _time.perf_counter()
+        from mpd_overwatch.dashboard.data_store import load_file
+        header_info = load_file(filepath)
+        ingest_ms = int((_time.perf_counter() - t0) * 1000)
+
+        logger.info("Loaded %s: %d curves, %d rows",
+                     header_info["well_name"],
+                     header_info["curve_count"],
+                     header_info["row_count"])
+
+        from mpd_overwatch.data.analysis_layers import AnalysisLayer, AnalysisChain
+        chain = AnalysisChain(
+            well_name=header_info.get("well_name", ""),
+            metadata={"source": filepath, "operator": header_info.get("company", "")},
+        )
+        chain.add_layer(AnalysisLayer(
+            layer_id="001_ingest",
+            layer_type="ingest",
+            duration_ms=ingest_ms,
+            inputs={"filepath": filepath},
+            outputs={
+                "curve_count": header_info["curve_count"],
+                "row_count": header_info["row_count"],
+                "well_name": header_info["well_name"],
+            },
+            context={"operator": header_info.get("company", "")},
+            value_term="Raw Data Captured",
+            value_description=(
+                f"{header_info['curve_count']} channels, "
+                f"{header_info['row_count']} rows ingested from LAS"
+            ),
+        ))
+
+        # --- Layer 2: Channel Characterization ---
+        characterizations = []
+        if not args.no_llm:
+            t0 = _time.perf_counter()
+            try:
+                from mpd_overwatch.data.channel_characterizer import characterize_channels
+                from mpd_overwatch.dashboard.data_store import (
+                    get_curve_names, get_curve_units, get_curve_descriptions,
+                )
+                curve_names = get_curve_names()
+                curve_units = get_curve_units()
+                curve_descs = get_curve_descriptions()
+                channels = [
+                    {"name": n, "unit": curve_units.get(n, ""), "description": curve_descs.get(n, "")}
+                    for n in curve_names
+                ]
+                # Detect index type
+                strt_unit = header_info.get("curve_units", {}).get(
+                    curve_names[0] if curve_names else "", "")
+                index_type = "time" if strt_unit.lower() in ("s", "sec", "min", "hr") else "depth"
+
+                characterizations = characterize_channels(
+                    channels, index_type=index_type,
+                    base_url=args.base_url, model=args.model,
+                )
+                char_ms = int((_time.perf_counter() - t0) * 1000)
+                logger.info("Characterized %d channels in %.1fs",
+                            len(characterizations), char_ms / 1000)
+
+                chain.add_layer(AnalysisLayer(
+                    layer_id="002_characterize",
+                    layer_type="channel_characterization",
+                    depends_on=["001_ingest"],
+                    duration_ms=char_ms,
+                    inputs={"channel_count": len(channels), "index_type": index_type},
+                    outputs={"characterized": len(characterizations)},
+                    value_term="Channels Classified",
+                    value_description=(
+                        f"{len(characterizations)} channels classified by physics domain, "
+                        "index geometry, and MPD relevance"
+                    ),
+                ))
+            except Exception as e:
+                logger.warning("Channel characterization failed: %s", e)
+
+        # --- Layer 3: Channel Mapping ---
+        t0 = _time.perf_counter()
+        from mpd_overwatch.dashboard.data_store import get_channel_data, apply_llm_mapping
+        channel_data = get_channel_data()
+
+        mapping = None
+        if not args.no_llm:
+            try:
+                mapping = apply_llm_mapping(filepath)
+            except Exception:
+                pass
+
+        from mpd_overwatch.dashboard.data_store import build_selected_channel_map
+        from mpd_overwatch.config import MNEMONIC_MAP
+
+        selections = []
+        for name in channel_data:
+            canonical = None
+            if mapping and name in mapping:
+                canonical = mapping[name]
+            elif name in MNEMONIC_MAP:
+                canonical = MNEMONIC_MAP[name]
+            if canonical:
+                selections.append({
+                    "vendor_mnemonic": name,
+                    "canonical": canonical,
+                    "selected": True,
+                })
+
+        if selections:
+            canonical_data = build_selected_channel_map(selections)
+        else:
+            canonical_data = {}
+
+        map_ms = int((_time.perf_counter() - t0) * 1000)
+        chain.add_layer(AnalysisLayer(
+            layer_id="003_map",
+            layer_type="channel_mapping",
+            depends_on=["001_ingest"],
+            duration_ms=map_ms,
+            inputs={"raw_channels": len(channel_data)},
+            outputs={"mapped_channels": len(canonical_data)},
+            value_term="Channels Mapped",
+            value_description=(
+                f"{len(canonical_data)} of {len(channel_data)} channels "
+                "mapped to canonical names"
+            ),
+        ))
+        logger.info("Mapped %d / %d channels", len(canonical_data), len(channel_data))
+
+        # --- Layer 4: PointCloud4D ---
+        if len(canonical_data) >= 2:
+            t0 = _time.perf_counter()
+            try:
+                from mpd_overwatch.pointcloud.ingestion import ingest_dataframe
+                import pandas as pd
+
+                df = pd.DataFrame(canonical_data)
+                depth_col = "depth_md" if "depth_md" in df.columns else df.columns[0]
+                pc = ingest_dataframe(
+                    df, depth_col=depth_col,
+                    well_name=header_info.get("well_name", ""),
+                    metadata={"source": filepath},
+                )
+                pc_ms = int((_time.perf_counter() - t0) * 1000)
+
+                chain.add_layer(AnalysisLayer(
+                    layer_id="004_pointcloud",
+                    layer_type="pointcloud",
+                    depends_on=["003_map"],
+                    duration_ms=pc_ms,
+                    inputs={"channels": len(canonical_data)},
+                    outputs={"n_points": pc.n_points, "n_channels": pc.n_channels},
+                    value_term="Point Cloud Constructed",
+                    value_description=(
+                        f"{pc.n_points:,} points across {pc.n_channels} channels "
+                        "in normalized 4D space"
+                    ),
+                ))
+                chain.add_array("004_pointcloud", "points", pc.points)
+
+                pc.save(output_dir / "pointcloud")
+                logger.info("PointCloud4D: %d points, %d channels", pc.n_points, pc.n_channels)
+            except Exception as e:
+                logger.warning("PointCloud4D construction failed: %s", e)
+                pc = None
+        else:
+            pc = None
+            logger.warning("Too few channels (%d) for point cloud", len(canonical_data))
+
+        # --- PNG Export ---
+        if not args.no_plots:
+            try:
+                from mpd_overwatch.core.plot_factory import (
+                    plot_raw_channels,
+                    plot_channel_characterization,
+                    plot_coherence_log,
+                    export_figure_png,
+                )
+                plots_dir = output_dir / "plots"
+                plots_dir.mkdir(parents=True, exist_ok=True)
+
+                if canonical_data:
+                    fig = plot_raw_channels(canonical_data)
+                    export_figure_png(fig, plots_dir / "01_raw_channels.png")
+                    logger.info("Exported 01_raw_channels.png")
+
+                if characterizations:
+                    fig = plot_channel_characterization(characterizations)
+                    export_figure_png(fig, plots_dir / "02_channel_classification.png")
+                    logger.info("Exported 02_channel_classification.png")
+
+            except Exception as e:
+                logger.warning("Plot export failed: %s", e)
+
+        # --- Save .mow archive ---
+        mow_name = header_info.get("well_name", "analysis").replace(" ", "_")
+        mow_path = output_dir / f"{mow_name}.mow"
+        chain.save(mow_path)
+        logger.info("Saved analysis chain: %s (%d layers)", mow_path, len(chain.layers))
+
+        # --- Summary ---
+        print(f"\n{'='*60}")
+        print(f"  PIPELINE COMPLETE: {header_info.get('well_name', filepath)}")
+        print(f"{'='*60}")
+        for layer in chain.layers:
+            ms = f" ({layer.duration_ms}ms)" if layer.duration_ms else ""
+            print(f"  [{layer.layer_id}] {layer.value_term}{ms}")
+        print(f"\n  Archive: {mow_path}")
+        if not args.no_plots:
+            print(f"  Plots:   {output_dir / 'plots'}/")
+        print(f"{'='*60}\n")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Pipeline failed: %s", e)
         return 1
 
 
