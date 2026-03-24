@@ -228,6 +228,16 @@ class TestMappingCache:
         key2 = cache_key("Schlumberger", "Noble", ["DEPT", "GRC", "SPPA"])
         assert key1 != key2
 
+    def test_cache_key_order_independent(self):
+        key1 = cache_key("S", "O", ["B", "A", "C"])
+        key2 = cache_key("S", "O", ["C", "A", "B"])
+        assert key1 == key2
+
+    def test_cache_key_case_insensitive(self):
+        key1 = cache_key("Schlumberger", "Noble", ["DEPT"])
+        key2 = cache_key("SCHLUMBERGER", "noble", ["dept"])
+        assert key1 == key2
+
     def test_save_and_load_roundtrip(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             "mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path
@@ -246,3 +256,13 @@ class TestMappingCache:
             "mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path
         )
         assert load_cached_mapping("nonexistent") is None
+
+    def test_load_returns_none_for_corrupt_json(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        (tmp_path / "bad.json").write_text("{truncated", encoding="utf-8")
+        assert load_cached_mapping("bad") is None
+
+    def test_load_returns_none_for_non_dict(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        (tmp_path / "arr.json").write_text("[1, 2, 3]", encoding="utf-8")
+        assert load_cached_mapping("arr") is None

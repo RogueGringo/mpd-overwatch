@@ -349,13 +349,12 @@ def cache_key(service_company: str, operator: str, curve_names: List[str]) -> st
     str
         Hex digest truncated to 16 characters.
     """
-    parts = [
-        service_company.lower(),
-        operator.lower(),
-        ",".join(sorted(c.upper() for c in curve_names)),
-    ]
-    blob = "|".join(parts).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()[:16]
+    content = json.dumps({
+        "srvc": service_company.strip().lower(),
+        "comp": operator.strip().lower(),
+        "curves": sorted(c.strip().upper() for c in curve_names),
+    }, sort_keys=True)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
 def save_cached_mapping(key: str, mapping: Dict[str, Any]) -> None:
