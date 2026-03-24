@@ -464,3 +464,57 @@ class TestIntegration:
         assert len(depths) == len(coherence), "Depth/coherence length mismatch"
         assert np.all(coherence >= 0.0), "Negative coherence values"
         assert np.all(coherence <= 1.0), "Coherence values > 1.0"
+
+
+class TestPointCloud4DSaveLoad:
+    """Tests for PointCloud4D save/load persistence."""
+
+    def _make_pc(self):
+        """Create a minimal PointCloud4D for testing."""
+        from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
+        from mpd_overwatch.pointcloud.channel_registry import ChannelRegistry
+        registry = ChannelRegistry()
+        n = 20
+        points = np.column_stack([
+            np.linspace(0, 1, n),
+            np.linspace(0, 1, n),
+            np.zeros(n),
+            np.random.rand(n),
+        ])
+        return PointCloud4D(
+            points=points,
+            raw_values=np.random.rand(n) * 150,
+            raw_times=np.linspace(0, 3600, n),
+            raw_depths=np.linspace(5000, 15000, n),
+            channel_ids=np.zeros(n, dtype=np.int32),
+            registry=registry,
+            well_name="TEST WELL",
+            metadata={"operator": "TestCo", "field": "Permian"},
+        )
+
+    def test_save_creates_files(self, tmp_path):
+        pc = self._make_pc()
+        pc.save(tmp_path / "test_well")
+        assert (tmp_path / "test_well.npz").exists()
+        assert (tmp_path / "test_well.json").exists()
+
+    def test_roundtrip_preserves_data(self, tmp_path):
+        from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
+        pc = self._make_pc()
+        pc.save(tmp_path / "test_well")
+        loaded = PointCloud4D.load(tmp_path / "test_well")
+        np.testing.assert_array_almost_equal(pc.points, loaded.points)
+        np.testing.assert_array_almost_equal(pc.raw_values, loaded.raw_values)
+        np.testing.assert_array_almost_equal(pc.raw_times, loaded.raw_times)
+        np.testing.assert_array_almost_equal(pc.raw_depths, loaded.raw_depths)
+        np.testing.assert_array_equal(pc.channel_ids, loaded.channel_ids)
+        assert loaded.well_name == "TEST WELL"
+        assert loaded.metadata["operator"] == "TestCo"
+
+    def test_roundtrip_preserves_n_points(self, tmp_path):
+        from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
+        pc = self._make_pc()
+        pc.save(tmp_path / "test_well")
+        loaded = PointCloud4D.load(tmp_path / "test_well")
+        assert loaded.n_points == pc.n_points
+        assert loaded.n_channels == pc.n_channels

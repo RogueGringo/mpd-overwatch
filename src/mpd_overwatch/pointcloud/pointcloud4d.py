@@ -503,6 +503,75 @@ class PointCloud4D:
         return np.corrcoef(clean, rowvar=False)
 
     # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save(self, path) -> None:
+        """Save point cloud to disk as .npz (arrays) + .json (metadata).
+
+        Parameters
+        ----------
+        path : str or Path
+            Base path WITHOUT extension. Creates ``<path>.npz`` and ``<path>.json``.
+        """
+        import json as _json
+        from pathlib import Path as _Path
+
+        base = _Path(path)
+        base.parent.mkdir(parents=True, exist_ok=True)
+
+        np.savez_compressed(
+            str(base) + ".npz",
+            points=self.points,
+            raw_values=self.raw_values,
+            raw_times=self.raw_times,
+            raw_depths=self.raw_depths,
+            channel_ids=self.channel_ids,
+        )
+
+        meta = {
+            "well_name": self.well_name,
+            "metadata": self.metadata,
+            "n_points": self.n_points,
+            "n_channels": self.n_channels,
+            "depth_range": list(self.depth_range),
+        }
+        with open(str(base) + ".json", "w") as f:
+            _json.dump(meta, f, indent=2, default=str)
+
+    @classmethod
+    def load(cls, path) -> "PointCloud4D":
+        """Load a saved point cloud from disk.
+
+        Parameters
+        ----------
+        path : str or Path
+            Base path WITHOUT extension. Reads ``<path>.npz`` and ``<path>.json``.
+        """
+        import json as _json
+        from pathlib import Path as _Path
+
+        base = _Path(path)
+        npz_path = str(base) + ".npz"
+        json_path = str(base) + ".json"
+
+        data = np.load(npz_path)
+
+        with open(json_path) as f:
+            meta = _json.load(f)
+
+        return cls(
+            points=data["points"],
+            raw_values=data["raw_values"],
+            raw_times=data["raw_times"],
+            raw_depths=data["raw_depths"],
+            channel_ids=data["channel_ids"],
+            registry=ChannelRegistry(),
+            well_name=meta.get("well_name", ""),
+            metadata=meta.get("metadata", {}),
+        )
+
+    # ------------------------------------------------------------------
     # Dunder methods
     # ------------------------------------------------------------------
 
