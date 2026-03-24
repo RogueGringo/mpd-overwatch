@@ -365,6 +365,7 @@ def create_app() -> dash.Dash:
             # Channel map metadata (selection list only; actual numpy data
             # stays server-side in data_store — never serialized to browser).
             dcc.Store(id="channel-map", storage_type="session"),
+            dcc.Store(id="engine-ui-state", storage_type="session"),
             html.Div(
                 id="sidebar-container",
                 children=[_make_sidebar(COLORS, __version__)],
@@ -398,18 +399,28 @@ def create_app() -> dash.Dash:
 
     @app.callback(
         Output("sidebar-container", "style"),
+        Output("sidebar-container", "children"),
         Output("page-content", "className"),
         Output("status-bar", "className"),
         Input("url", "pathname"),
+        State("app-state", "data"),
     )
-    def toggle_sidebar(pathname):
+    def toggle_sidebar(pathname, app_state_data):
+        stage = None
+        if app_state_data and isinstance(app_state_data, dict):
+            stage = app_state_data.get("stage", "file_select")
+        channels_ready = stage in ("analysis", "report")
+
+        sidebar = _make_sidebar(COLORS, __version__, channels_ready=channels_ready)
+
         if pathname == "/":
             return (
                 {"display": "none"},
+                [sidebar],
                 "main-content main-content--full-width",
                 "status-bar status-bar--full-width",
             )
-        return {}, "main-content", "status-bar"
+        return {}, [sidebar], "main-content", "status-bar"
 
     # ------------------------------------------------------------------
     # Page routing callback
