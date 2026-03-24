@@ -21,6 +21,9 @@ from mpd_overwatch.pointcloud.channel_registry import (
     ChannelTier,
     get_intent_channels,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Unit heuristics for SUGGESTED tier (channel-selector-specific)
@@ -538,6 +541,25 @@ def channel_selector_layout():
         # Check if any saved mappings apply to current mnemonics
         active_user_mappings = _find_matching_profile(curve_names, saved_profiles)
 
+        # Try LLM mapper if no saved profile matches
+        if not active_user_mappings:
+            try:
+                from mpd_overwatch.dashboard.data_store import (
+                    apply_llm_mapping,
+                    get_file_path,
+                )
+                filepath = get_file_path()
+                if filepath:
+                    llm_mappings = apply_llm_mapping(filepath)
+                    if llm_mappings:
+                        active_user_mappings = llm_mappings
+                        logger.info(
+                            "Using LLM mappings for channel selector (%d channels)",
+                            len(llm_mappings),
+                        )
+            except Exception as exc:
+                logger.debug("LLM mapping unavailable: %s", exc)
+
         channel_list = build_channel_list(
             curve_names, curve_units, registry,
             descriptions=descriptions,
@@ -921,6 +943,22 @@ def register_channel_selector_callbacks(app):
         """Helper: build channel list with descriptions and user mappings."""
         descriptions = get_curve_descriptions()
         registry = ChannelRegistry()
+
+        # If no user mappings provided, try LLM mapper
+        if not user_mappings:
+            try:
+                from mpd_overwatch.dashboard.data_store import (
+                    apply_llm_mapping,
+                    get_file_path,
+                )
+                filepath = get_file_path()
+                if filepath:
+                    llm_mappings = apply_llm_mapping(filepath)
+                    if llm_mappings:
+                        user_mappings = llm_mappings
+            except Exception:
+                pass
+
         channel_list = build_channel_list(
             get_curve_names(), get_curve_units(), registry,
             descriptions=descriptions,
