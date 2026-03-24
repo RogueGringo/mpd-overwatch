@@ -21,36 +21,49 @@ logger = logging.getLogger(__name__)
 
 NAV_SECTIONS = [
     {
+        "heading": "PLATFORM",
+        "heading_color": None,
+        "links": [
+            ("/files", "File Manager", "··"),
+            ("/channels", "Channel Selector", "··"),
+            ("/engines", "Analysis Engines", "··"),
+        ],
+    },
+    {
         "heading": "OPERATIONS",
+        "heading_color": None,
         "links": [
             ("/well-overview", "Well Overview", "01"),
-            ("/hmu", "HMU Cockpit", "02"),
-            ("/supervisory", "Supervisory", "03"),
+            ("/supervisory", "Operations Monitor", "02"),
         ],
     },
     {
-        "heading": "ANALYSIS",
+        "heading": "CLASSICAL ENGINES",
+        "heading_color": "#00d4ff",
         "links": [
-            ("/hydraulics", "Hydraulics", "04"),
-            ("/geomechanics", "Geomechanics", "05"),
-            ("/pore-pressure", "Pore Pressure", "06"),
-            ("/formation-damage", "Formation Damage", "07"),
+            ("/hydraulics", "Pressure & Flow", "03"),
+            ("/geomechanics", "Rock Strength", "04"),
+            ("/pore-pressure", "Formation Pressure", "05"),
+            ("/formation-damage", "Reservoir Protection", "06"),
+            ("/controls", "Pressure Control", "07"),
         ],
     },
     {
-        "heading": "TOPOLOGY",
+        "heading": "NOVEL ENGINES",
+        "heading_color": "#c084fc",
         "links": [
-            ("/topology", "Coherence Log", "08"),
-            ("/atft", "ATFT Engine", "09"),
-            ("/persistent-homology", "Persistent Homology", "10"),
+            ("/topology", "Physics Consistency", "08"),
+            ("/persistent-homology", "Pattern Discovery", "09"),
+            ("/atft", "Risk Topology", "10"),
         ],
     },
     {
         "heading": "ENGINEERING",
+        "heading_color": "#00ff88",
         "links": [
             ("/formulas", "Formula Verifier", "11"),
             ("/vv-report", "V&V Report", "12"),
-            ("/controls", "Controls", "13"),
+            ("/capabilities", "Capabilities", "13"),
             ("/pipeline-results", "Pipeline Results", "14"),
         ],
     },
@@ -68,28 +81,30 @@ ANALYSIS_PAGES = {
     "/topology",
     "/atft",
     "/persistent-homology",
-    "/formulas",
-    "/vv-report",
     "/controls",
 }
 
 # Pages always accessible (no data required)
-ALWAYS_ACCESSIBLE = {"/", "/files", "/channels", "/pipeline-results"}
+ALWAYS_ACCESSIBLE = {
+    "/", "/files", "/channels", "/pipeline-results",
+    "/engines", "/capabilities", "/formulas", "/vv-report",
+}
 
 
 # ---------------------------------------------------------------------------
 # Sidebar builder
 # ---------------------------------------------------------------------------
 
-def _make_sidebar(colors, version):
+def _make_sidebar(colors, version, channels_ready=False):
     """Build the fixed sidebar with branding and sectioned navigation."""
     nav_elements = []
     for section in NAV_SECTIONS:
+        heading_color = section.get("heading_color") or colors["text_dim"]
         nav_elements.append(
             html.Div(
                 section["heading"],
                 style={
-                    "color": colors["text_dim"],
+                    "color": heading_color,
                     "fontSize": "10px",
                     "fontWeight": "700",
                     "letterSpacing": "2px",
@@ -99,6 +114,9 @@ def _make_sidebar(colors, version):
             )
         )
         for href, label, num in section["links"]:
+            link_class = "nav-link"
+            if href in ANALYSIS_PAGES and not channels_ready:
+                link_class = "nav-link nav-link--gated"
             nav_elements.append(
                 dcc.Link(
                     children=[
@@ -114,50 +132,35 @@ def _make_sidebar(colors, version):
                         label,
                     ],
                     href=href,
-                    className="nav-link",
+                    className=link_class,
                 )
             )
 
-    # Workflow entry-point links at the top
-    workflow_links = html.Div(
-        [
-            dcc.Link(
-                "Open File",
-                href="/files",
-                className="nav-link",
-                style={"fontWeight": "600", "color": colors["primary"]},
-            ),
-            dcc.Link(
-                "Select Channels",
-                href="/channels",
-                className="nav-link",
-                style={"color": colors["text_muted"]},
-            ),
-        ],
-        style={"marginBottom": "8px"},
-    )
+    # Engine status footer
+    try:
+        from mpd_overwatch.dashboard.engine_registry import (
+            ENGINE_REGISTRY,
+            get_all_statuses,
+        )
+        statuses = get_all_statuses()
+        total = len(ENGINE_REGISTRY)
+        online = sum(1 for s in statuses.values() if s == "online")
+        engine_text = f"{online}/{total} ENGINES ONLINE"
+    except Exception:
+        engine_text = "ENGINE ONLINE"
 
     return html.Div(
         [
             html.Div(
                 [
                     html.H2(
-                        "MPD OVERWATCH",
+                        "MPD COMMAND",
                         style={
                             "color": colors["primary"],
                             "fontSize": "18px",
                             "fontWeight": "700",
                             "letterSpacing": "3px",
                             "margin": "0 0 2px 0",
-                        },
-                    ),
-                    html.Div(
-                        "DRILLING INTELLIGENCE",
-                        style={
-                            "color": colors["text_dim"],
-                            "fontSize": "9px",
-                            "letterSpacing": "2px",
-                            "marginBottom": "4px",
                         },
                     ),
                     html.Div(
@@ -171,13 +174,6 @@ def _make_sidebar(colors, version):
                 ],
                 className="sidebar-brand",
             ),
-            html.Div(
-                style={
-                    "borderBottom": f"1px solid {colors['card_border']}",
-                    "margin": "8px 0",
-                },
-            ),
-            workflow_links,
             html.Div(
                 style={
                     "borderBottom": f"1px solid {colors['card_border']}",
@@ -199,7 +195,7 @@ def _make_sidebar(colors, version):
                         },
                     ),
                     html.Span(
-                        "ENGINE ONLINE",
+                        engine_text,
                         style={
                             "color": colors["text_dim"],
                             "fontSize": "10px",
@@ -352,7 +348,7 @@ def create_app() -> dash.Dash:
     app = dash.Dash(
         __name__,
         suppress_callback_exceptions=True,
-        title="MPD Overwatch",
+        title="MPD Command",
         update_title="Loading...",
         assets_folder=os.path.join(os.path.dirname(__file__), "assets"),
     )
@@ -369,14 +365,17 @@ def create_app() -> dash.Dash:
             # Channel map metadata (selection list only; actual numpy data
             # stays server-side in data_store — never serialized to browser).
             dcc.Store(id="channel-map", storage_type="session"),
-            _make_sidebar(COLORS, __version__),
+            html.Div(
+                id="sidebar-container",
+                children=[_make_sidebar(COLORS, __version__)],
+            ),
             html.Div(id="page-content", className="main-content"),
             # Status bar
             html.Div(
                 [
                     html.Div(className="status-indicator"),
                     html.Span(
-                        f"MPD OVERWATCH v{__version__}",
+                        f"MPD COMMAND v{__version__}",
                         style={"marginRight": "24px"},
                     ),
                     html.Span(
@@ -387,10 +386,30 @@ def create_app() -> dash.Dash:
                         },
                     ),
                 ],
+                id="status-bar",
                 className="status-bar",
             ),
         ]
     )
+
+    # ------------------------------------------------------------------
+    # Conditional sidebar visibility (hidden on landing page)
+    # ------------------------------------------------------------------
+
+    @app.callback(
+        Output("sidebar-container", "style"),
+        Output("page-content", "className"),
+        Output("status-bar", "className"),
+        Input("url", "pathname"),
+    )
+    def toggle_sidebar(pathname):
+        if pathname == "/":
+            return (
+                {"display": "none"},
+                "main-content main-content--full-width",
+                "status-bar status-bar--full-width",
+            )
+        return {}, "main-content", "status-bar"
 
     # ------------------------------------------------------------------
     # Page routing callback
@@ -415,8 +434,18 @@ def create_app() -> dash.Dash:
         channels_ready = stage in ("analysis", "report")
 
         try:
+            # ---- landing page ---------------------------------------------
+            if pathname == "/":
+                try:
+                    from mpd_overwatch.dashboard.landing import landing_layout
+                    return landing_layout()
+                except Exception as exc:
+                    logger.warning("landing render failed: %s", exc)
+                    from mpd_overwatch.dashboard.file_manager import file_manager_layout
+                    return file_manager_layout()
+
             # ---- workflow entry pages (always accessible) ---------------
-            if pathname in ("/", "/files"):
+            if pathname == "/files":
                 from mpd_overwatch.dashboard.file_manager import file_manager_layout
                 return file_manager_layout()
 
@@ -425,6 +454,15 @@ def create_app() -> dash.Dash:
                     channel_selector_layout,
                 )
                 return channel_selector_layout()
+
+            # ---- PLATFORM — engines page ----------------------------------
+            if pathname == "/engines":
+                try:
+                    from mpd_overwatch.dashboard.engines import engines_layout
+                    return engines_layout()
+                except Exception as exc:
+                    logger.warning("engines render failed: %s", exc)
+                    return _placeholder_page("Analysis Engines", COLORS)
 
             # ---- OPERATIONS -----------------------------------------------
             if pathname == "/well-overview":
@@ -446,7 +484,7 @@ def create_app() -> dash.Dash:
 
             if pathname == "/supervisory":
                 if not channels_ready:
-                    return _gated_page("Supervisory", COLORS)
+                    return _gated_page("Operations Monitor", COLORS)
                 try:
                     from mpd_overwatch.dashboard.supervisory_panel import (
                         page_supervisory,
@@ -454,84 +492,92 @@ def create_app() -> dash.Dash:
                     return page_supervisory(channel_map_data)
                 except Exception as exc:
                     logger.warning("supervisory_panel render failed: %s", exc)
-                    return _placeholder_page("Supervisory", COLORS)
+                    return _placeholder_page("Operations Monitor", COLORS)
 
-            # ---- ANALYSIS -------------------------------------------------
+            # ---- CLASSICAL ENGINES ----------------------------------------
             if pathname == "/hydraulics":
                 if not channels_ready:
-                    return _gated_page("Hydraulics", COLORS)
+                    return _gated_page("Pressure & Flow", COLORS)
                 try:
                     from mpd_overwatch.dashboard.hydraulics import page_hydraulics
                     return page_hydraulics(channel_map_data)
                 except Exception as exc:
                     logger.warning("hydraulics render failed: %s", exc)
-                    return _placeholder_page("Hydraulics", COLORS)
+                    return _placeholder_page("Pressure & Flow", COLORS)
 
             if pathname == "/geomechanics":
                 if not channels_ready:
-                    return _gated_page("Geomechanics", COLORS)
+                    return _gated_page("Rock Strength", COLORS)
                 try:
                     from mpd_overwatch.dashboard.geomechanics import page_geomechanics
                     return page_geomechanics(channel_map_data)
                 except Exception as exc:
                     logger.warning("geomechanics render failed: %s", exc)
-                    return _placeholder_page("Geomechanics", COLORS)
+                    return _placeholder_page("Rock Strength", COLORS)
 
             if pathname == "/pore-pressure":
                 if not channels_ready:
-                    return _gated_page("Pore Pressure", COLORS)
+                    return _gated_page("Formation Pressure", COLORS)
                 try:
                     from mpd_overwatch.dashboard.pore_pressure import page_pore_pressure
                     return page_pore_pressure(channel_map_data)
                 except Exception as exc:
                     logger.warning("pore_pressure render failed: %s", exc)
-                    return _placeholder_page("Pore Pressure", COLORS)
+                    return _placeholder_page("Formation Pressure", COLORS)
 
             if pathname == "/formation-damage":
                 if not channels_ready:
-                    return _gated_page("Formation Damage", COLORS)
+                    return _gated_page("Reservoir Protection", COLORS)
                 try:
                     from mpd_overwatch.dashboard.formation_damage import page_formation_damage
                     return page_formation_damage(channel_map_data)
                 except Exception as exc:
                     logger.warning("formation_damage render failed: %s", exc)
-                    return _placeholder_page("Formation Damage", COLORS)
+                    return _placeholder_page("Reservoir Protection", COLORS)
 
-            # ---- TOPOLOGY -------------------------------------------------
+            if pathname == "/controls":
+                if not channels_ready:
+                    return _gated_page("Pressure Control", COLORS)
+                try:
+                    from mpd_overwatch.dashboard.controls import page_controls
+                    return page_controls()
+                except Exception as exc:
+                    logger.warning("controls render failed: %s", exc)
+                    return _placeholder_page("Pressure Control", COLORS)
+
+            # ---- NOVEL ENGINES --------------------------------------------
             if pathname == "/topology":
                 if not channels_ready:
-                    return _gated_page("Coherence Log", COLORS)
+                    return _gated_page("Physics Consistency", COLORS)
                 try:
                     from mpd_overwatch.dashboard.topology import page_topology
                     return page_topology(channel_map_data)
                 except Exception as exc:
                     logger.warning("topology render failed: %s", exc)
-                    return _placeholder_page("Coherence Log", COLORS)
+                    return _placeholder_page("Physics Consistency", COLORS)
 
             if pathname == "/atft":
                 if not channels_ready:
-                    return _gated_page("ATFT Engine", COLORS)
+                    return _gated_page("Risk Topology", COLORS)
                 try:
                     from mpd_overwatch.dashboard.atft_analysis import page_atft_analysis
                     return page_atft_analysis(channel_map_data)
                 except Exception as exc:
                     logger.warning("atft_analysis render failed: %s", exc)
-                    return _placeholder_page("ATFT Engine", COLORS)
+                    return _placeholder_page("Risk Topology", COLORS)
 
             if pathname == "/persistent-homology":
                 if not channels_ready:
-                    return _gated_page("Persistent Homology", COLORS)
+                    return _gated_page("Pattern Discovery", COLORS)
                 try:
                     from mpd_overwatch.dashboard.persistent_homology_page import page_persistent_homology
                     return page_persistent_homology(channel_map_data)
                 except Exception as exc:
                     logger.warning("persistent_homology render failed: %s", exc)
-                    return _placeholder_page("Persistent Homology", COLORS)
+                    return _placeholder_page("Pattern Discovery", COLORS)
 
-            # ---- ENGINEERING ----------------------------------------------
+            # ---- ENGINEERING (ungated) ------------------------------------
             if pathname == "/formulas":
-                if not channels_ready:
-                    return _gated_page("Formula Verifier", COLORS)
                 try:
                     from mpd_overwatch.dashboard.formula_tabulator import (
                         page_formula_tabulator,
@@ -542,8 +588,6 @@ def create_app() -> dash.Dash:
                     return _placeholder_page("Formula Verifier", COLORS)
 
             if pathname == "/vv-report":
-                if not channels_ready:
-                    return _gated_page("V&V Report", COLORS)
                 try:
                     from mpd_overwatch.dashboard.vv_report import page_vv_report
                     return page_vv_report()
@@ -551,15 +595,13 @@ def create_app() -> dash.Dash:
                     logger.warning("vv_report render failed: %s", exc)
                     return _placeholder_page("V&V Report", COLORS)
 
-            if pathname == "/controls":
-                if not channels_ready:
-                    return _gated_page("Controls", COLORS)
+            if pathname == "/capabilities":
                 try:
-                    from mpd_overwatch.dashboard.controls import page_controls
-                    return page_controls()
+                    from mpd_overwatch.dashboard.capabilities import capabilities_layout
+                    return capabilities_layout()
                 except Exception as exc:
-                    logger.warning("controls render failed: %s", exc)
-                    return _placeholder_page("Controls", COLORS)
+                    logger.warning("capabilities render failed: %s", exc)
+                    return _placeholder_page("Capabilities", COLORS)
 
             if pathname == "/pipeline-results":
                 try:
@@ -569,9 +611,13 @@ def create_app() -> dash.Dash:
                     logger.warning("pipeline_results render failed: %s", exc)
                     return _placeholder_page("Pipeline Results", COLORS)
 
-            # ---- fallback: unknown route → file manager -------------------
-            from mpd_overwatch.dashboard.file_manager import file_manager_layout
-            return file_manager_layout()
+            # ---- fallback: unknown route → landing page -------------------
+            try:
+                from mpd_overwatch.dashboard.landing import landing_layout
+                return landing_layout()
+            except Exception:
+                from mpd_overwatch.dashboard.file_manager import file_manager_layout
+                return file_manager_layout()
 
         except Exception as exc:
             logger.error(
@@ -607,5 +653,12 @@ def create_app() -> dash.Dash:
         register_formula_callbacks(app)
     except (ImportError, AttributeError) as exc:
         logger.debug("formula_tabulator callbacks not registered: %s", exc)
+
+    # engines page callbacks
+    try:
+        from mpd_overwatch.dashboard.engines import register_engines_callbacks
+        register_engines_callbacks(app)
+    except (ImportError, AttributeError) as exc:
+        logger.debug("engines callbacks not registered: %s", exc)
 
     return app

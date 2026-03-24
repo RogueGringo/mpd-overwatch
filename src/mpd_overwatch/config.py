@@ -61,27 +61,24 @@ ZONE_THRESHOLDS = {
 
 # Page routing — matches tab structure in app.py NAV_SECTIONS
 PAGES = {
-    # Entry points (always accessible)
-    "/": "File Manager",
+    "/": "Landing",
     "/files": "File Manager",
     "/channels": "Channel Selector",
-    # OPERATIONS
+    "/engines": "Analysis Engines",
     "/well-overview": "Well Overview",
+    "/supervisory": "Operations Monitor",
     "/hmu": "HMU Cockpit",
-    "/supervisory": "Supervisory",
-    # ANALYSIS
-    "/hydraulics": "Hydraulics",
-    "/geomechanics": "Geomechanics",
-    "/pore-pressure": "Pore Pressure",
-    "/formation-damage": "Formation Damage",
-    # TOPOLOGY
-    "/topology": "Coherence Log",
-    "/atft": "ATFT Engine",
-    "/persistent-homology": "Persistent Homology",
-    # ENGINEERING
+    "/hydraulics": "Pressure & Flow",
+    "/geomechanics": "Rock Strength",
+    "/pore-pressure": "Formation Pressure",
+    "/formation-damage": "Reservoir Protection",
+    "/controls": "Pressure Control",
+    "/topology": "Physics Consistency",
+    "/persistent-homology": "Pattern Discovery",
+    "/atft": "Risk Topology",
     "/formulas": "Formula Verifier",
     "/vv-report": "V&V Report",
-    "/controls": "Controls",
+    "/capabilities": "Capabilities",
     "/pipeline-results": "Pipeline Results",
 }
 
