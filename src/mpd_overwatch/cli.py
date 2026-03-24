@@ -168,7 +168,7 @@ def _cmd_report(args, logger):
             for k, v in las_meta.items():
                 well_header[k] = v
         except Exception:
-            pass
+            logger.warning("LAS metadata merge failed", exc_info=True)
 
         # Auto-select MPD Operations channels and compute results
         results = []
