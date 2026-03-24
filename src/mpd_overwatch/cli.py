@@ -412,58 +412,62 @@ def _cmd_map(args, logger):
         logger.error("LLM mapping requires: pip install mpd-overwatch[llm]  (%s)", e)
         return 1
 
-    from pathlib import Path
-    raw_text = Path(args.las_file).read_text(encoding="utf-8", errors="replace")
-    well_lines, curve_lines = extract_las_sections(raw_text)
+    try:
+        from pathlib import Path
+        raw_text = Path(args.las_file).read_text(encoding="utf-8", errors="replace")
+        well_lines, curve_lines = extract_las_sections(raw_text)
 
-    if not curve_lines:
-        logger.error("No ~C (curve) section found in %s", args.las_file)
+        if not curve_lines:
+            logger.error("No ~C (curve) section found in %s", args.las_file)
+            return 1
+
+        curve_names, curve_units = parse_curve_metadata(curve_lines)
+        well = parse_well_metadata(well_lines)
+        service_company = well.get("SRVC", "")
+        operator = well.get("COMP", "")
+
+        print(f"File: {os.path.basename(args.las_file)}")
+        print(f"Service Company: {service_company or '(unknown)'}")
+        print(f"Operator: {operator or '(unknown)'}")
+        print(f"Curves: {len(curve_names)}")
+        print()
+
+        client = get_llm_client(base_url=args.base_url)
+        if client is None:
+            return 1
+
+        mapping = llm_map_channels(
+            well_lines=well_lines,
+            curve_lines=curve_lines,
+            curve_units=curve_units,
+            service_company=service_company,
+            operator=operator,
+            client=client,
+            model=args.model,
+            skip_cache=args.no_cache,
+        )
+
+        if not mapping:
+            logger.error("LLM mapping failed. Is LM Studio running?")
+            return 1
+
+        mapped_count = sum(1 for e in mapping.values() if e.get("canonical"))
+        print(f"Mapped: {mapped_count}/{len(mapping)} channels")
+        print()
+        print(f"{'MNEMONIC':<20} {'CANONICAL':<25} {'CONF':>5}  {'UNIT':<10}")
+        print("-" * 65)
+
+        for mnemonic, entry in mapping.items():
+            canonical = entry.get("canonical") or "(unmapped)"
+            confidence = entry.get("confidence", 0.0)
+            unit = curve_units.get(mnemonic, "")
+            marker = "+" if entry.get("canonical") else " "
+            print(f"{marker} {mnemonic:<18} {canonical:<25} {confidence:>4.0%}  {unit:<10}")
+
+        return 0
+    except Exception as exc:
+        logger.error("Failed to map %s: %s", args.las_file, exc)
         return 1
-
-    curve_names, curve_units = parse_curve_metadata(curve_lines)
-    well = parse_well_metadata(well_lines)
-    service_company = well.get("SRVC", "")
-    operator = well.get("COMP", "")
-
-    print(f"File: {os.path.basename(args.las_file)}")
-    print(f"Service Company: {service_company or '(unknown)'}")
-    print(f"Operator: {operator or '(unknown)'}")
-    print(f"Curves: {len(curve_names)}")
-    print()
-
-    client = get_llm_client(base_url=args.base_url)
-    if client is None:
-        return 1
-
-    mapping = llm_map_channels(
-        well_lines=well_lines,
-        curve_lines=curve_lines,
-        curve_units=curve_units,
-        service_company=service_company,
-        operator=operator,
-        client=client,
-        model=args.model,
-        skip_cache=args.no_cache,
-    )
-
-    if not mapping:
-        print("LLM mapping failed. Is LM Studio running?")
-        return 1
-
-    mapped_count = sum(1 for e in mapping.values() if e.get("canonical"))
-    print(f"Mapped: {mapped_count}/{len(mapping)} channels")
-    print()
-    print(f"{'MNEMONIC':<20} {'CANONICAL':<25} {'CONF':>5}  {'UNIT':<10}")
-    print("-" * 65)
-
-    for mnemonic, entry in mapping.items():
-        canonical = entry.get("canonical") or "(unmapped)"
-        confidence = entry.get("confidence", 0.0)
-        unit = curve_units.get(mnemonic, "")
-        marker = "+" if entry.get("canonical") else " "
-        print(f"{marker} {mnemonic:<18} {canonical:<25} {confidence:>4.0%}  {unit:<10}")
-
-    return 0
 
 
 if __name__ == "__main__":
