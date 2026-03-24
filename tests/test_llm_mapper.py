@@ -14,7 +14,9 @@ from mpd_overwatch.data.llm_mapper import (
     get_system_prompt,
     llm_map_channels,
     load_cached_mapping,
+    parse_curve_metadata,
     parse_llm_response,
+    parse_well_metadata,
     save_cached_mapping,
     validate_mapping,
     _get_canonical_targets,
@@ -397,3 +399,72 @@ GRC .API : Calibrated Gamma
         well_lines, curve_lines = extract_las_sections(las_text)
         assert well_lines == []
         assert curve_lines == []
+
+    def test_skips_comment_lines(self):
+        las_text = "~C\n# this is a comment\nDEPT.FT : Depth\n"
+        _, curve_lines = extract_las_sections(las_text)
+        assert len(curve_lines) == 1
+        assert "DEPT" in curve_lines[0]
+
+    def test_case_insensitive_section_tags(self):
+        las_text = "~well\nCOMP.  Test: COMPANY\n~curve\nGR.API : Gamma\n"
+        well_lines, curve_lines = extract_las_sections(las_text)
+        assert len(well_lines) == 1
+        assert len(curve_lines) == 1
+
+
+# ---------------------------------------------------------------------------
+# TestParseCurveMetadata
+# ---------------------------------------------------------------------------
+
+class TestParseCurveMetadata:
+    """Test parse_curve_metadata()."""
+
+    def test_extracts_names_and_units(self):
+        lines = ["DEPT.FT  : Measured Depth", "GRC .API : Calibrated Gamma"]
+        names, units = parse_curve_metadata(lines)
+        assert names == ["DEPT", "GRC"]
+        assert units["DEPT"] == "FT"
+        assert units["GRC"] == "API"
+
+    def test_uppercases_mnemonics(self):
+        lines = ["dept.ft : Depth"]
+        names, units = parse_curve_metadata(lines)
+        assert names == ["DEPT"]
+
+    def test_handles_no_unit(self):
+        lines = ["DEPT. : Depth"]
+        names, units = parse_curve_metadata(lines)
+        assert names == ["DEPT"]
+        assert units["DEPT"] == ""
+
+    def test_skips_lines_without_dot(self):
+        lines = ["no dot here", "DEPT.FT : Depth"]
+        names, _ = parse_curve_metadata(lines)
+        assert names == ["DEPT"]
+
+
+# ---------------------------------------------------------------------------
+# TestParseWellMetadata
+# ---------------------------------------------------------------------------
+
+class TestParseWellMetadata:
+    """Test parse_well_metadata()."""
+
+    def test_extracts_key_value_pairs(self):
+        lines = [
+            "COMP.               Noble Energy: COMPANY",
+            "SRVC.               Schlumberger: SERVICE COMPANY",
+        ]
+        result = parse_well_metadata(lines)
+        assert result["COMP"] == "Noble Energy"
+        assert result["SRVC"] == "Schlumberger"
+
+    def test_uppercases_keys(self):
+        lines = ["well.  Permian Basin #7: WELL"]
+        result = parse_well_metadata(lines)
+        assert "WELL" in result
+
+    def test_skips_lines_without_dot(self):
+        result = parse_well_metadata(["no dot here"])
+        assert result == {}

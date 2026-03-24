@@ -522,6 +522,8 @@ def apply_llm_mapping(filepath: str) -> Optional[Dict[str, str]]:
         return None
 
     well_lines, curve_lines = extract_las_sections(raw_text)
+    if not curve_lines:
+        return None
 
     service_company = _header_info.get("service_company", "")
     operator = _header_info.get("company", "")
