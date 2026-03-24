@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import pytest
 
+from unittest.mock import MagicMock
+
 from mpd_overwatch.data.llm_mapper import (
     build_mapping_prompt,
     cache_key,
     get_system_prompt,
+    llm_map_channels,
     load_cached_mapping,
     parse_llm_response,
     save_cached_mapping,
@@ -266,3 +269,68 @@ class TestMappingCache:
         monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
         (tmp_path / "arr.json").write_text("[1, 2, 3]", encoding="utf-8")
         assert load_cached_mapping("arr") is None
+
+
+# ---------------------------------------------------------------------------
+# TestLlmMapChannels
+# ---------------------------------------------------------------------------
+
+class TestLlmMapChannels:
+    """Test the full orchestration pipeline (LLM call mocked)."""
+
+    def test_returns_mapping_from_llm(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        llm_response = json.dumps({
+            "mappings": [
+                {"mnemonic": "DEPT", "canonical": "depth_md", "confidence": 0.99},
+                {"mnemonic": "GRC", "canonical": "gamma_ray", "confidence": 0.95},
+                {"mnemonic": "SPPA", "canonical": "spp", "confidence": 0.90},
+            ]
+        })
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=llm_response))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        result = llm_map_channels(
+            well_lines=["SRVC.  Schlumberger: SERVICE COMPANY", "COMP.  Noble: COMPANY"],
+            curve_lines=["DEPT.FT  : Depth", "GRC .API : Calibrated Gamma", "SPPA.PSI : Standpipe Pressure"],
+            curve_units={"DEPT": "FT", "GRC": "API", "SPPA": "PSI"},
+            service_company="Schlumberger", operator="Noble", client=mock_client,
+        )
+        assert result["DEPT"]["canonical"] == "depth_md"
+        assert result["GRC"]["canonical"] == "gamma_ray"
+        assert result["SPPA"]["canonical"] == "spp"
+
+    def test_uses_cache_on_second_call(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        llm_response = json.dumps({"mappings": [{"mnemonic": "GR", "canonical": "gamma_ray", "confidence": 0.9}]})
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=llm_response))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        kwargs = dict(well_lines=["SRVC. Pason: SVC"], curve_lines=["GR.API : Gamma Ray"],
+                      curve_units={"GR": "API"}, service_company="Pason", operator="EOG", client=mock_client)
+        result1 = llm_map_channels(**kwargs)
+        assert mock_client.chat.completions.create.call_count == 1
+        result2 = llm_map_channels(**kwargs)
+        assert mock_client.chat.completions.create.call_count == 1  # NOT 2
+        assert result1 == result2
+
+    def test_validation_rejects_bad_unit_mapping(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        llm_response = json.dumps({"mappings": [{"mnemonic": "GRC", "canonical": "spp", "confidence": 0.8}]})
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=llm_response))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        result = llm_map_channels(well_lines=[], curve_lines=["GRC .API : Calibrated Gamma"],
+                                  curve_units={"GRC": "API"}, service_company="SLB", operator="Test", client=mock_client)
+        assert result["GRC"]["canonical"] is None
+
+    def test_graceful_failure_when_llm_unreachable(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = Exception("Connection refused")
+        result = llm_map_channels(well_lines=[], curve_lines=["GR.API : Gamma"],
+                                  curve_units={"GR": "API"}, service_company="", operator="", client=mock_client)
+        assert result == {}

@@ -15,6 +15,9 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_BASE_URL = "http://localhost:1234/v1"
+_DEFAULT_MODEL = "local-model"
+
 _CACHE_DIR = Path.home() / ".mpd-overwatch" / "llm_mappings"
 
 _EXTRA_TARGETS = [
@@ -398,3 +401,158 @@ def load_cached_mapping(key: str) -> Optional[Dict[str, Any]]:
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to load cached mapping %s: %s", path, exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# LLM client helper
+# ---------------------------------------------------------------------------
+
+def get_llm_client(base_url: str = _DEFAULT_BASE_URL):
+    """Create an OpenAI-compatible client for LM Studio.
+
+    Parameters
+    ----------
+    base_url : str
+        Base URL of the LM Studio API (default ``http://localhost:1234/v1``).
+
+    Returns
+    -------
+    openai.OpenAI or None
+        An OpenAI client instance, or None if the ``openai`` package is not
+        installed.
+    """
+    try:
+        from openai import OpenAI  # type: ignore[import-untyped]
+    except ImportError:
+        logger.warning("openai package not installed — LLM mapping unavailable")
+        return None
+    return OpenAI(base_url=base_url, api_key="lm-studio")
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator
+# ---------------------------------------------------------------------------
+
+def llm_map_channels(
+    well_lines: List[str],
+    curve_lines: List[str],
+    curve_units: Dict[str, str],
+    service_company: str,
+    operator: str,
+    client=None,
+    model: str = _DEFAULT_MODEL,
+    confidence_threshold: float = 0.5,
+    skip_cache: bool = False,
+) -> Dict[str, Dict[str, Any]]:
+    """Map LAS curve mnemonics to canonical channel names via a local LLM.
+
+    Full pipeline: cache check -> prompt build -> LLM call -> parse ->
+    validate -> cache save.
+
+    Parameters
+    ----------
+    well_lines : list of str
+        Lines from the LAS ~W (Well Information) section.
+    curve_lines : list of str
+        Lines from the LAS ~C (Curve Information) section.
+    curve_units : dict
+        ``{MNEMONIC: unit_string}`` from parsed LAS header.
+    service_company : str
+        Service company name.
+    operator : str
+        Operator / company name.
+    client : openai.OpenAI or None
+        Pre-built OpenAI client.  If None the function attempts to create one
+        via :func:`get_llm_client`.
+    model : str
+        Model identifier passed to the completions endpoint.
+    confidence_threshold : float
+        Minimum confidence to accept a mapping (below -> canonical set to None).
+    skip_cache : bool
+        If True, bypass the cache and always call the LLM.
+
+    Returns
+    -------
+    dict
+        ``{MNEMONIC: {"canonical": str|None, "confidence": float}}``.
+        Returns ``{}`` on LLM failure or empty parse.
+    """
+    from mpd_overwatch.pointcloud.channel_registry import ChannelRegistry
+
+    # Determine curve names
+    curve_names = list(curve_units.keys()) if curve_units else []
+    if not curve_names:
+        # Fallback: parse mnemonics from curve_lines (take text before first '.')
+        for line in curve_lines:
+            stripped = line.strip()
+            if stripped:
+                mnem = stripped.split(".")[0].strip().upper()
+                if mnem:
+                    curve_names.append(mnem)
+
+    if not curve_names:
+        logger.info("No curve names found — nothing to map")
+        return {}
+
+    # Cache check
+    key = cache_key(service_company, operator, curve_names)
+    if not skip_cache:
+        cached = load_cached_mapping(key)
+        if cached is not None:
+            logger.debug("Using cached mapping for key %s", key)
+            return cached
+
+    # Resolve client
+    if client is None:
+        client = get_llm_client()
+    if client is None:
+        logger.warning("No LLM client available — returning empty mapping")
+        return {}
+
+    # Build prompts
+    system_prompt = get_system_prompt()
+    user_prompt = build_mapping_prompt(well_lines, curve_lines)
+
+    # Call LLM
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.1,
+            max_tokens=4096,
+        )
+        raw_text = completion.choices[0].message.content
+    except Exception:
+        logger.exception("LLM call failed")
+        return {}
+
+    # Parse response
+    mapping = parse_llm_response(raw_text)
+    if not mapping:
+        logger.warning("LLM returned empty or unparseable mapping")
+        return {}
+
+    # Validate each mapping
+    registry = ChannelRegistry()
+    for mnemonic, info in mapping.items():
+        canonical = info.get("canonical")
+        confidence = info.get("confidence", 0.0)
+
+        # Reject low confidence
+        if confidence < confidence_threshold:
+            info["canonical"] = None
+            continue
+
+        # Reject invalid unit mapping
+        if canonical is not None:
+            unit = curve_units.get(mnemonic, "")
+            if not validate_mapping(mnemonic, canonical, unit, registry):
+                info["canonical"] = None
+
+    # Cache the validated result
+    save_cached_mapping(key, mapping)
+
+    return mapping
