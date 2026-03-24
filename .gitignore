@@ -38,6 +38,9 @@ docs/equations/*.pdf
 .superpowers/
 .claude/
 
+# Worktrees
+.worktrees/
+
 # OS files
 Thumbs.db
 .DS_Store
