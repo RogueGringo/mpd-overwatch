@@ -460,10 +460,12 @@ def create_app() -> dash.Dash:
             if pathname == "/hydraulics":
                 if not channels_ready:
                     return _gated_page("Hydraulics", COLORS)
-                return _placeholder_page(
-                    "Hydraulics", COLORS,
-                    "Real-time hydraulics analysis with ECD, BHP, and annular velocity — scheduled for v1.1."
-                )
+                try:
+                    from mpd_overwatch.dashboard.hydraulics import page_hydraulics
+                    return page_hydraulics(channel_map_data)
+                except Exception as exc:
+                    logger.warning("hydraulics render failed: %s", exc)
+                    return _placeholder_page("Hydraulics", COLORS)
 
             if pathname == "/geomechanics":
                 if not channels_ready:
@@ -478,18 +480,22 @@ def create_app() -> dash.Dash:
             if pathname == "/pore-pressure":
                 if not channels_ready:
                     return _gated_page("Pore Pressure", COLORS)
-                return _placeholder_page(
-                    "Pore Pressure", COLORS,
-                    "Eaton pore pressure prediction from d-exponent trends — scheduled for v1.1."
-                )
+                try:
+                    from mpd_overwatch.dashboard.pore_pressure import page_pore_pressure
+                    return page_pore_pressure(channel_map_data)
+                except Exception as exc:
+                    logger.warning("pore_pressure render failed: %s", exc)
+                    return _placeholder_page("Pore Pressure", COLORS)
 
             if pathname == "/formation-damage":
                 if not channels_ready:
                     return _gated_page("Formation Damage", COLORS)
-                return _placeholder_page(
-                    "Formation Damage", COLORS,
-                    "Skin factor and productivity index analysis — scheduled for v1.1."
-                )
+                try:
+                    from mpd_overwatch.dashboard.formation_damage import page_formation_damage
+                    return page_formation_damage(channel_map_data)
+                except Exception as exc:
+                    logger.warning("formation_damage render failed: %s", exc)
+                    return _placeholder_page("Formation Damage", COLORS)
 
             # ---- TOPOLOGY -------------------------------------------------
             if pathname == "/topology":
@@ -515,11 +521,12 @@ def create_app() -> dash.Dash:
             if pathname == "/persistent-homology":
                 if not channels_ready:
                     return _gated_page("Persistent Homology", COLORS)
-                return _placeholder_page(
-                    "Persistent Homology",
-                    COLORS,
-                    "Persistence diagrams and Betti number analysis — scheduled for v1.1.",
-                )
+                try:
+                    from mpd_overwatch.dashboard.persistent_homology_page import page_persistent_homology
+                    return page_persistent_homology(channel_map_data)
+                except Exception as exc:
+                    logger.warning("persistent_homology render failed: %s", exc)
+                    return _placeholder_page("Persistent Homology", COLORS)
 
             # ---- ENGINEERING ----------------------------------------------
             if pathname == "/formulas":

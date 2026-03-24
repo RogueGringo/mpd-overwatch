@@ -68,3 +68,39 @@ class TestRoleFilter:
         assert "/" in all_paths
         assert "/atft" in all_paths
         assert "/controls" in all_paths
+
+
+class TestHydraulicsPage:
+    def test_hydraulics_page_renders(self):
+        from mpd_overwatch.dashboard.hydraulics import page_hydraulics
+        from dash import html
+        layout = page_hydraulics()
+        assert isinstance(layout, html.Div)
+        assert len(layout.children) >= 2
+
+
+class TestPorePressurePage:
+    def test_pore_pressure_page_renders(self):
+        from mpd_overwatch.dashboard.pore_pressure import page_pore_pressure
+        from dash import html
+        layout = page_pore_pressure()
+        assert isinstance(layout, html.Div)
+        assert len(layout.children) >= 2
+
+
+class TestFormationDamagePage:
+    def test_formation_damage_page_renders(self):
+        from mpd_overwatch.dashboard.formation_damage import page_formation_damage
+        from dash import html
+        layout = page_formation_damage()
+        assert isinstance(layout, html.Div)
+        assert len(layout.children) >= 2
+
+
+class TestPersistentHomologyPage:
+    def test_persistent_homology_page_renders(self):
+        from mpd_overwatch.dashboard.persistent_homology_page import page_persistent_homology
+        from dash import html
+        layout = page_persistent_homology()
+        assert isinstance(layout, html.Div)
+        assert len(layout.children) >= 2
