@@ -118,6 +118,33 @@ class TestParseLlmResponse:
         result = parse_llm_response(json.dumps(payload))
         assert "GRC" in result
 
+    def test_preamble_before_code_fence(self):
+        """JSON with LLM preamble text before code fence is handled."""
+        payload = {"mappings": [
+            {"mnemonic": "GR", "canonical": "gamma_ray", "confidence": 0.9},
+        ]}
+        raw = f"Here are the mappings:\n```json\n{json.dumps(payload)}\n```"
+        result = parse_llm_response(raw)
+        assert "GR" in result
+        assert result["GR"]["canonical"] == "gamma_ray"
+
+    def test_non_numeric_confidence(self):
+        """Non-numeric confidence doesn't crash, defaults to 0.0."""
+        payload = {"mappings": [
+            {"mnemonic": "GR", "canonical": "gamma_ray", "confidence": "high"},
+        ]}
+        result = parse_llm_response(json.dumps(payload))
+        assert "GR" in result
+        assert result["GR"]["confidence"] == 0.0
+
+    def test_confidence_clamped(self):
+        """Confidence values are clamped to [0.0, 1.0]."""
+        payload = {"mappings": [
+            {"mnemonic": "GR", "canonical": "gamma_ray", "confidence": 5.0},
+        ]}
+        result = parse_llm_response(json.dumps(payload))
+        assert result["GR"]["confidence"] == 1.0
+
 
 # ---------------------------------------------------------------------------
 # TestValidateMapping

@@ -7,15 +7,11 @@ canonical channel names from the ChannelRegistry.
 from __future__ import annotations
 
 import json
-import hashlib
 import logging
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
-
-_CACHE_DIR = Path.home() / ".mpd-overwatch" / "llm_mappings"
 
 _EXTRA_TARGETS = [
     "depth_md", "tvd", "bit_depth", "hole_depth", "bit_tvd",
@@ -144,11 +140,15 @@ def parse_llm_response(raw_text: str) -> Dict[str, Dict[str, Any]]:
     """
     valid_targets = set(_get_canonical_targets())
 
-    # Strip markdown code fences
+    # Strip markdown code fences (handle preamble text before fences)
     text = raw_text.strip()
-    text = re.sub(r"^```(?:json)?\s*\n?", "", text)
-    text = re.sub(r"\n?```\s*$", "", text)
-    text = text.strip()
+    fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", text, re.DOTALL)
+    if fence_match:
+        text = fence_match.group(1).strip()
+    else:
+        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+        text = text.strip()
 
     try:
         data = json.loads(text)
@@ -169,7 +169,11 @@ def parse_llm_response(raw_text: str) -> Dict[str, Dict[str, Any]]:
             continue
 
         canonical = entry.get("canonical")
-        confidence = float(entry.get("confidence", 0.0))
+        try:
+            confidence = float(entry.get("confidence", 0.0))
+        except (ValueError, TypeError):
+            confidence = 0.0
+        confidence = max(0.0, min(1.0, confidence))
 
         # Validate canonical name against known targets
         if canonical is not None and canonical not in valid_targets:
@@ -299,24 +303,22 @@ def validate_mapping(
     if not expected_units:
         return True
 
-    # Check if unit matches any unit in the expected group
-    for eu in expected_units:
-        if eu in unit_lower or unit_lower in eu:
-            return True
+    # Check if unit matches any unit in the expected group (exact match)
+    if unit_lower in expected_units:
+        return True
 
     # Unit does not match expected group — check if it matches ANY other group
     # If it matches another group, it's a clear conflict
     for group_name, group_units in _UNIT_GROUPS.items():
         if group_name == expected_group:
             continue
-        for gu in group_units:
-            if gu in unit_lower or unit_lower in gu:
-                logger.info(
-                    "Unit %r for mnemonic %r matches group %r but canonical %r "
-                    "expects %r — incompatible",
-                    unit, mnemonic, group_name, canonical, expected_group,
-                )
-                return False
+        if unit_lower in group_units:
+            logger.info(
+                "Unit %r for mnemonic %r matches group %r but canonical %r "
+                "expects %r — incompatible",
+                unit, mnemonic, group_name, canonical, expected_group,
+            )
+            return False
 
     # Unit doesn't match any known group — inconclusive, accept
     return True
