@@ -701,7 +701,8 @@ def _cmd_pipeline(args, logger):
                 logger.warning("Plot export failed: %s", e)
 
         # --- Save .mow archive ---
-        mow_name = header_info.get("well_name", "analysis").replace(" ", "_")
+        import re as _re
+        mow_name = _re.sub(r"[^\w\-]", "_", header_info.get("well_name", "analysis")) or "analysis"
         mow_path = output_dir / f"{mow_name}.mow"
         chain.save(mow_path)
         logger.info("Saved analysis chain: %s (%d layers)", mow_path, len(chain.layers))

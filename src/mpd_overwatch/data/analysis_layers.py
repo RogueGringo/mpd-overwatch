@@ -172,18 +172,19 @@ class AnalysisChain:
             chain.metadata = manifest.get("metadata", {})
 
             # Layers
+            all_names = set(zf.namelist())
             for layer_id in manifest.get("layer_ids", []):
                 prefix = f"layers/{layer_id}"
                 meta_path = f"{prefix}/meta.json"
-                if meta_path in zf.namelist():
+                if meta_path in all_names:
                     meta = json.loads(zf.read(meta_path))
                     chain.add_layer(AnalysisLayer.from_dict(meta))
 
                 # Load arrays
-                for name in zf.namelist():
+                for name in all_names:
                     if name.startswith(f"{prefix}/") and name.endswith(".npy"):
                         arr_name = name.split("/")[-1].replace(".npy", "")
                         buf = io.BytesIO(zf.read(name))
-                        chain.add_array(layer_id, arr_name, np.load(buf))
+                        chain.add_array(layer_id, arr_name, np.load(buf, allow_pickle=False))
 
         return chain

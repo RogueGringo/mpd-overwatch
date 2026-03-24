@@ -148,7 +148,7 @@ def _call_llm(
     messages: List[Dict[str, str]],
     base_url: str = _DEFAULT_BASE_URL,
     model: str = _DEFAULT_MODEL,
-    max_tokens: int = 800,
+    max_tokens: int = 1200,
     temperature: float = 0.1,
 ) -> Optional[str]:
     """Call LM Studio API and return response content."""
@@ -216,13 +216,22 @@ def characterize_channels(
         logger.info("Batch %d: %.1fs", i + 1, elapsed)
         parsed = parse_characterization_response(raw)
 
+        # Match by name first, fall back to positional
+        parsed_by_name = {
+            p["name"].upper(): p for p in parsed if p.get("name")
+        }
         for j, ch in enumerate(batch):
-            if j < len(parsed):
-                entry = parsed[j]
-                entry["name"] = ch.get("name", "")
+            name = ch.get("name", "")
+            matched = parsed_by_name.get(name.upper())
+            if matched is not None:
+                entry = dict(matched)
+                entry["name"] = name
+            elif j < len(parsed):
+                entry = dict(parsed[j])
+                entry["name"] = name
             else:
                 entry = {
-                    "name": ch.get("name", ""),
+                    "name": name,
                     "physics_domain": "unknown",
                     "index_relationship": "unknown",
                     "mpd_relevance": "contextual",

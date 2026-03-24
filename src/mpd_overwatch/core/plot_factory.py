@@ -56,9 +56,11 @@ def plot_raw_channels(
 ) -> go.Figure:
     """Plot all channels vs depth as a multi-trace figure."""
     depths = channel_data.get(depth_key)
+    _depth_label = "Depth (ft MD)"
     if depths is None:
-        max_len = max(len(v) for v in channel_data.values())
+        max_len = max((len(v) for v in channel_data.values()), default=0)
         depths = np.arange(max_len)
+        _depth_label = "Sample Index (depth key missing)"
 
     # Filter to numeric channels only, skip timestamp/date/string columns
     ch_names = []
@@ -108,7 +110,7 @@ def plot_raw_channels(
         )
 
     fig.update_layout(title=dict(text=title))
-    fig.update_xaxes(title_text="Depth (ft MD)", row=n_ch, col=1)
+    fig.update_xaxes(title_text=_depth_label, row=n_ch, col=1)
     return fig
 
 

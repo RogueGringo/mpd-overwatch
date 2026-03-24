@@ -111,7 +111,7 @@ MNEMONIC_MAP = {
     # MWD
     "GRC": "gamma_ray", "GRC_P": "gamma_ray", "GREXT": "gamma_ray",
     "INC": "inclination", "INC_P": "inclination", "INCL": "inclination",
-    "DINC_P": "azimuth", "AZIM": "azimuth",
+    "DINC_P": "delta_inclination", "DAZM_P": "azimuth", "AZM_P": "azimuth", "AZIM": "azimuth",
     "DLS": "dls",
     "DTF": "toolface",
     "TLTS": "temperature", "DTEMP": "temperature", "TEMP": "temperature",
