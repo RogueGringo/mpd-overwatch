@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
 import pytest
 
 from unittest.mock import MagicMock
@@ -468,3 +470,64 @@ class TestParseWellMetadata:
     def test_skips_lines_without_dot(self):
         result = parse_well_metadata(["no dot here"])
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# TestRealLasHeaders — integration tests with real LAS files
+# ---------------------------------------------------------------------------
+
+# Path to real example LAS files
+_EXAMPLES = Path(__file__).parent.parent / "DATA_TYPES_for_System_Use_EXAMPLES" / "Misc-LAS"
+
+
+@pytest.mark.skipif(not _EXAMPLES.exists(), reason="Example data not available")
+class TestRealLasHeaders:
+    """Integration tests using real LAS file headers."""
+
+    def test_extracts_sections_from_schlumberger_las(self):
+        las_path = _EXAMPLES / "DM_depth.las"
+        if not las_path.exists():
+            pytest.skip("DM_depth.las not available")
+
+        text = las_path.read_text(encoding="utf-8", errors="replace")
+        well_lines, curve_lines = extract_las_sections(text)
+
+        assert len(well_lines) > 0
+        assert len(curve_lines) > 10  # DM_depth has 40+ curves
+        # Check key mnemonics are present in curve lines
+        curve_text = "\n".join(curve_lines)
+        assert "DEPT" in curve_text
+        assert "GRC" in curve_text
+
+    def test_extracts_sections_from_totco_las(self):
+        las_files = list(_EXAMPLES.glob("EDR-TOTCO-LAS*/*.las"))
+        if not las_files:
+            pytest.skip("TOTCO LAS files not available")
+
+        text = las_files[0].read_text(encoding="utf-8", errors="replace")
+        well_lines, curve_lines = extract_las_sections(text)
+
+        assert len(curve_lines) > 20  # TOTCO has 50+ curves
+        # Check for the duplicate-mnemonic problem
+        curve_text = "\n".join(curve_lines)
+        assert "Hook" in curve_text or "Pump" in curve_text
+
+    def test_prompt_fits_in_small_context_window(self):
+        """Verify prompt stays under 3.5K tokens even for large LAS files.
+
+        The _MAX_CURVE_LINES truncation (120 lines) should keep prompts
+        small enough for any micro-LLM context window (4K+ tokens).
+        System prompt adds ~300 tokens on top, so user prompt must stay
+        under ~3.5K to fit in a 4K window.
+        """
+        for las_path in _EXAMPLES.glob("*.las"):
+            text = las_path.read_text(encoding="utf-8", errors="replace")
+            well_lines, curve_lines = extract_las_sections(text)
+            prompt = build_mapping_prompt(well_lines, curve_lines)
+            # Rough token estimate: 1 token ~ 4 chars
+            token_estimate = len(prompt) / 4
+            assert token_estimate < 3500, (
+                f"{las_path.name}: prompt is ~{token_estimate:.0f} tokens "
+                f"(from {len(curve_lines)} curve lines), "
+                f"truncation at _MAX_CURVE_LINES may need adjustment"
+            )
