@@ -1,10 +1,10 @@
-# MPD Command Website & Platform Front Door — Design Specification
+# BHOverwatch Website & Platform Front Door — Design Specification
 
 **Date:** 2026-03-24
 **Status:** Draft
 **Spec:** 1 of 2 (this spec covers front door + platform restructure; Spec 2 covers 3D visualization engine)
-**Predecessor:** `2026-03-20-dashboard-refactor-design.md` (v0.4.0 refactor)
-**Target:** v1.1.0 (current: v1.0.0b1)
+**Predecessor:** `2026-03-20-dashboard-refactor-design.md` (v0.4.0 refactor — fully implemented and superseded)
+**Target:** v0.1bl (current: v1.0.0b1) — bl = beta looped iterative development
 
 ---
 
@@ -27,11 +27,11 @@ This structure is deliberate. As the platform enters iterative feature developme
 ### 1.1 Context
 
 MPD Command v1.0.0b1 is a fully operational engineering platform:
-- 9 live dashboard pages, 4 placeholder analysis pages
-- 12 computation engine wrappers with V&V A+ grade (23/23 benchmarks)
-- 230 passing tests
+- 17 routed pages across 20 dashboard modules (all importable, data-gated pages render when channels mapped)
+- 12 logical engine groupings wrapping 20 computation functions, with 4 V&V-benchmarked modules (hydraulics, geomechanics, pore pressure, formation damage) scoring A+ across 23/23 benchmarks
+- 239 passing tests
 - Real well data pipeline: LAS → channel mapping → PointCloud4D → analysis → .mow export
-- Description-first vendor resolution: 132+ mnemonics across Pason, Halliburton, SLB, Totco
+- Description-first vendor resolution: 177 mnemonic mappings across Pason, Halliburton, SLB, Totco (computed from `config.MNEMONIC_MAP` at render time)
 - Novel topology engines: sheaf coherence, persistent homology, ATFT
 
 The platform currently opens directly to the File Manager at `/`. There is no front door, no system status overview, no engine control panel, no stakeholder-oriented entry point. The sidebar navigation uses method-first naming ("Sheaf Coherence", "Persistent Homology") that creates a jargon wall for non-topologist users.
@@ -85,13 +85,13 @@ This naming system applies everywhere: sidebar, engine cards, landing page, tool
 | 2 | **Rock Strength** | Will the wellbore hold? What stresses break it? | Geomechanics — Kirsch, Mohr-Coulomb, Mogi | CLASSICAL | `/geomechanics` |
 | 3 | **Formation Pressure** | What pressure is the rock pushing back with? | Pore Pressure — Eaton 1975, Bowers 1995 | CLASSICAL | `/pore-pressure` |
 | 4 | **Reservoir Protection** | Are we damaging the pay zone while drilling it? | Formation Damage — Hawkins, van Everdingen-Hurst | CLASSICAL | `/formation-damage` |
-| 5 | **Operations Monitor** | What's happening right now? What crossed a threshold? | Supervisory — HMU, alarm logic, real-time KPIs | CLASSICAL | `/supervisory` (sub-nav to `/hmu`) |
-| 6 | **Pressure Control** | How do we hold BHP at target? Choke response? | Controls — PID logic, choke model, setpoint tracking | CLASSICAL | `/controls` |
+| 5 | **Operations Monitor** | What's happening right now? What crossed a threshold? | Supervisory — HMU, alarm logic, real-time KPIs | CLASSICAL | `/supervisory` (canonical; `/hmu` also works, renders HMU view directly) |
+| 6 | **Pressure Control** | How do we hold BHP at target? Choke response? | Controls — calibration, transport weights, parameter tuning (PID/choke model planned for future iteration) | CLASSICAL | `/controls` |
 | 7 | **Physics Consistency** | Do the channels agree with each other physically? | Sheaf Coherence — Hansen, Ghrist (Laplacian spectrum) | NOVEL | `/topology` |
 | 8 | **Pattern Discovery** | What regimes exist? What cycles repeat? What's the shape of the data? | Persistent Homology — Edelsbrunner, Harer (H₀/H₁ barcodes) | NOVEL | `/persistent-homology` |
 | 9 | **Risk Topology** | What failure paths exist? Which risks connect to which? | ATFT — Algebraic Topology Fault Trees (novel formulation) | NOVEL | `/atft` |
 | 10 | **Data Normalizer** | Any vendor file → unified 4D point cloud (t, z, c, v) | PointCloud4D — universal drilling data representation | INFRA | — |
-| 11 | **Channel Intelligence** | What does each channel measure? Physics domain? MPD relevant? | Channel Characterizer — LLM-driven physics classification | INFRA | — |
+| 11 | **Channel Intelligence** | What does each channel measure? Physics domain? MPD relevant? | Channel Characterizer — description matching + MNEMONIC_MAP resolution (LLM classification planned) | INFRA | — |
 | 12 | **Visualization** | See it. Export it. Prove it. Plotly figures → PNG evidence. | Plot Factory — Plotly + Kaleido rendering pipeline | INFRA | — |
 
 ### 2.5 Tier Definitions
@@ -135,9 +135,32 @@ ENGINE_REGISTRY = [
         "sub_engines": ["ECD", "ESD", "Surge/Swab", "Kill Sheet"],
         "vv_grade": "A+",
     },
-    # ... 11 more entries
+    # ... engines 2-9 follow same pattern ...
+    {
+        "id": 10,
+        "display_name": "Data Normalizer",
+        # ...
+        "import_path": "mpd_overwatch.pointcloud.pointcloud4d",
+        "vv_grade": None,  # INFRA engines may not have V&V benchmarks
+    },
+    {
+        "id": 11,
+        "display_name": "Channel Intelligence",
+        # ...
+        "import_path": "mpd_overwatch.pointcloud.channel_registry",
+        "vv_grade": None,
+    },
+    {
+        "id": 12,
+        "display_name": "Visualization",
+        # ...
+        "import_path": "mpd_overwatch.pipeline.plot_factory",
+        "vv_grade": None,
+    },
 ]
 ```
+
+**Note:** INFRA engines use the same `importlib.import_module()` health check as CLASSICAL/NOVEL engines. If the import path doesn't exist yet (e.g., `plot_factory` not yet created), the engine shows "offline" status — this is expected and not an error.
 
 This registry is imported by every component that needs engine metadata. One source of truth. Future engines are added here, and every UI component automatically picks them up.
 
@@ -236,7 +259,7 @@ The blast doors into CIC. When a human opens this URL, they should know within 3
 │              MPD COMMAND                            │
 │     MANAGED PRESSURE DRILLING OPERATIONS PLATFORM   │
 │                                                     │
-│  [13 LIVE PAGES] [V&V: A+] [12 ENGINES] [230 TESTS]│
+│  [{page_count} PAGES] [V&V: A+] [{engine_count} ENGINES] [{test_count} TESTS]│
 │                                                     │
 │  ● HYDRAULICS  ● GEOMECHANICS  ● PORE PRESSURE     │
 │  ● FORMATION DAMAGE  ● TOPOLOGY                    │
@@ -273,10 +296,11 @@ The blast doors into CIC. When a human opens this URL, they should know within 3
 |---|---|---|
 | "MPD COMMAND" wordmark | Hardcoded | No |
 | Subtitle "MANAGED PRESSURE DRILLING OPERATIONS PLATFORM" | Hardcoded | No |
-| Proof badge: page count | Count of routes in `NAV_SECTIONS` + ungated pages | Yes — computed at render |
+| Proof badge: page count | `len(config.PAGES)` — count of routed pages | Yes — computed at render |
 | Proof badge: V&V grade | From `vv/` module — run benchmark summary | Yes — computed at render |
 | Proof badge: engine count | `len(ENGINE_REGISTRY)` | Yes — computed at render |
-| Proof badge: test count | Cached from last CI run or `pytest --co -q` count | Semi-static — updated on deploy |
+| Proof badge: test count | Cached from last test run or `pytest --co -q` count | Semi-static — updated on deploy |
+| Proof badge: mnemonic count | `len(config.MNEMONIC_MAP)` | Yes — computed at render |
 
 #### 4.5.2 Engine Status Strip
 
@@ -326,8 +350,10 @@ Each card is a `dcc.Link` wrapping a styled `html.Div`. On hover: border brighte
 
 ```
 MPD COMMAND v{version} | Python · Dash · Plotly · NumPy
-23/23 V&V Benchmarks A+ | {test_count} Tests | {engine_count} Engines | 132+ Vendor Mnemonics
+23/23 V&V Benchmarks A+ | {test_count} Tests | {engine_count} Engines | {mnemonic_count}+ Vendor Mnemonics
 ```
+
+All values in `{}` are computed at render time from actual system state. No hardcoded counts.
 
 ### 4.6 Responsive Behavior
 
@@ -511,20 +537,22 @@ One master panel for stakeholder communication. When a completions engineer open
 | **Well Control Specialist** | "What are the failure paths? Where do risks compound? Show me the fault tree with real data." | Risk Topology, Operations Monitor, Pressure Control |
 | **Technical Leadership** | "Is this platform verified? What's the V&V grade? Can I trust these numbers?" | Formula Verifier, V&V Report, Engineering Proof |
 
-### 6.5 What's Novel Section
+### 6.5 What's Unique Section
 
-Four cards, each structured as:
+Four cards highlighting capabilities that don't exist elsewhere in drilling software. Note: this section spans both NOVEL and INFRA tier engines — "unique" is about what the platform offers that others don't, not a tier classification.
+
+Each card structured as:
 - **Effect-first title** (what it does)
 - **One-line human summary** (the question it answers)
 - **Plain-language explanation** (2-3 sentences, no jargon)
 - **Method attribution** (academic reference)
 
-| Card | Effect Title | Method |
-|---|---|---|
-| 1 | Physics Consistency Checking | Sheaf Coherence — Hansen, Ghrist |
-| 2 | Data Shape Discovery | Persistent Homology — Edelsbrunner, Harer |
-| 3 | Topological Risk Analysis | ATFT — novel formulation |
-| 4 | Description-First Data Resolution | Channel Characterizer — LLM pipeline |
+| Card | Effect Title | Method | Engine Tier |
+|---|---|---|---|
+| 1 | Physics Consistency Checking | Sheaf Coherence — Hansen, Ghrist | NOVEL |
+| 2 | Data Shape Discovery | Persistent Homology — Edelsbrunner, Harer | NOVEL |
+| 3 | Topological Risk Analysis | ATFT — novel formulation | NOVEL |
+| 4 | Description-First Data Resolution | Channel Characterizer — mnemonic + description pipeline | INFRA |
 
 ### 6.6 Engine Inventory (Compact)
 
@@ -535,7 +563,7 @@ Three columns: CLASSICAL (6), NOVEL (3), INFRASTRUCTURE (3). Each line: `#. Disp
 Badges computed at render time from `config.MNEMONIC_MAP`:
 - Count unique vendor prefixes/patterns
 - Display: PASON, HALLIBURTON, SLB, TOTCO, GENERIC LAS
-- Stats: `{mnemonic_count}+ mnemonics | depth + time indexed | :N suffix disambiguation`
+- Stats: `{len(MNEMONIC_MAP)}+ mnemonics | depth + time indexed | :N suffix disambiguation`
 
 ### 6.8 Implementation Notes
 
@@ -600,10 +628,13 @@ NAV_SECTIONS = [
         "heading": "PLATFORM",
         "heading_color": None,  # default text_dim
         "links": [
-            ("/files", "File Manager", "▶"),
-            ("/channels", "Channel Selector", "⚙"),
-            ("/engines", "Analysis Engines", "◆"),
+            ("/files", "File Manager", "··"),
+            ("/channels", "Channel Selector", "··"),
+            ("/engines", "Analysis Engines", "··"),
         ],
+        # PLATFORM links use "··" (no number) — they are entry/reference pages,
+        # not numbered engines. The sidebar renderer treats "··" as a non-numeric
+        # prefix and styles it dimmer than numbered links.
     },
     {
         "heading": "OPERATIONS",
@@ -660,11 +691,13 @@ Dimming is applied via CSS class `nav-link--gated`. Tooltip on hover: "Load a fi
 
 ### 7.6 HMU + Supervisory Consolidation
 
+**Canonical behavior:**
 - Sidebar shows one link: "Operations Monitor" → `/supervisory`
-- Within the supervisory page, a tab or sub-navigation switches between HMU view and Supervisory view
-- Both underlying page modules remain separate (`hmu_panel.py`, `supervisory_panel.py`)
-- `/hmu` route still works (redirects or renders HMU view directly)
-- No code deleted — just routing consolidated
+- `/supervisory` renders the supervisory page with a tab bar for switching between Supervisory and HMU views
+- `/hmu` still works as its own route — renders the HMU view directly (backward compatible, no redirect)
+- Both underlying page modules remain separate (`hmu_panel.py`, `supervisory_panel.py`) — no code merged
+- `/hmu` is no longer listed in the sidebar but the route is not removed
+- No code deleted — sidebar display consolidated, routing preserved
 
 ### 7.7 Brand Update
 
@@ -694,18 +727,20 @@ The application uses two `dcc.Store` components:
 
 ### 8.2 Changes
 
-No new stores are added. Existing stores are sufficient:
+One new UI-only store is added. Existing stores are unchanged:
 
-| Store | Current Use | New Use |
-|---|---|---|
-| `app-state` | `stage`, `well_header`, `file_path` | Same + landing page reads `stage` for system state display |
-| `channel-map` | Channel mapping data | Same — engine page reads to determine which engines can run |
+| Store | Current Use | New Use | Status |
+|---|---|---|---|
+| `app-state` | `stage`, `well_header`, `file_path` | Same + landing page reads `stage` for system state display | Existing |
+| `channel-map` | Channel mapping data | Same — engine page reads to determine which engines can run | Existing |
+| `engine-ui-state` | — | Which engine card is expanded, per-engine config toggles | **New** (ephemeral, UI-only) |
 
 ### 8.3 Engine Page State
 
 Engine expand/collapse and configuration state is managed via:
-- `dcc.Store("engine-ui-state")` — which card is expanded, per-engine config
-- This is a new store, but it's UI-only state — no persistence needed
+- `dcc.Store("engine-ui-state", storage_type="session")` — which card is expanded, per-engine config
+- This is a new ephemeral store — no persistence across browser sessions needed
+- Resets to all-collapsed on page load
 
 ### 8.4 Intent
 
@@ -776,7 +811,7 @@ Existing theme in `assets/style.css` (406 lines):
 ### 9.3 CSS Architecture Rules (For All Future Work)
 
 1. **BEM-like naming**: `block__element--modifier` (e.g., `engine-card__status--online`)
-2. **No inline styles in Python** for new components. Use CSS classes. (Existing inline styles in `app.py` are legacy — don't add more.)
+2. **No inline styles in Python** for new components. Use CSS classes. Existing inline styles in `_make_sidebar()` and other `app.py` functions are legacy — new additions to the sidebar builder should use CSS classes, but existing inline styles are not refactored in this iteration.
 3. **Color variables**: Use the established palette. Don't introduce new colors without updating this spec.
 4. **Responsive**: All new components must work at 768px minimum width.
 5. **Dark theme only**: No light mode. The command-center aesthetic is the brand.
@@ -801,9 +836,22 @@ Existing theme in `assets/style.css` (406 lines):
 | `app.py` | NAV_SECTIONS restructured (5 groups, effect-first names). Brand: OVERWATCH → COMMAND. Sidebar conditional on pathname. Routes: add `/engines`, `/capabilities`. Move `/` from file_manager to landing. Ungate `/formulas`, `/vv-report`. Add `engine-ui-state` store. Update `_make_sidebar()` for gated link dimming and section heading colors. |
 | `assets/style.css` | Add classes from Section 9.2. Landing page styles, engine card grid, nav gating, tier badges, engine log panel, full-width mode. |
 
-### 10.3 Unchanged Files
+### 10.3 Minor Modifications
 
-All existing analysis page renderers, engine wrappers, topology modules, channel_selector.py, file_manager.py, config.py, pointcloud/*, vv/*, tests/*. Routes stay the same — `/hydraulics`, `/topology`, etc. Internal routing paths are not changed, only display names.
+| File | Changes |
+|---|---|
+| `config.py` | Add `/engines` and `/capabilities` to `PAGES` dict. Update `APP_NAME` if needed for brand consistency. |
+
+### 10.4 Unchanged Files
+
+All existing analysis page renderers, engine wrappers, topology modules, channel_selector.py, file_manager.py, pointcloud/*, vv/*, tests/*. Routes stay the same — `/hydraulics`, `/topology`, etc. Internal routing paths are not changed, only display names.
+
+### 10.5 Status Bar
+
+The existing fixed status bar at the bottom of the layout (lines 374-392 in `app.py`) shows "MPD OVERWATCH v{version}" with `left: 220px`. This needs:
+- Brand text updated to "MPD COMMAND"
+- Conditional `left: 0` on landing page (same pattern as sidebar conditional)
+- Engine status text updated to use `ENGINE_REGISTRY` count
 
 ---
 
@@ -821,8 +869,8 @@ All existing analysis page renderers, engine wrappers, topology modules, channel
 | `/formulas` | Gated | **Ungated** [CHANGED] |
 | `/vv-report` | Gated | **Ungated** [CHANGED] |
 | `/well-overview` | Gated | Gated (unchanged) |
-| `/hmu` | Gated, separate nav link | Gated, **renders within Operations Monitor** [CHANGED] |
-| `/supervisory` | Gated, separate nav link | Gated, **"Operations Monitor" in nav** [CHANGED] |
+| `/hmu` | Gated, separate nav link | Gated, **still works standalone, removed from sidebar** [CHANGED] |
+| `/supervisory` | Gated, separate nav link | Gated, **"Operations Monitor" in nav, tab bar to switch to HMU view** [CHANGED] |
 | All other routes | Unchanged | Unchanged |
 
 ### 11.2 ALWAYS_ACCESSIBLE Update
@@ -1112,7 +1160,7 @@ This spec is complete when:
 7. Gated pages are dimmed in sidebar when no data loaded
 8. `/formulas` and `/vv-report` are accessible without loading data
 9. A failed engine import doesn't crash any page
-10. All existing 230 tests still pass
+10. All existing 239 tests still pass
 11. New tests cover landing, engines, capabilities, routing, and error handling
 12. Brand reads "MPD COMMAND" throughout
 
@@ -1132,9 +1180,11 @@ This spec is complete when:
 | Secondary (Orange) | `#ff6b35` | Secondary actions, gated indicators |
 | Novel (Purple) | `#c084fc` | Novel engine tier, topology |
 | Text Primary | `#e2e8f0` | Primary text |
-| Text Muted | `#8892a4` | Secondary text, descriptions |
-| Text Dim | `#64748b` | Tertiary text, labels |
-| Text Very Dim | `#4a5568` | Quaternary text, subtle labels |
+| Text Muted | `#8892a4` | Secondary text, descriptions (config.py: `text_muted`) |
+| Text Secondary | `#64748b` | Tertiary text, labels, nav links (CSS only — not in config.py COLORS) |
+| Text Dim | `#4a5568` | Quaternary text, subtle labels (config.py: `text_dim`) |
+
+**Note:** `#64748b` is used extensively in CSS but not defined in `config.py` COLORS dict. Config.py's `text_dim` is `#4a5568`. When referencing colors in Python code, use `COLORS["text_dim"]` (= `#4a5568`). When adding CSS classes, `#64748b` is the correct CSS tertiary text color.
 
 ## Appendix B: Typography Reference
 
@@ -1174,7 +1224,7 @@ Each engine's sub-computations, for the expand view on `/engines`:
 | Formation Pressure | D-Exponent, Eaton Pore Pressure, NCT Fitting |
 | Reservoir Protection | Hawkins Skin Factor, Radial Invasion, Darcy PI |
 | Operations Monitor | HMU Cockpit, Alarm Logic, Threshold Monitoring |
-| Pressure Control | PID Controller, Choke Model, BHP Setpoint Tracking |
+| Pressure Control | Calibration Parameters, Transport Weights, GUI Controls (PID/Choke planned for future iteration) |
 | Physics Consistency | Sheaf Construction, Laplacian Computation, Coherence Scoring |
 | Pattern Discovery | Vietoris-Rips Filtration, H₀ Barcodes (Regimes), H₁ Barcodes (Cycles) |
 | Risk Topology | Fault Tree Construction, Topological Connectivity, Risk Propagation |
