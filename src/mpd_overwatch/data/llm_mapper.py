@@ -6,12 +6,16 @@ canonical channel names from the ChannelRegistry.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+_CACHE_DIR = Path.home() / ".mpd-overwatch" / "llm_mappings"
 
 _EXTRA_TARGETS = [
     "depth_md", "tvd", "bit_depth", "hole_depth", "bit_tvd",
@@ -322,3 +326,76 @@ def validate_mapping(
 
     # Unit doesn't match any known group — inconclusive, accept
     return True
+
+
+# ---------------------------------------------------------------------------
+# Per-operator mapping cache
+# ---------------------------------------------------------------------------
+
+def cache_key(service_company: str, operator: str, curve_names: List[str]) -> str:
+    """Generate a deterministic cache key from operator context + curve set.
+
+    Parameters
+    ----------
+    service_company : str
+        Service company name (e.g. "Schlumberger").
+    operator : str
+        Operator name (e.g. "Noble Energy").
+    curve_names : list of str
+        Curve mnemonics from the LAS file.
+
+    Returns
+    -------
+    str
+        Hex digest truncated to 16 characters.
+    """
+    parts = [
+        service_company.lower(),
+        operator.lower(),
+        ",".join(sorted(c.upper() for c in curve_names)),
+    ]
+    blob = "|".join(parts).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def save_cached_mapping(key: str, mapping: Dict[str, Any]) -> None:
+    """Save a validated mapping dict to the cache directory.
+
+    Parameters
+    ----------
+    key : str
+        Cache key (from :func:`cache_key`).
+    mapping : dict
+        Mapping dict to persist.
+    """
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = _CACHE_DIR / f"{key}.json"
+    path.write_text(json.dumps(mapping, indent=2), encoding="utf-8")
+    logger.debug("Saved cached mapping to %s", path)
+
+
+def load_cached_mapping(key: str) -> Optional[Dict[str, Any]]:
+    """Load a cached mapping if it exists.
+
+    Parameters
+    ----------
+    key : str
+        Cache key (from :func:`cache_key`).
+
+    Returns
+    -------
+    dict or None
+        The cached mapping dict, or None if not found or corrupt.
+    """
+    path = _CACHE_DIR / f"{key}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            logger.warning("Cached mapping %s is not a dict, ignoring", path)
+            return None
+        return data
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to load cached mapping %s: %s", path, exc)
+        return None

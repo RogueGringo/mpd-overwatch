@@ -7,8 +7,11 @@ import pytest
 
 from mpd_overwatch.data.llm_mapper import (
     build_mapping_prompt,
+    cache_key,
     get_system_prompt,
+    load_cached_mapping,
     parse_llm_response,
+    save_cached_mapping,
     validate_mapping,
     _get_canonical_targets,
     _MAX_CURVE_LINES,
@@ -199,3 +202,47 @@ class TestGetCanonicalTargets:
         """Target list is sorted and has no duplicates."""
         targets = _get_canonical_targets()
         assert targets == sorted(set(targets))
+
+
+# ---------------------------------------------------------------------------
+# TestMappingCache
+# ---------------------------------------------------------------------------
+
+class TestMappingCache:
+    """Test per-operator mapping cache."""
+
+    def test_cache_key_deterministic(self):
+        curves = ["DEPT", "GRC", "SPPA", "HKLD"]
+        key1 = cache_key("Schlumberger", "Noble Energy", curves)
+        key2 = cache_key("Schlumberger", "Noble Energy", curves)
+        assert key1 == key2
+
+    def test_cache_key_differs_by_service_company(self):
+        curves = ["DEPT", "GRC", "SPPA"]
+        key1 = cache_key("Schlumberger", "Noble Energy", curves)
+        key2 = cache_key("Halliburton", "Noble Energy", curves)
+        assert key1 != key2
+
+    def test_cache_key_differs_by_curve_set(self):
+        key1 = cache_key("Schlumberger", "Noble", ["DEPT", "GRC"])
+        key2 = cache_key("Schlumberger", "Noble", ["DEPT", "GRC", "SPPA"])
+        assert key1 != key2
+
+    def test_save_and_load_roundtrip(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path
+        )
+        mapping = {
+            "GRC": {"canonical": "gamma_ray", "confidence": 0.95},
+            "SPPA": {"canonical": "spp", "confidence": 0.90},
+        }
+        key = "test_key_abc123"
+        save_cached_mapping(key, mapping)
+        loaded = load_cached_mapping(key)
+        assert loaded == mapping
+
+    def test_load_returns_none_for_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path
+        )
+        assert load_cached_mapping("nonexistent") is None
