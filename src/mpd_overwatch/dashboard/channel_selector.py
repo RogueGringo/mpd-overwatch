@@ -120,9 +120,10 @@ _DISPLAY_NAME_TO_CANONICAL: Dict[str, str] = {
     "choke pressure":       "choke_pressure",
     "choke_pressure":       "choke_pressure",
 
-    # Casing pressure
-    "casing pressure":      "apwd",
-    "casing_pressure":      "apwd",
+    # Casing pressure (surface casing pressure — distinct from downhole APWD)
+    "casing pressure":      "casing_pressure",
+    "casing_pressure":      "casing_pressure",
+    # Annular / downhole pressure
     "annular pressure":     "apwd",
     "annular_pressure":     "apwd",
     "apwd":                 "apwd",
@@ -162,8 +163,8 @@ _DESCRIPTION_KEYWORDS: List[tuple] = [
     ("pump pressure", "spp"),
     ("surface pressure", "spp"),
     ("annular pressure", "apwd"),
-    ("casing pressure", "apwd"),
-    ("bottomhole pressure", "apwd"),
+    ("casing pressure", "casing_pressure"),
+    ("bottomhole pressure", "bhp"),
     ("choke pressure", "choke_pressure"),
     ("mpd pressure", "choke_pressure"),
     ("back pressure", "choke_pressure"),
@@ -214,6 +215,52 @@ _DESCRIPTION_KEYWORDS: List[tuple] = [
     ("temperature", "temperature"),
     ("downhole temp", "temperature"),
     ("annular temp", "temperature"),
+    # Pason-style descriptions (base:N disambiguation)
+    ("bit position", "bit_depth"),
+    ("bit tvd", "tvd"),
+    ("bit wt", "wob"),
+    ("bit rpm", "rpm"),
+    ("block height", "block_position"),
+    ("mud volume", "mud_volume"),
+    ("pit volume", "mud_volume"),
+    ("trip tank", "mud_volume"),
+    ("motor rpm", "rpm"),
+    ("string weight", "hookload"),
+    ("string torque", "torque"),
+    ("pipe torque", "torque"),
+    ("tong torque", "torque"),
+    ("survey azimuth", "azimuth"),
+    ("survey inclination", "inclination"),
+    ("survey depth", "depth_md"),
+    ("continuous azimuth", "azimuth"),
+    ("continuous inclination", "inclination"),
+    ("hole depth", "depth_md"),
+    ("gain loss", "flow_out"),
+    ("gain/loss", "flow_out"),
+    ("spm total", "flow_in"),
+    ("spm", "flow_in"),
+    ("choke position", "choke_pressure"),
+    ("dogleg", "dls"),
+    ("wellhead pressure", "casing_pressure"),
+    ("well head pressure", "casing_pressure"),
+    ("rcd pressure", "casing_pressure"),
+    ("mse downhole", "mse"),
+    ("mse total", "mse"),
+    ("specific energy", "mse"),
+    ("gamma depth", "depth_md"),
+    ("flow pressure", "spp"),
+    ("flow in rate", "flow_in"),
+    ("flow out rate", "flow_out"),
+    ("flow out percent", "flow_out_pct"),
+    ("d-exponent", "rop"),
+    ("d exponent", "rop"),
+    # Motor/mud subsystem disambiguation (prevent :N base fallback errors)
+    ("mud temp", "temperature"),
+    ("motor torque", "torque"),
+    ("motor max torque", "torque"),
+    ("diff press", "differential_pressure"),
+    ("mud conductivity", "temperature"),  # no canonical; park under temperature
+    ("bit size", "bit_depth"),            # not WOB — closer to bit_depth
 ]
 
 
@@ -288,7 +335,14 @@ def _resolve_display_name(
     from mpd_overwatch.config import MNEMONIC_MAP
     mapped = MNEMONIC_MAP.get(mnemonic)
     if not mapped and ":" in mnemonic:
-        # Handle lasio duplicate suffix (e.g. "GRC:1" -> try "GRC")
+        # Pason/Totco :N suffix convention — the same base mnemonic can
+        # represent different physical quantities (e.g. ROTA:1=RPM,
+        # ROTA:2=Torque).  Description-based disambiguation is more
+        # reliable than the stripped base, so try it first.
+        desc_match = _match_description(description)
+        if desc_match:
+            return desc_match
+        # Last resort: strip suffix and try the base mnemonic.
         mapped = MNEMONIC_MAP.get(mnemonic.split(":")[0])
     if mapped:
         try:
