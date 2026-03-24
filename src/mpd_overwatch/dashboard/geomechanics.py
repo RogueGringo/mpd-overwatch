@@ -75,26 +75,26 @@ def page_geomechanics(channel_map_data: dict | None = None):
         mse = mse_rotary + mse_axial
         mse = np.clip(mse, 0, 200000)
 
-    # UCS estimation (MSE * bit efficiency for PDC in shale)
-    bit_efficiency = 0.35
-    ucs = mse * bit_efficiency
-    ucs = np.clip(ucs, 0, 50000)
+        # UCS estimation (MSE * bit efficiency for PDC in shale)
+        bit_efficiency = 0.35
+        ucs = mse * bit_efficiency
+        ucs = np.clip(ucs, 0, 50000)
 
-    # Brittleness Index
-    tensile_strength = ucs / 10
-    bi = np.where(
-        (ucs + tensile_strength) > 0,
-        (ucs - tensile_strength) / (ucs + tensile_strength),
-        0,
-    )
+        # Brittleness Index
+        tensile_strength = ucs / 10
+        bi = np.where(
+            (ucs + tensile_strength) > 0,
+            (ucs - tensile_strength) / (ucs + tensile_strength),
+            0,
+        )
 
-    # Drilling Efficiency
-    de = np.where(mse > 0, ucs / mse, 0)
+        # Drilling Efficiency
+        de = np.where(mse > 0, ucs / mse, 0)
 
-    # Fracability score (brittleness weighted)
-    gamma_max = np.max(gamma) if np.max(gamma) > 0 else 1.0
-    fracability = bi * 0.7 + (1 - gamma / gamma_max) * 0.3
-    fracability = np.clip(fracability, 0, 1)
+        # Fracability score (brittleness weighted)
+        gamma_max = np.max(gamma) if np.max(gamma) > 0 else 1.0
+        fracability = bi * 0.7 + (1 - gamma / gamma_max) * 0.3
+        fracability = np.clip(fracability, 0, 1)
 
     # --- Summary stats for scalar tooltip values ---
     avg_mse = float(np.mean(mse[mse > 0])) if np.any(mse > 0) else 0.0
