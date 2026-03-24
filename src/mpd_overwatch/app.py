@@ -534,9 +534,12 @@ def create_app() -> dash.Dash:
             if pathname == "/vv-report":
                 if not channels_ready:
                     return _gated_page("V&V Report", COLORS)
-                return _placeholder_page(
-                    "V&V Report", COLORS, "V&V report — available in a future task."
-                )
+                try:
+                    from mpd_overwatch.dashboard.vv_report import page_vv_report
+                    return page_vv_report()
+                except Exception as exc:
+                    logger.warning("vv_report render failed: %s", exc)
+                    return _placeholder_page("V&V Report", COLORS)
 
             if pathname == "/controls":
                 if not channels_ready:
