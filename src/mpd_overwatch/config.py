@@ -137,7 +137,8 @@ MNEMONIC_MAP = {
     "INC": "inclination", "INC_P": "inclination", "INCL": "inclination",
     "DINC_P": "delta_inclination",
     "DAZM_P": "azimuth", "AZM_P": "azimuth", "AZIM": "azimuth",
-    "DLS": "dls",
+    "ATAZIM": "azimuth", "AZI": "azimuth",  # at-bit azimuth variants
+    "DLS": "dls", "ROT": "dls", "ROB": "dls",  # rate of turn/build ≈ DLS
     "DTF": "toolface",
     # ---- Temperature ----
     "TLTS": "temperature", "DTEMP": "temperature", "TEMP": "temperature",
@@ -153,4 +154,5 @@ MNEMONIC_MAP = {
     "AT10": "resistivity_shallow",
     # ---- Timestamps ----
     "DateTime": "timestamp", "DateTime.S": "timestamp",
+    "TIME": "timestamp", "DATE": "timestamp",
 }
