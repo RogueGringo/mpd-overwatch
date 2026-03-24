@@ -366,14 +366,14 @@ def _cmd_info(logger):
             compute_ecd, compute_mse, compute_hydrostatic,
             compute_bhp_static, compute_bhp_dynamic, compute_annular_velocity,
             compute_ucs, compute_brittleness, compute_d_exponent,
-            compute_eaton_pore_pressure, compute_skin_factor,
+            compute_eaton_pp, compute_skin_factor,
             compute_productivity_index,
         )
         wrappers = [
             "compute_ecd", "compute_mse", "compute_hydrostatic",
             "compute_bhp_static", "compute_bhp_dynamic", "compute_annular_velocity",
             "compute_ucs", "compute_brittleness", "compute_d_exponent",
-            "compute_eaton_pore_pressure", "compute_skin_factor",
+            "compute_eaton_pp", "compute_skin_factor",
             "compute_productivity_index",
         ]
         print(f"Engine wrappers: {len(wrappers)} available")
@@ -385,15 +385,11 @@ def _cmd_info(logger):
     # Channel registry tier summary
     print()
     try:
-        from mpd_overwatch.core.abstraction_layers import CHANNEL_REGISTRY
-        tier_counts: dict = {}
-        for entry in CHANNEL_REGISTRY.values():
-            tier = getattr(entry, "tier", "unknown")
-            tier_counts[tier] = tier_counts.get(tier, 0) + 1
-        total_channels = sum(tier_counts.values())
+        from mpd_overwatch.pointcloud.channel_registry import ChannelRegistry, DEFAULT_CHANNELS
+        registry = ChannelRegistry()
+        total_channels = len(DEFAULT_CHANNELS)
         print(f"Channel registry: {total_channels} channels")
-        for tier, count in sorted(tier_counts.items(), key=lambda x: str(x[0])):
-            print(f"  Tier {tier}: {count} channels")
+        print(f"  Aliases:  {len(registry._aliases)} mnemonic aliases")
     except Exception as e:
         print(f"Channel registry: {e}")
 
