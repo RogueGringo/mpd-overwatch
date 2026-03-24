@@ -287,6 +287,9 @@ def _resolve_display_name(
     # 6. Config MNEMONIC_MAP (vendor mnemonic -> canonical channel name)
     from mpd_overwatch.config import MNEMONIC_MAP
     mapped = MNEMONIC_MAP.get(mnemonic)
+    if not mapped and ":" in mnemonic:
+        # Handle lasio duplicate suffix (e.g. "GRC:1" -> try "GRC")
+        mapped = MNEMONIC_MAP.get(mnemonic.split(":")[0])
     if mapped:
         try:
             registry.lookup(mapped)

@@ -603,13 +603,20 @@ def _cmd_pipeline(args, logger):
         from mpd_overwatch.config import MNEMONIC_MAP
 
         selections = []
+        seen_canonical = set()
         for name in channel_data:
             canonical = None
             if mapping and name in mapping:
                 canonical = mapping[name]
             elif name in MNEMONIC_MAP:
                 canonical = MNEMONIC_MAP[name]
-            if canonical:
+            elif ":" in name:
+                # Handle lasio duplicate suffix (e.g. "GRC:1" -> try "GRC")
+                base = name.split(":")[0]
+                if base in MNEMONIC_MAP:
+                    canonical = MNEMONIC_MAP[base]
+            if canonical and canonical not in seen_canonical:
+                seen_canonical.add(canonical)
                 selections.append({
                     "vendor_mnemonic": name,
                     "canonical": canonical,

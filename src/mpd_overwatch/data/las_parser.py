@@ -45,82 +45,8 @@ except ImportError:
 # Common mnemonic aliases -> canonical names
 # ---------------------------------------------------------------------------
 
-# Maps vendor-specific curve mnemonics to our canonical channel names.
-# Keys are UPPER-CASED for case-insensitive matching.
-MNEMONIC_MAP: Dict[str, str] = {
-    # Depth
-    "DEPT": "depth_md",
-    "DEPTH": "depth_md",
-    "MD": "depth_md",
-    "DMEA": "depth_md",
-    "TDEP": "depth_md",
-    "TVD": "depth_tvd",
-    "TVDSS": "depth_tvd",
-    "DTVD": "depth_tvd",
-    # Gamma ray
-    "GR": "gamma_ray",
-    "GR_EDRC": "gamma_ray",
-    "GR_ARC": "gamma_ray",
-    "SGR": "gamma_ray",
-    "CGR": "gamma_ray",
-    "HCGR": "gamma_ray",
-    "ECGR": "gamma_ray",
-    # Density / porosity (informational -- not in DrillingData but kept in df)
-    "RHOB": "bulk_density",
-    "RHOZ": "bulk_density",
-    "ZDEN": "bulk_density",
-    "NPHI": "neutron_porosity",
-    "TNPH": "neutron_porosity",
-    "NPOR": "neutron_porosity",
-    # Resistivity
-    "RT": "resistivity_deep",
-    "ILD": "resistivity_deep",
-    "LLD": "resistivity_deep",
-    "AT90": "resistivity_deep",
-    "RD": "resistivity_deep",
-    "RS": "resistivity_shallow",
-    "ILM": "resistivity_shallow",
-    "LLS": "resistivity_shallow",
-    "AT10": "resistivity_shallow",
-    # Drilling parameters
-    "ROP": "rop",
-    "ROP5": "rop",
-    "ROPA": "rop",
-    "MROP": "rop",
-    "WOB": "wob",
-    "WOBX": "wob",
-    "SWOB": "wob",
-    "TRQ": "torque",
-    "TORQUE": "torque",
-    "STOR": "torque",
-    "TQA": "torque",
-    "SPP": "spp",
-    "SPPA": "spp",
-    "PUMP_PRESS": "spp",
-    "FLOWIN": "flow_in",
-    "FLOW_IN": "flow_in",
-    "MFIA": "flow_in",
-    "FLOWOUT": "flow_out",
-    "FLOW_OUT": "flow_out",
-    "MFOA": "flow_out",
-    "RPM": "rpm",
-    "RPMA": "rpm",
-    "SRPM": "rpm",
-    "HKLA": "hookload",
-    "HOOKLOAD": "hookload",
-    "HKL": "hookload",
-    "BPOS": "block_position",
-    # Annular pressure
-    "APRS": "apwd",
-    "APWD": "apwd",
-    "ECD": "ecd",
-    "ECDA": "ecd",
-    # MPD
-    "CHOKE_PRESS": "choke_pressure",
-    "SBP": "choke_pressure",
-    "ABP": "choke_pressure",
-    "BHP": "bhp",
-}
+# Single authoritative map lives in config.py — import it here.
+from mpd_overwatch.config import MNEMONIC_MAP
 
 
 # ---------------------------------------------------------------------------

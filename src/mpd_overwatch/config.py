@@ -85,39 +85,67 @@ PAGES = {
     "/pipeline-results": "Pipeline Results",
 }
 
-# Vendor mnemonic mapping (from DATA_TYPES_for_System_Use_EXAMPLES analysis)
+# Vendor mnemonic mapping — single authoritative source for all code paths.
+# Covers Sperry, Halliburton, SLB, Pason, Totco, and common LAS mnemonics.
 MNEMONIC_MAP = {
-    # Depth
-    "DEPT": "depth_md", "MD": "depth_md", "BDEP": "bit_depth", "HDEP": "hole_depth",
+    # ---- Depth ----
+    "DEPT": "depth_md", "DEPTH": "depth_md", "MD": "depth_md",
+    "DMEA": "depth_md", "TDEP": "depth_md",
     "Hole.ft": "depth_md", "Hole": "depth_md",
-    "MTTVD": "tvd", "BTVD": "bit_tvd", "HTVD": "hole_tvd",
-    "TVD.ft": "tvd", "TVD": "tvd",
-    # Pressure
-    "SPPA": "spp", "SPP I": "spp", "SPP": "spp",
-    "Pump.psi": "spp", "Pump Pressure": "spp",
-    "APRS": "apwd", "PCAS": "casing_pressure",
+    "BDEP": "bit_depth", "HDEP": "hole_depth",
+    "TVD": "tvd", "TVDSS": "tvd", "DTVD": "tvd", "TVDE": "tvd",
+    "MTTVD": "tvd", "TVD.ft": "tvd",
+    "BTVD": "bit_tvd", "HTVD": "hole_tvd",
+    # ---- Pressure ----
+    "SPP": "spp", "SPPA": "spp", "SPP I": "spp",
+    "PUMP_PRESS": "spp", "Pump.psi": "spp", "Pump Pressure": "spp",
+    "APRS": "apwd", "APWD": "apwd",
+    "ECD": "ecd", "ECDA": "ecd",
+    "PCAS": "casing_pressure",
     "Diff.psi": "differential_pressure",
-    # Drilling mechanics
-    "ROP": "rop", "OBR": "rop", "ROP.FT/HR": "rop",
+    "CHOKE_PRESS": "choke_pressure", "SBP": "choke_pressure", "ABP": "choke_pressure",
+    "BHP": "bhp",
+    # ---- Drilling mechanics ----
+    "ROP": "rop", "ROP5": "rop", "ROPA": "rop", "MROP": "rop",
+    "OBR": "rop", "ROP.FT/HR": "rop",
+    "WOB": "wob", "WOBX": "wob", "SWOB": "wob", "Bit.klb": "wob",
+    "TQA": "torque", "TRQ": "torque", "TORQUE": "torque", "STOR": "torque",
+    "TOR": "torque", "Rota.A": "torque", "Top.ft-lbf": "torque",
+    "RPM": "rpm", "RPMA": "rpm", "SRPM": "rpm",
+    "RPM_P": "rpm", "Rota.RPM": "rpm", "Top.RPM": "rpm",
+    "HKLA": "hookload", "HOOKLOAD": "hookload", "HKL": "hookload",
     "HKLD": "hookload", "HKL I": "hookload", "HL": "hookload",
     "Hook.klb": "hookload",
-    "SWOB": "wob", "WOB": "wob", "Bit.klb": "wob",
-    "TQA": "torque", "TOR": "torque", "Rota.A": "torque",
-    "Top.ft-lbf": "torque",
-    "RPM": "rpm", "RPM_P": "rpm", "Rota.RPM": "rpm", "Top.RPM": "rpm",
-    # Flow
+    "BPOS": "block_position",
+    # ---- Flow ----
     "FLOW": "flow_out_pct", "Flow.%": "flow_out_pct",
+    "FLOWIN": "flow_in", "FLOW_IN": "flow_in", "MFIA": "flow_in",
     "TPO": "flow_in", "Flow.galUS/min": "flow_in",
+    "FLOWOUT": "flow_out", "FLOW_OUT": "flow_out", "MFOA": "flow_out",
     "Mud.bbl": "mud_volume", "MV": "mud_volume",
-    # MWD
-    "GRC": "gamma_ray", "GRC_P": "gamma_ray", "GREXT": "gamma_ray",
+    # ---- MWD / Gamma ray ----
+    "GR": "gamma_ray", "GRC": "gamma_ray", "GRC_P": "gamma_ray",
+    "GR_EDRC": "gamma_ray", "GR_ARC": "gamma_ray", "SGR": "gamma_ray",
+    "CGR": "gamma_ray", "HCGR": "gamma_ray", "ECGR": "gamma_ray",
+    "GREXT": "gamma_ray",
+    # ---- Directional survey ----
     "INC": "inclination", "INC_P": "inclination", "INCL": "inclination",
-    "DINC_P": "delta_inclination", "DAZM_P": "azimuth", "AZM_P": "azimuth", "AZIM": "azimuth",
+    "DINC_P": "delta_inclination",
+    "DAZM_P": "azimuth", "AZM_P": "azimuth", "AZIM": "azimuth",
     "DLS": "dls",
     "DTF": "toolface",
+    # ---- Temperature ----
     "TLTS": "temperature", "DTEMP": "temperature", "TEMP": "temperature",
-    # Mud weight
+    "TTEM": "temperature", "TEMPG": "temperature_gradient",
+    # ---- Mud weight ----
     "Mud.lb/galUS": "mud_weight",
-    # Timestamps (mapped for reference but excluded from measurement channels)
+    # ---- Petrophysics (informational — kept in dataframe for formation eval) ----
+    "RHOB": "bulk_density", "RHOZ": "bulk_density", "ZDEN": "bulk_density",
+    "NPHI": "neutron_porosity", "TNPH": "neutron_porosity", "NPOR": "neutron_porosity",
+    "RT": "resistivity_deep", "ILD": "resistivity_deep", "LLD": "resistivity_deep",
+    "AT90": "resistivity_deep", "RD": "resistivity_deep",
+    "RS": "resistivity_shallow", "ILM": "resistivity_shallow", "LLS": "resistivity_shallow",
+    "AT10": "resistivity_shallow",
+    # ---- Timestamps ----
     "DateTime": "timestamp", "DateTime.S": "timestamp",
 }
