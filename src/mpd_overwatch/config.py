@@ -1,7 +1,7 @@
 """MPD Command - Configuration"""
 
 APP_NAME = "MPD Command"
-APP_VERSION = "0.4.0"
+APP_VERSION = "1.0.0b1"
 APP_TITLE = "MPD Command | Managed Pressure Drilling Operations Platform"
 
 # Visual theme colors (dark command-center aesthetic)
