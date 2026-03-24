@@ -445,3 +445,60 @@ def ingest(
             well_name=well_name or None,
             channel_map=channel_map,
         )
+
+
+# ---------------------------------------------------------------------------
+# Channel-map ingestion (bridge from dashboard dcc.Store to PointCloud4D)
+# ---------------------------------------------------------------------------
+
+def ingest_channel_map(
+    channel_map: Dict[str, np.ndarray],
+    well_name: str = "",
+    registry: Optional[ChannelRegistry] = None,
+) -> PointCloud4D:
+    """Convert a deserialized channel map into a PointCloud4D.
+
+    This is the bridge between the Dash dashboard's ``dcc.Store`` channel data
+    (canonical name -> numpy array) and the topology/sheaf analysis engine.
+
+    Parameters
+    ----------
+    channel_map : dict
+        ``{canonical_channel_name: np.ndarray}`` — the deserialized channel
+        map from ``app_state.deserialize_channel_map()``.
+    well_name : str
+        Well identifier.
+    registry : ChannelRegistry, optional
+        Defaults to a fresh registry with the standard channel catalogue.
+
+    Returns
+    -------
+    PointCloud4D
+    """
+    if not _HAS_PANDAS:
+        raise ImportError("pandas is required for ingest_channel_map()")
+
+    if registry is None:
+        registry = ChannelRegistry()
+
+    # Build a DataFrame from the channel map
+    df = pd.DataFrame(channel_map)
+
+    # Determine depth column
+    depth_col = None
+    for candidate in ("depth_md", "dept", "md", "depth"):
+        if candidate in df.columns:
+            depth_col = candidate
+            break
+    if depth_col is None:
+        # Fall back to first column
+        depth_col = df.columns[0]
+
+    return PointCloud4D.from_dataframe(
+        df,
+        depth_col=depth_col,
+        channel_map=None,  # columns are already canonical names
+        registry=registry,
+        well_name=well_name,
+        metadata={},
+    )
