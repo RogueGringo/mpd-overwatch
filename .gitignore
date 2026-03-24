@@ -25,6 +25,14 @@ logs/
 
 # Client data (never commit real well data)
 DATA_TYPES_for_System_Use_EXAMPLES/
+Human Concious Operator 50.50 partner/
+MPD model building/
+
+# Local scripts / scratch
+scripts/
+
+# Large binary docs
+docs/equations/*.pdf
 
 # Plugin/skill caches
 .superpowers/
