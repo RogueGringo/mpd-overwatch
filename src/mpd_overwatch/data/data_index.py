@@ -88,7 +88,7 @@ class DataIndex:
             "original_path": str(src),
             "stored_name": stored_name,
             "registered_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "size_bytes": src.stat().st_size,
+            "size_bytes": dest.stat().st_size,
             **(metadata or {}),
         }
         self._entries.append(entry)
