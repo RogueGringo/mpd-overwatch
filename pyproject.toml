@@ -24,6 +24,7 @@ dependencies = [
 gpu = ["torch>=2.0.0", "cupy-cuda12x"]
 dev = ["pytest>=7.0", "ruff>=0.1.0"]
 deploy = ["gunicorn>=21.2.0"]
+llm = ["openai>=1.0.0"]
 
 [project.scripts]
 mpd-overwatch = "mpd_overwatch.cli:main"

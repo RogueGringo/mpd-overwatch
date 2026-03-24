@@ -6,6 +6,7 @@ Usage:
     mpd-overwatch report <las_file>  Generate HTML report from a LAS file
     mpd-overwatch analyze <dir>      Analyze all LAS files in a directory
     mpd-overwatch info               Show platform version and hardware
+    mpd-overwatch map <las_file>     Map LAS curve mnemonics using local LLM
 """
 
 import argparse
@@ -55,6 +56,14 @@ def main(argv=None):
     # info
     sub.add_parser("info", help="Show platform version and detected hardware")
 
+    # map
+    p_map = sub.add_parser("map", help="Map LAS curve mnemonics using local LLM")
+    p_map.add_argument("las_file", help="Path to LAS file")
+    p_map.add_argument("--base-url", default="http://localhost:1234/v1",
+                        help="LM Studio API URL (default: http://localhost:1234/v1)")
+    p_map.add_argument("--model", default="local-model", help="Model name")
+    p_map.add_argument("--no-cache", action="store_true", help="Skip cache lookup")
+
     args = parser.parse_args(argv)
     setup_logging(args.log_level)
     logger = logging.getLogger(__name__)
@@ -73,6 +82,8 @@ def main(argv=None):
         return _cmd_analyze(args, logger)
     elif args.command == "info":
         return _cmd_info(logger)
+    elif args.command == "map":
+        return _cmd_map(args, logger)
 
     return 0
 
@@ -378,6 +389,79 @@ def _cmd_info(logger):
         print(f"V&V: {r['total_passed']}/{r['total_tests']} pass, Grade {r['overall_grade']}")
     except Exception as e:
         print(f"V&V: {e}")
+
+    return 0
+
+
+def _cmd_map(args, logger):
+    """Map LAS curve mnemonics using local LLM (LM Studio)."""
+    import os
+    if not os.path.exists(args.las_file):
+        logger.error("File not found: %s", args.las_file)
+        return 1
+
+    try:
+        from mpd_overwatch.data.llm_mapper import (
+            extract_las_sections,
+            parse_curve_metadata,
+            parse_well_metadata,
+            llm_map_channels,
+            get_llm_client,
+        )
+    except ImportError as e:
+        logger.error("LLM mapping requires: pip install mpd-overwatch[llm]  (%s)", e)
+        return 1
+
+    from pathlib import Path
+    raw_text = Path(args.las_file).read_text(encoding="utf-8", errors="replace")
+    well_lines, curve_lines = extract_las_sections(raw_text)
+
+    if not curve_lines:
+        logger.error("No ~C (curve) section found in %s", args.las_file)
+        return 1
+
+    curve_names, curve_units = parse_curve_metadata(curve_lines)
+    well = parse_well_metadata(well_lines)
+    service_company = well.get("SRVC", "")
+    operator = well.get("COMP", "")
+
+    print(f"File: {os.path.basename(args.las_file)}")
+    print(f"Service Company: {service_company or '(unknown)'}")
+    print(f"Operator: {operator or '(unknown)'}")
+    print(f"Curves: {len(curve_names)}")
+    print()
+
+    client = get_llm_client(base_url=args.base_url)
+    if client is None:
+        return 1
+
+    mapping = llm_map_channels(
+        well_lines=well_lines,
+        curve_lines=curve_lines,
+        curve_units=curve_units,
+        service_company=service_company,
+        operator=operator,
+        client=client,
+        model=args.model,
+        skip_cache=args.no_cache,
+    )
+
+    if not mapping:
+        print("LLM mapping failed. Is LM Studio running?")
+        return 1
+
+    mapped_count = sum(1 for e in mapping.values() if e.get("canonical"))
+    print(f"Mapped: {mapped_count}/{len(mapping)} channels")
+    print()
+    print(f"{'MNEMONIC':<20} {'CANONICAL':<25} {'CONF':>5}  {'UNIT':<10}")
+    print("-" * 65)
+
+    for mnemonic, entry in mapping.items():
+        canonical = entry.get("canonical") or "(unmapped)"
+        confidence = entry.get("confidence", 0.0)
+        unit = curve_units.get(mnemonic, "")
+        marker = "+" if entry.get("canonical") else " "
+        print(f"{marker} {mnemonic:<18} {canonical:<25} {confidence:>4.0%}  {unit:<10}")
 
     return 0
 
