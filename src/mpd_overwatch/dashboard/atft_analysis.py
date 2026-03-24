@@ -128,8 +128,10 @@ def page_atft_analysis(channel_map_data: dict | None = None):
         try:
             from mpd_overwatch.dashboard.app_state import deserialize_channel_map
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
+            from mpd_overwatch.dashboard.data_store import get_header_info
             cm = deserialize_channel_map(channel_map_data)
-            pc = ingest_channel_map(cm)
+            _hdr = get_header_info()
+            pc = ingest_channel_map(cm, well_name=_hdr.get("well_name", ""))
             using_placeholder = False
         except Exception:
             logger.warning("channel map deserialization failed", exc_info=True)

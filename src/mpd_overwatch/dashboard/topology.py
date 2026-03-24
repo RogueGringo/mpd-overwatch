@@ -81,8 +81,10 @@ def page_topology(channel_map_data: dict | None = None):
         try:
             from mpd_overwatch.dashboard.app_state import deserialize_channel_map
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
+            from mpd_overwatch.dashboard.data_store import get_header_info
             cm = deserialize_channel_map(channel_map_data)
-            pc = ingest_channel_map(cm)
+            _hdr = get_header_info()
+            pc = ingest_channel_map(cm, well_name=_hdr.get("well_name", ""))
         except Exception:
             logger.warning("topology ingestion failed", exc_info=True)
 
