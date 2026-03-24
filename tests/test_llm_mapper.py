@@ -334,3 +334,34 @@ class TestLlmMapChannels:
         result = llm_map_channels(well_lines=[], curve_lines=["GR.API : Gamma"],
                                   curve_units={"GR": "API"}, service_company="", operator="", client=mock_client)
         assert result == {}
+
+    def test_low_confidence_rejected(self, tmp_path, monkeypatch):
+        """Mappings below confidence_threshold get canonical set to None."""
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        llm_response = json.dumps({"mappings": [
+            {"mnemonic": "GR", "canonical": "gamma_ray", "confidence": 0.3},
+        ]})
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=llm_response))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        result = llm_map_channels(well_lines=[], curve_lines=["GR.API : Gamma"],
+                                  curve_units={"GR": "API"}, service_company="X", operator="Y", client=mock_client)
+        assert result["GR"]["canonical"] is None
+
+    def test_skip_cache_forces_llm_call(self, tmp_path, monkeypatch):
+        """skip_cache=True bypasses cache and calls LLM again."""
+        monkeypatch.setattr("mpd_overwatch.data.llm_mapper._CACHE_DIR", tmp_path)
+        llm_response = json.dumps({"mappings": [
+            {"mnemonic": "GR", "canonical": "gamma_ray", "confidence": 0.9},
+        ]})
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_completion.choices = [MagicMock(message=MagicMock(content=llm_response))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        kwargs = dict(well_lines=[], curve_lines=["GR.API : Gamma"],
+                      curve_units={"GR": "API"}, service_company="A", operator="B", client=mock_client)
+        llm_map_channels(**kwargs)
+        assert mock_client.chat.completions.create.call_count == 1
+        llm_map_channels(**kwargs, skip_cache=True)
+        assert mock_client.chat.completions.create.call_count == 2

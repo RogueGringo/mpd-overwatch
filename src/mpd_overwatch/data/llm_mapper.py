@@ -524,7 +524,13 @@ def llm_map_channels(
             temperature=0.1,
             max_tokens=4096,
         )
+        if not completion.choices:
+            logger.warning("LLM returned no choices")
+            return {}
         raw_text = completion.choices[0].message.content
+        if not raw_text:
+            logger.warning("LLM returned empty content")
+            return {}
     except Exception:
         logger.exception("LLM call failed")
         return {}
