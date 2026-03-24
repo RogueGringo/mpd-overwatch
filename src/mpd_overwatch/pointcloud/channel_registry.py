@@ -534,18 +534,34 @@ def classify_channels(
     units = units or {}
     result: Dict[str, ChannelTier] = {}
 
+    # Also check the global MNEMONIC_MAP for canonical name resolution
+    from mpd_overwatch.config import MNEMONIC_MAP
+
     for mnemonic in mnemonics:
         # Try registry resolution (canonical name or alias)
         try:
             registry.mnemonic_to_channel(mnemonic)
             result[mnemonic] = ChannelTier.CORE
+            continue
         except KeyError:
-            # Not in registry — check unit heuristic
-            unit = units.get(mnemonic, "")
-            if unit and _unit_suggests_drilling(unit):
-                result[mnemonic] = ChannelTier.SUGGESTED
-            else:
-                result[mnemonic] = ChannelTier.PARKED
+            pass
+
+        # Try MNEMONIC_MAP (vendor mnemonic → canonical name → registry)
+        canonical = MNEMONIC_MAP.get(mnemonic.upper())
+        if canonical:
+            try:
+                registry.mnemonic_to_channel(canonical)
+                result[mnemonic] = ChannelTier.CORE
+                continue
+            except KeyError:
+                pass
+
+        # Not in registry — check unit heuristic
+        unit = units.get(mnemonic, "")
+        if unit and _unit_suggests_drilling(unit):
+            result[mnemonic] = ChannelTier.SUGGESTED
+        else:
+            result[mnemonic] = ChannelTier.PARKED
 
     return result
 
