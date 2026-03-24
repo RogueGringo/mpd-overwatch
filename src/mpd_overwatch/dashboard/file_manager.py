@@ -566,10 +566,9 @@ def register_file_manager_callbacks(app):
         # Decode browser upload, write to temp file, use same pipeline
         _, content_string = contents.split(",", 1)
         decoded = base64.b64decode(content_string)
-        text = decoded.decode("utf-8", errors="replace")
 
         tmp = Path(tempfile.gettempdir()) / f"mpd_upload_{filename}"
-        tmp.write_text(text, encoding="utf-8")
+        tmp.write_bytes(decoded)
 
         try:
             card, app_state = _load_and_build(str(tmp))

@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
 import time
 from pathlib import Path
@@ -78,7 +79,8 @@ class DataIndex:
         if existing is not None:
             return existing
 
-        stored_name = f"{file_hash}_{src.name}"
+        safe_name = re.sub(r'[^\w\-.]', '_', src.name)
+        stored_name = f"{file_hash}_{safe_name}"
         dest = self._files_dir / stored_name
         shutil.copy2(str(src), str(dest))
 

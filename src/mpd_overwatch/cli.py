@@ -556,10 +556,12 @@ def _cmd_pipeline(args, logger):
                     {"name": n, "unit": curve_units.get(n, ""), "description": curve_descs.get(n, "")}
                     for n in curve_names
                 ]
-                # Detect index type
-                strt_unit = header_info.get("curve_units", {}).get(
-                    curve_names[0] if curve_names else "", "")
-                index_type = "time" if strt_unit.lower() in ("s", "sec", "min", "hr") else "depth"
+                # Detect index type from LAS header
+                from mpd_overwatch.dashboard.file_manager import (
+                    parse_las_header, detect_index_type,
+                )
+                las_header = parse_las_header(filepath)
+                index_type = detect_index_type(las_header)
 
                 characterizations = characterize_channels(
                     channels, index_type=index_type,
@@ -594,8 +596,8 @@ def _cmd_pipeline(args, logger):
         if not args.no_llm:
             try:
                 mapping = apply_llm_mapping(filepath)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("LLM channel mapping failed, using MNEMONIC_MAP: %s", e)
 
         from mpd_overwatch.dashboard.data_store import build_selected_channel_map
         from mpd_overwatch.config import MNEMONIC_MAP

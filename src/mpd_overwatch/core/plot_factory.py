@@ -97,7 +97,9 @@ def plot_raw_channels(
         # Replace LAS null values with NaN for clean plotting
         if np.issubdtype(arr.dtype, np.floating):
             arr = np.where(np.abs(arr + 999.25) < 0.01, np.nan, arr)
-        d = depths[:len(arr)]
+        n = min(len(depths), len(arr))
+        d = depths[:n]
+        arr = arr[:n]
         fig.add_trace(
             go.Scatter(
                 x=d, y=arr,

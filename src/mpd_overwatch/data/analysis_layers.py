@@ -183,6 +183,9 @@ class AnalysisChain:
                 # Load arrays
                 for name in all_names:
                     if name.startswith(f"{prefix}/") and name.endswith(".npy"):
+                        # Reject paths with traversal components
+                        if ".." in name.split("/"):
+                            continue
                         arr_name = name.split("/")[-1].replace(".npy", "")
                         buf = io.BytesIO(zf.read(name))
                         chain.add_array(layer_id, arr_name, np.load(buf, allow_pickle=False))
