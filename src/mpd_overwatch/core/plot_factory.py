@@ -60,7 +60,22 @@ def plot_raw_channels(
         max_len = max(len(v) for v in channel_data.values())
         depths = np.arange(max_len)
 
-    ch_names = [k for k in channel_data if k != depth_key]
+    # Filter to numeric channels only, skip timestamp/date/string columns
+    ch_names = []
+    for k in channel_data:
+        if k == depth_key:
+            continue
+        arr = channel_data[k]
+        if not isinstance(arr, np.ndarray):
+            arr = np.asarray(arr)
+        if not np.issubdtype(arr.dtype, np.number):
+            continue
+        # Skip channels that are all-null (LAS null = -999.25)
+        valid = arr[~np.isnan(arr)] if np.issubdtype(arr.dtype, np.floating) else arr
+        if len(valid) > 0 and np.all(np.abs(valid + 999.25) < 0.01):
+            continue
+        ch_names.append(k)
+
     n_ch = len(ch_names)
     if n_ch == 0:
         return styled_figure(title=title)
@@ -75,6 +90,11 @@ def plot_raw_channels(
 
     for i, name in enumerate(ch_names, 1):
         arr = channel_data[name]
+        if not isinstance(arr, np.ndarray):
+            arr = np.asarray(arr)
+        # Replace LAS null values with NaN for clean plotting
+        if np.issubdtype(arr.dtype, np.floating):
+            arr = np.where(np.abs(arr + 999.25) < 0.01, np.nan, arr)
         d = depths[:len(arr)]
         fig.add_trace(
             go.Scatter(

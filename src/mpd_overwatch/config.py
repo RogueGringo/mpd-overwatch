@@ -87,7 +87,7 @@ PAGES = {
 # Vendor mnemonic mapping (from DATA_TYPES_for_System_Use_EXAMPLES analysis)
 MNEMONIC_MAP = {
     # Depth
-    "DEPT": "depth_md", "BDEP": "bit_depth", "HDEP": "hole_depth",
+    "DEPT": "depth_md", "MD": "depth_md", "BDEP": "bit_depth", "HDEP": "hole_depth",
     "Hole.ft": "depth_md", "Hole": "depth_md",
     "MTTVD": "tvd", "BTVD": "bit_tvd", "HTVD": "hole_tvd",
     "TVD.ft": "tvd", "TVD": "tvd",
@@ -110,13 +110,13 @@ MNEMONIC_MAP = {
     "Mud.bbl": "mud_volume", "MV": "mud_volume",
     # MWD
     "GRC": "gamma_ray", "GRC_P": "gamma_ray", "GREXT": "gamma_ray",
-    "INC": "inclination", "INC_P": "inclination",
-    "DINC_P": "azimuth",
+    "INC": "inclination", "INC_P": "inclination", "INCL": "inclination",
+    "DINC_P": "azimuth", "AZIM": "azimuth",
+    "DLS": "dls",
     "DTF": "toolface",
-    "TLTS": "temperature", "DTEMP": "temperature",
+    "TLTS": "temperature", "DTEMP": "temperature", "TEMP": "temperature",
     # Mud weight
     "Mud.lb/galUS": "mud_weight",
-    # Timestamps
+    # Timestamps (mapped for reference but excluded from measurement channels)
     "DateTime": "timestamp", "DateTime.S": "timestamp",
-    "DATE": "date", "TIME": "time",
 }
