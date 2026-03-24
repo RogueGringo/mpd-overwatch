@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 from mpd_overwatch.data.llm_mapper import (
     build_mapping_prompt,
     cache_key,
+    extract_las_sections,
     get_system_prompt,
     llm_map_channels,
     load_cached_mapping,
@@ -365,3 +366,34 @@ class TestLlmMapChannels:
         assert mock_client.chat.completions.create.call_count == 1
         llm_map_channels(**kwargs, skip_cache=True)
         assert mock_client.chat.completions.create.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# TestExtractLasSections
+# ---------------------------------------------------------------------------
+
+class TestExtractLasSections:
+    """Test extraction of ~W and ~C raw lines from LAS text."""
+
+    def test_extracts_well_and_curve_sections(self):
+        las_text = """~VERSION INFORMATION
+VERS.  2.0 : CWLS LOG ASCII STANDARD
+~WELL INFORMATION
+COMP.  Noble Energy: COMPANY
+SRVC.  Schlumberger: SERVICE COMPANY
+~CURVE INFORMATION
+DEPT.FT  : Measured Depth
+GRC .API : Calibrated Gamma
+~ASCII DATA
+100.0  55.3
+"""
+        well_lines, curve_lines = extract_las_sections(las_text)
+        assert any("Noble" in l for l in well_lines)
+        assert any("GRC" in l for l in curve_lines)
+        assert not any("100.0" in l for l in curve_lines)
+
+    def test_handles_missing_sections(self):
+        las_text = "~A\n100.0 200.0\n"
+        well_lines, curve_lines = extract_las_sections(las_text)
+        assert well_lines == []
+        assert curve_lines == []

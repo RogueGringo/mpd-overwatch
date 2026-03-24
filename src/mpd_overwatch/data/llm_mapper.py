@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -401,6 +401,148 @@ def load_cached_mapping(key: str) -> Optional[Dict[str, Any]]:
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to load cached mapping %s: %s", path, exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# LAS section extraction helpers
+# ---------------------------------------------------------------------------
+
+def extract_las_sections(text: str) -> Tuple[List[str], List[str]]:
+    """Parse ~W and ~C section lines from LAS text.
+
+    Uses ``~`` markers to detect section boundaries.  The first character
+    after ``~`` (uppercased) is treated as the section tag.
+
+    Parameters
+    ----------
+    text : str
+        Full LAS file text.
+
+    Returns
+    -------
+    tuple of (well_lines, curve_lines)
+        Raw content lines from the ~W and ~C sections respectively.
+        Comment lines (starting with ``#``) are skipped.
+    """
+    well_lines: List[str] = []
+    curve_lines: List[str] = []
+    current_tag: Optional[str] = None
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("~"):
+            tag = stripped[1:].strip()
+            current_tag = tag[0].upper() if tag else None
+            continue
+        if stripped.startswith("#"):
+            continue
+        if not stripped:
+            continue
+        if current_tag == "W":
+            well_lines.append(line)
+        elif current_tag == "C":
+            curve_lines.append(line)
+
+    return well_lines, curve_lines
+
+
+def parse_curve_metadata(curve_lines: List[str]) -> Tuple[List[str], Dict[str, str]]:
+    """Extract curve names (UPPER) and units from raw ~C lines.
+
+    Each line has the format ``MNEMONIC.UNIT  data : description``.
+    The mnemonic is the text before the first ``.``, uppercased.
+    The unit is the text between ``.`` and the first whitespace/colon.
+
+    Parameters
+    ----------
+    curve_lines : list of str
+        Lines from the ~C section.
+
+    Returns
+    -------
+    tuple of (names, units)
+        ``names`` is a list of uppercased mnemonics.
+        ``units`` is ``{MNEMONIC: unit_string}``.
+    """
+    names: List[str] = []
+    units: Dict[str, str] = {}
+
+    for line in curve_lines:
+        dot_pos = line.find(".")
+        if dot_pos < 0:
+            continue
+        mnemonic = line[:dot_pos].strip().upper()
+        if not mnemonic:
+            continue
+
+        rest = line[dot_pos + 1:]
+        # Unit is non-space/non-colon chars immediately after the dot
+        unit = ""
+        for i, ch in enumerate(rest):
+            if ch in (" ", "\t", ":"):
+                unit = rest[:i].strip()
+                break
+        else:
+            unit = rest.strip()
+
+        names.append(mnemonic)
+        units[mnemonic] = unit
+
+    return names, units
+
+
+def parse_well_metadata(well_lines: List[str]) -> Dict[str, str]:
+    """Extract well header key-value pairs from raw ~W lines.
+
+    Each line has the format ``KEY.UNIT  VALUE : DESCRIPTION``.
+    The value is the text between the unit and the colon separator.
+
+    Parameters
+    ----------
+    well_lines : list of str
+        Lines from the ~W section.
+
+    Returns
+    -------
+    dict
+        ``{KEY: value}`` with uppercased keys (e.g. COMP, SRVC, WELL).
+    """
+    result: Dict[str, str] = {}
+
+    for line in well_lines:
+        dot_pos = line.find(".")
+        if dot_pos < 0:
+            continue
+        key = line[:dot_pos].strip().upper()
+        if not key:
+            continue
+
+        rest = line[dot_pos + 1:]
+
+        # Find the colon separator — prefer colon preceded by 2+ whitespace
+        m = re.search(r"\s{2,}:", rest)
+        if m:
+            colon_pos = m.end() - 1
+        else:
+            colon_pos = rest.find(":")
+            if colon_pos < 0:
+                colon_pos = len(rest)
+
+        before_colon = rest[:colon_pos]
+
+        # Unit = non-space chars right after the dot; value is the rest
+        unit_end = 0
+        for i, ch in enumerate(before_colon):
+            if ch in (" ", "\t"):
+                unit_end = i
+                break
+        else:
+            unit_end = len(before_colon)
+
+        value = before_colon[unit_end:].strip()
+        result[key] = value
+
+    return result
 
 
 # ---------------------------------------------------------------------------

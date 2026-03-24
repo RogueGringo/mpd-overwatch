@@ -492,6 +492,66 @@ def get_curve_descriptions() -> Dict[str, str]:
     return _curve_descriptions
 
 
+def apply_llm_mapping(filepath: str) -> Optional[Dict[str, str]]:
+    """Run the LLM channel mapper on the currently loaded LAS file.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the LAS file to map.
+
+    Returns
+    -------
+    dict or None
+        ``{mnemonic: canonical}`` for successfully mapped channels,
+        or None if LLM mapping failed or is unavailable.
+    """
+    try:
+        from mpd_overwatch.data.llm_mapper import (
+            extract_las_sections,
+            llm_map_channels,
+        )
+    except ImportError:
+        logger.debug("llm_mapper not available")
+        return None
+
+    try:
+        raw_text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        logger.warning("Cannot read LAS file for LLM mapping: %s", exc)
+        return None
+
+    well_lines, curve_lines = extract_las_sections(raw_text)
+
+    service_company = _header_info.get("service_company", "")
+    operator = _header_info.get("company", "")
+    curve_units = _curve_units
+
+    try:
+        result = llm_map_channels(
+            well_lines=well_lines,
+            curve_lines=curve_lines,
+            curve_units=curve_units,
+            service_company=service_company,
+            operator=operator,
+        )
+    except Exception:
+        logger.exception("LLM mapping failed")
+        return None
+
+    if not result:
+        return None
+
+    # Convert to simple {mnemonic: canonical} dict, dropping None canonicals
+    mapping: Dict[str, str] = {}
+    for mnemonic, info in result.items():
+        canonical = info.get("canonical")
+        if canonical is not None:
+            mapping[mnemonic] = canonical
+
+    return mapping if mapping else None
+
+
 # ---- user channel mappings persistence ------------------------------------
 
 def load_user_mappings() -> Dict[str, Dict[str, str]]:
