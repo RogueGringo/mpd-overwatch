@@ -24,78 +24,7 @@ from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------ #
-# Placeholder point cloud when no channel data is available           #
-# ------------------------------------------------------------------ #
-
-def _build_placeholder_pointcloud():
-    """Build a small synthetic PointCloud4D for demo / test purposes."""
-    from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
-    from mpd_overwatch.pointcloud.channel_registry import ChannelRegistry
-
-    rng = np.random.default_rng(42)
-    n = 200
-    depths = np.linspace(9500, 17500, n)
-    rop = np.abs(rng.normal(80, 20, n)).clip(5, 200)
-    wob = np.abs(rng.normal(28, 4, n)).clip(5, 55)
-    torque = np.abs(rng.normal(14500, 2000, n)).clip(2000, 30000)
-    rpm = np.abs(rng.normal(120, 15, n)).clip(20, 250)
-
-    registry = ChannelRegistry()
-
-    # Build normalised 4D points for each channel
-    all_points = []
-    all_raw_values = []
-    all_raw_times = []
-    all_raw_depths = []
-    all_channel_ids = []
-
-    time_arr = np.arange(n, dtype=float)
-    depth_min, depth_max = depths.min(), depths.max()
-    depth_span = depth_max - depth_min if depth_max > depth_min else 1.0
-    time_span = float(n - 1) if n > 1 else 1.0
-
-    channel_data = {"rop": rop, "wob": wob, "torque": torque, "rpm": rpm}
-
-    for ch_name, values in channel_data.items():
-        try:
-            cid = registry.mnemonic_to_channel(ch_name)
-        except KeyError:
-            continue
-
-        t_norm = time_arr / time_span
-        z_norm = (depths - depth_min) / depth_span
-        c_arr = np.full(n, cid, dtype=float)
-        v_norm = np.array(
-            [registry.normalize_value(cid, v) for v in values], dtype=float
-        )
-
-        pts = np.column_stack([t_norm, z_norm, c_arr, v_norm])
-        all_points.append(pts)
-        all_raw_values.append(values)
-        all_raw_times.append(time_arr)
-        all_raw_depths.append(depths)
-        all_channel_ids.append(np.full(n, cid, dtype=np.int32))
-
-    if not all_points:
-        # Absolute fallback: random 4D cloud
-        return PointCloud4D(
-            points=rng.standard_normal((n, 4)),
-            raw_values=rng.standard_normal(n),
-            raw_times=np.arange(n, dtype=float),
-            raw_depths=np.linspace(9500, 17500, n),
-            channel_ids=np.zeros(n, dtype=np.int32),
-            registry=registry,
-        )
-
-    return PointCloud4D(
-        points=np.vstack(all_points),
-        raw_values=np.concatenate(all_raw_values),
-        raw_times=np.concatenate(all_raw_times),
-        raw_depths=np.concatenate(all_raw_depths),
-        channel_ids=np.concatenate(all_channel_ids),
-        registry=registry,
-    )
+# Real data only — no fallbacks
 
 
 # ------------------------------------------------------------------ #
@@ -138,8 +67,10 @@ def page_persistent_homology(channel_map_data: dict | None = None):
     ----------
     channel_map_data : dict or None
         Serialized channel map from dcc.Store (channel name -> list of floats).
-        If None or empty, placeholder synthetic values are used.
+        If None or empty, shows data-required notice.
     """
+    from mpd_overwatch.dashboard.no_data import data_required_layout
+
     # Lazy imports to avoid circular dependencies
     from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
     from mpd_overwatch.pointcloud.persistent_homology import (
@@ -150,28 +81,26 @@ def page_persistent_homology(channel_map_data: dict | None = None):
     )
 
     # ------------------------------------------------------------------ #
-    # 1. Build PointCloud4D from channel data (or placeholder)            #
+    # 1. Build PointCloud4D from real channel data only                   #
     # ------------------------------------------------------------------ #
     pc = None
-    using_placeholder = True
 
     if channel_map_data:
         try:
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
             cm = deserialize_channel_map(channel_map_data)
             pc = ingest_channel_map(cm)
-            using_placeholder = False
         except Exception:
             logger.warning("PH channel map ingestion failed", exc_info=True)
             pc = None
 
     if pc is None or pc.n_points == 0:
-        try:
-            pc = _build_placeholder_pointcloud()
-            using_placeholder = True
-        except Exception:
-            logger.warning("placeholder pointcloud construction failed", exc_info=True)
-            return _error_fallback("Could not build point cloud for analysis.")
+        return data_required_layout(
+            "Persistent Homology",
+            "Topological data analysis: persistence barcodes, Betti curves, drilling feature detection",
+            ["depth_md", "rop", "wob", "rpm"],
+            optional=["torque", "gamma_ray", "spp"],
+        )
 
     # ------------------------------------------------------------------ #
     # 2. Run persistent homology (cap at 300 points for O(N^3) perf)     #
@@ -408,18 +337,10 @@ def page_persistent_homology(channel_map_data: dict | None = None):
     # ------------------------------------------------------------------ #
     # 6. Data-loaded indicator                                            #
     # ------------------------------------------------------------------ #
-    data_status = (
-        html.Span("LIVE DATA", style={
-            "color": COLORS["success"], "fontSize": "11px",
-            "fontWeight": "700", "fontFamily": "Consolas, monospace",
-        })
-        if not using_placeholder
-        else html.Span(
-            "PLACEHOLDER \u2014 load a LAS/EDR file to see real values",
-            style={"color": COLORS["warning"], "fontSize": "11px",
-                   "fontStyle": "italic"},
-        )
-    )
+    data_status = html.Span("LIVE DATA", style={
+        "color": COLORS["success"], "fontSize": "11px",
+        "fontWeight": "700", "fontFamily": "Consolas, monospace",
+    })
 
     # ------------------------------------------------------------------ #
     # 7. Assemble page layout                                             #

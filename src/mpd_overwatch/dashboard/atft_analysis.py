@@ -113,7 +113,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
     ----------
     channel_map_data : dict or None
         Serialized channel map from dcc.Store.  If None or empty, the page
-        shows a placeholder notice and skips analysis.
+        shows a data-required notice and skips analysis.
     """
     from mpd_overwatch.pointcloud.atft_engine import ATFTEngine
     from mpd_overwatch.pointcloud.sheaf_analysis import coherence_log
@@ -122,7 +122,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
     # Resolve PointCloud4D from real channel data only (no demo fallback)  #
     # ------------------------------------------------------------------ #
     pc = None
-    using_placeholder = True
+    data_missing = True
 
     if channel_map_data:
         try:
@@ -132,7 +132,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
             cm = deserialize_channel_map(channel_map_data)
             _hdr = get_header_info()
             pc = ingest_channel_map(cm, well_name=_hdr.get("well_name", ""))
-            using_placeholder = False
+            data_missing = False
         except Exception:
             logger.warning("channel map deserialization failed", exc_info=True)
             pc = None
@@ -164,10 +164,10 @@ def page_atft_analysis(channel_map_data: dict | None = None):
     n_channels = pc.n_channels if pc is not None else 0
     depth_range = pc.depth_range if pc is not None else (0.0, 0.0)
 
-    placeholder_notice = html.Div()
-    if using_placeholder:
-        placeholder_notice = html.Div(
-            "PLACEHOLDER --- load a LAS/EDR file via the File Manager to analyse real well data",
+    data_notice = html.Div()
+    if data_missing:
+        data_notice = html.Div(
+            "DATA REQUIRED --- load a LAS/EDR file via the File Manager to analyse real well data",
             style={"color": COLORS["warning"], "fontSize": "11px",
                    "fontStyle": "italic", "marginBottom": "12px"},
         )
@@ -181,7 +181,7 @@ def page_atft_analysis(channel_map_data: dict | None = None):
             f"Depth: {depth_range[0]:,.0f} -- {depth_range[1]:,.0f} ft MD.",
             style={"color": "#7b8ba3", "marginBottom": "12px"},
         ),
-        placeholder_notice,
+        data_notice,
     ]
 
     if not has_result:

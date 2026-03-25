@@ -2,6 +2,7 @@
 
 Displays ECD, BHP (static/dynamic), hydrostatic pressure, and SPP
 along the wellbore for real-time hydraulics analysis.
+Real well data only — no synthetic fallbacks.
 """
 
 import logging
@@ -11,6 +12,7 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS, DEFAULTS
+from mpd_overwatch.dashboard.no_data import data_required_layout
 
 logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import (
@@ -27,9 +29,8 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
     ----------
     channel_map_data : dict or None
         Serialized channel map from dcc.Store (channel name -> list of floats).
-        If None or empty, placeholder synthetic values are used.
+        If None or empty, shows data-required notice.
     """
-    # --- Resolve channel data or use placeholder defaults ---
     channel_map = None
     if channel_map_data:
         try:
@@ -38,28 +39,45 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
             logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
-    def _channel(key: str, default: np.ndarray) -> np.ndarray:
-        """Return channel array or default if not available."""
-        if channel_map and key in channel_map and len(channel_map[key]) > 0:
-            return np.asarray(channel_map[key], dtype=float)
-        return default
+    if not channel_map:
+        return data_required_layout(
+            "Hydraulics Analysis",
+            "ECD, BHP, hydrostatic pressure, and SPP along the wellbore",
+            ["depth_md", "tvd", "mud_weight", "spp"],
+            optional=["apwd", "flow_in"],
+        )
 
-    # --- Build placeholder arrays when no real data is loaded ---
-    n = 500
-    total_depth_tvd = DEFAULTS["total_depth_tvd"]
-    _md_default = np.linspace(9500, 17500, n)
-    _tvd_default = np.linspace(8000, total_depth_tvd, n)
-    _mw_default = np.full(n, DEFAULTS["mpd_mud_weight"])
-    _spp_default = np.abs(np.random.default_rng(42).normal(3200, 400, n)).clip(1500, 5000)
-    _apwd_default = np.abs(np.random.default_rng(7).normal(6300, 200, n)).clip(4000, 8000)
-    _flow_in_default = np.abs(np.random.default_rng(13).normal(650, 50, n)).clip(200, 1000)
+    def _get(key: str) -> np.ndarray | None:
+        arr = channel_map.get(key)
+        if arr is not None and len(arr) > 0:
+            return np.asarray(arr, dtype=float)
+        return None
 
-    md = _channel("depth_md", _md_default)
-    tvd = _channel("tvd", _tvd_default)
-    mud_weight = _channel("mud_weight", _mw_default)
-    spp = _channel("spp", _spp_default)
-    apwd = _channel("apwd", _apwd_default)
-    flow_in = _channel("flow_in", _flow_in_default)
+    md = _get("depth_md")
+    tvd = _get("tvd")
+    mud_weight = _get("mud_weight")
+    spp = _get("spp")
+    apwd = _get("apwd")
+    flow_in = _get("flow_in")
+
+    # Must have at minimum depth and one pressure channel
+    if md is None or (spp is None and apwd is None):
+        return data_required_layout(
+            "Hydraulics Analysis",
+            "ECD, BHP, hydrostatic pressure, and SPP along the wellbore",
+            ["depth_md", "tvd", "mud_weight", "spp"],
+            optional=["apwd", "flow_in"],
+            missing=[k for k in ["depth_md", "spp"] if _get(k) is None],
+        )
+
+    # Use tvd = md if TVD not available (vertical well approximation)
+    if tvd is None:
+        tvd = md.copy()
+    # Use config default mud weight if not in channels
+    if mud_weight is None:
+        mud_weight = np.full(len(md), DEFAULTS["mpd_mud_weight"])
+    if flow_in is None:
+        flow_in = np.full(len(md), 0.0)
 
     # Align lengths in case channels differ
     n = min(len(md), len(tvd), len(mud_weight), len(spp), len(apwd), len(flow_in))
@@ -148,8 +166,7 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
     ), row=1, col=1)
 
     # APWD overlay — convert to ECD-equivalent if available
-    has_apwd = channel_map and "apwd" in channel_map and len(channel_map["apwd"]) > 0
-    if has_apwd or not channel_map:
+    if apwd is not None and np.any(apwd > 0):
         with np.errstate(divide="ignore", invalid="ignore"):
             apwd_ecd = np.where(tvd > 0, apwd / (0.052 * tvd), 0)
         fig.add_trace(go.Scatter(
@@ -205,13 +222,9 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
     fig.update_xaxes(title="Measured Depth (ft)", row=4, col=1)
 
     # --- Data-loaded indicator ---
-    data_status = (
-        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
-                                      "fontWeight": "700", "fontFamily": "Consolas, monospace"})
-        if channel_map
-        else html.Span("PLACEHOLDER — load a LAS/EDR file to see real values",
-                       style={"color": COLORS["warning"], "fontSize": "11px",
-                              "fontStyle": "italic"})
+    data_status = html.Span(
+        "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                            "fontWeight": "700", "fontFamily": "Consolas, monospace"},
     )
 
     return html.Div([

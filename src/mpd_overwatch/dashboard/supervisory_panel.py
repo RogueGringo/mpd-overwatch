@@ -37,10 +37,11 @@ def page_supervisory(channel_map_data: dict | None = None):
     Parameters
     ----------
     channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name → list of floats).
-        If None or empty, placeholder defaults are used.
+        Serialized channel map from dcc.Store (channel name -> list of floats).
+        If None or empty, shows data-required notice.
     """
-    # --- Resolve channel data or use defaults ---
+    from mpd_overwatch.dashboard.no_data import data_required_layout
+
     channel_map = None
     if channel_map_data:
         try:
@@ -49,13 +50,21 @@ def page_supervisory(channel_map_data: dict | None = None):
             logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
+    if not channel_map:
+        return data_required_layout(
+            "RO / Supervisory Panel",
+            "Strategic overview for managed pressure drilling operations monitoring",
+            ["depth_md", "spp", "mud_weight"],
+            optional=["tvd", "apwd", "rop", "torque", "rpm", "wob"],
+        )
+
     def _last(key: str, default: float) -> float:
         """Return the last value of a channel, or default if not available."""
         if channel_map and key in channel_map and len(channel_map[key]) > 0:
             return float(channel_map[key][-1])
         return default
 
-    # --- Current state values (latest data point or placeholder defaults) ---
+    # --- Current state values (latest data point or config defaults) ---
     current_md = _last("depth_md", 19_800.0)
     current_tvd = _last("tvd", 10_300.0)
     current_bhp_psi = _last("apwd", 6_850.0)
@@ -81,7 +90,7 @@ def page_supervisory(channel_map_data: dict | None = None):
     )
     target_bhp = bhp_static_result.value
 
-    # Determine drilling phase based on current MD (placeholder breakpoints)
+    # Determine drilling phase based on current MD (configurable breakpoints)
     kop_md = 9_500.0
     landing_md = 11_200.0
     td_md = 21_000.0
@@ -116,81 +125,72 @@ def page_supervisory(channel_map_data: dict | None = None):
     )
 
     # 2. Zone stability count — count of flagged_zones marked STABLE vs total
-    #    (computed from the zone list built below; placeholder until then)
+    #    (computed from the zone list built below; updated after zone list)
     zone_stability_count_stable = 2   # updated after zone list is built
     zone_stability_count_total = 5
 
-    # 3. Connection count — derived from connection time series below
-    #    (populated after we build synthetic data)
-    connection_count = 16  # placeholder; updated after conn_times is computed
+    # 3. Connection count — requires time-indexed operational logs (not in LAS)
+    connection_count = 0  # updated if conn_times data becomes available
 
     # ================================================================
-    # 24-HOUR PRESSURE TREND CHART
+    # PRESSURE PROFILE (DEPTH DOMAIN) — from real channel arrays
     # ================================================================
-    n_minutes = 24 * 60
-    np.random.seed(77)
-    current_ts = pd.Timestamp("now")
-    time_axis = pd.date_range(end=current_ts, periods=n_minutes, freq="min")
-
-    # BHP target: steady with small planned ramps
-    bhp_target_base = 0.052 * DEFAULTS["mpd_mud_weight"] * current_tvd + 150
-    bhp_target = np.full(n_minutes, bhp_target_base)
-    bhp_target[400:] += 30
-    bhp_target[900:] -= 15
-
-    # BHP actual: follows target with noise and connection dips
-    bhp_actual = bhp_target + np.random.normal(0, 15, n_minutes)
-    for conn_idx in range(0, n_minutes, 90):
-        dip_start = conn_idx
-        dip_end = min(conn_idx + 8, n_minutes)
-        bhp_actual[dip_start:dip_end] -= np.linspace(0, 60, dip_end - dip_start)
-        recovery_end = min(dip_end + 5, n_minutes)
-        if dip_end < n_minutes:
-            bhp_actual[dip_end:recovery_end] += np.linspace(-60, 0, recovery_end - dip_end)
-
-    # SBP trend
-    sbp_trend = 150 + np.random.normal(0, 8, n_minutes)
-    sbp_trend[400:] += 30
-    sbp_trend[900:] -= 15
-    for conn_idx in range(0, n_minutes, 90):
-        spike_end = min(conn_idx + 8, n_minutes)
-        sbp_trend[conn_idx:spike_end] += 40
-
-    # ECD in psi (ECD_ppg * 0.052 * TVD)
-    ecd_trend_ppg = current_ecd + np.random.normal(0, 0.03, n_minutes)
-    ecd_psi = ecd_trend_ppg * 0.052 * current_tvd
+    md_arr = np.array(channel_map.get("depth_md", []))
+    spp_arr = np.array(channel_map.get("spp", []))
+    apwd_arr = np.array(channel_map.get("apwd", []))
 
     pressure_fig = go.Figure()
-    pressure_fig.add_trace(go.Scatter(
-        x=time_axis, y=bhp_target,
-        name="BHP Target", mode="lines",
-        line=dict(color=COLORS["text_muted"], width=2, dash="dash"),
-    ))
-    pressure_fig.add_trace(go.Scatter(
-        x=time_axis, y=bhp_actual,
-        name="BHP Actual", mode="lines",
-        line=dict(color=COLORS["success"], width=1.5),
-        fill="tonexty", fillcolor="rgba(0, 255, 136, 0.05)",
-    ))
-    pressure_fig.add_trace(go.Scatter(
-        x=time_axis, y=sbp_trend,
-        name="SBP", mode="lines",
-        line=dict(color=COLORS["secondary"], width=1.5),
-        yaxis="y2",
-    ))
-    pressure_fig.add_trace(go.Scatter(
-        x=time_axis, y=ecd_psi,
-        name="ECD (as BHP)", mode="lines",
-        line=dict(color=COLORS["ecd"], width=1, dash="dot"),
-    ))
+    has_pressure_data = False
+
+    if len(md_arr) > 0 and len(spp_arr) > 0:
+        n_p = min(len(md_arr), len(spp_arr))
+        pressure_fig.add_trace(go.Scatter(
+            x=md_arr[:n_p], y=spp_arr[:n_p],
+            name="SPP", mode="lines",
+            line=dict(color=COLORS["secondary"], width=1.5),
+            yaxis="y2",
+        ))
+        has_pressure_data = True
+
+    if len(md_arr) > 0 and len(apwd_arr) > 0:
+        n_p = min(len(md_arr), len(apwd_arr))
+        pressure_fig.add_trace(go.Scatter(
+            x=md_arr[:n_p], y=apwd_arr[:n_p],
+            name="APWD (BHP)", mode="lines",
+            line=dict(color=COLORS["success"], width=1.5),
+            fill="tozeroy", fillcolor="rgba(0, 255, 136, 0.05)",
+        ))
+        has_pressure_data = True
+
+    # Computed hydrostatic + SBP target line across depth range
+    if len(md_arr) > 0:
+        tvd_arr = np.array(channel_map.get("tvd", []))
+        if len(tvd_arr) == 0:
+            tvd_arr = md_arr.copy()
+        n_t = min(len(md_arr), len(tvd_arr))
+        bhp_target_line = 0.052 * current_mud_weight * tvd_arr[:n_t] + current_sbp
+        pressure_fig.add_trace(go.Scatter(
+            x=md_arr[:n_t], y=bhp_target_line,
+            name="BHP Target (hydrostatic+SBP)", mode="lines",
+            line=dict(color=COLORS["text_muted"], width=2, dash="dash"),
+        ))
+        has_pressure_data = True
+
+    if not has_pressure_data:
+        pressure_fig.add_annotation(
+            text="No pressure channel data available (SPP, APWD)",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color=COLORS["text_dim"]),
+        )
+
     pressure_fig.update_layout(
         paper_bgcolor=COLORS["card"], plot_bgcolor=COLORS["background"],
         font=dict(color=COLORS["text_muted"], family="Consolas, monospace", size=11),
         height=400, margin=dict(l=60, r=60, t=10, b=40),
         legend=dict(bgcolor="rgba(0,0,0,0)", x=0.01, y=0.99, font=dict(size=10)),
-        xaxis=dict(title="Time (24h)", gridcolor=COLORS["card_border"]),
+        xaxis=dict(title="Measured Depth (ft)", gridcolor=COLORS["card_border"]),
         yaxis=dict(title="Pressure (psi)", gridcolor=COLORS["card_border"]),
-        yaxis2=dict(title="SBP (psi)", overlaying="y", side="right",
+        yaxis2=dict(title="SPP (psi)", overlaying="y", side="right",
                     gridcolor="rgba(0,0,0,0)",
                     tickfont=dict(color=COLORS["secondary"]),
                     range=[0, 500]),
@@ -200,7 +200,7 @@ def page_supervisory(channel_map_data: dict | None = None):
     # DRILLING PERFORMANCE PANEL
     # ================================================================
 
-    # Build a synthetic recent-depth dataframe from channel map or defaults
+    # Build recent-depth arrays from channel map (real data only)
     if channel_map and "depth_md" in channel_map and "rop" in channel_map:
         depth_series = np.array(channel_map["depth_md"])
         rop_series = np.array(channel_map["rop"])
@@ -211,26 +211,31 @@ def page_supervisory(channel_map_data: dict | None = None):
         md_recent = depth_series[mask]
         rop_recent = rop_series[mask]
     else:
-        np.random.seed(99)
-        md_recent = np.linspace(current_md - 1000, current_md, 200)
-        rop_recent = 40 + 8 * np.sin(np.linspace(0, 4 * np.pi, 200)) + np.random.normal(0, 4, 200)
-        rop_recent = np.clip(rop_recent, 5, 120)
+        md_recent = np.zeros(0)
+        rop_recent = np.zeros(0)
 
     rop_fig = go.Figure()
-    rop_fig.add_trace(go.Scatter(
-        x=md_recent, y=rop_recent,
-        name="ROP", mode="lines",
-        line=dict(color=COLORS["success"], width=1.5),
-        fill="tozeroy", fillcolor="rgba(0, 255, 136, 0.08)",
-    ))
-    # Rolling average (as pandas for convenience)
-    rop_s = pd.Series(rop_recent)
-    rop_rolling = rop_s.rolling(10, min_periods=1).mean().values
-    rop_fig.add_trace(go.Scatter(
-        x=md_recent, y=rop_rolling,
-        name="ROP Avg (rolling)", mode="lines",
-        line=dict(color=COLORS["primary"], width=2),
-    ))
+    if len(md_recent) > 0:
+        rop_fig.add_trace(go.Scatter(
+            x=md_recent, y=rop_recent,
+            name="ROP", mode="lines",
+            line=dict(color=COLORS["success"], width=1.5),
+            fill="tozeroy", fillcolor="rgba(0, 255, 136, 0.08)",
+        ))
+        # Rolling average (as pandas for convenience)
+        rop_s = pd.Series(rop_recent)
+        rop_rolling = rop_s.rolling(10, min_periods=1).mean().values
+        rop_fig.add_trace(go.Scatter(
+            x=md_recent, y=rop_rolling,
+            name="ROP Avg (rolling)", mode="lines",
+            line=dict(color=COLORS["primary"], width=2),
+        ))
+    else:
+        rop_fig.add_annotation(
+            text="ROP channel data not available",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=13, color=COLORS["text_dim"]),
+        )
     rop_fig.update_layout(
         paper_bgcolor=COLORS["card"], plot_bgcolor=COLORS["background"],
         font=dict(color=COLORS["text_muted"], family="Consolas, monospace", size=10),
@@ -252,34 +257,40 @@ def page_supervisory(channel_map_data: dict | None = None):
         md_mse = md_recent[-n:]
         rop_mse = rop_recent[-n:]
     else:
-        np.random.seed(55)
-        torque_r = 14000 + np.random.normal(0, 800, len(md_recent))
-        rpm_r = 120 + np.random.normal(0, 10, len(md_recent))
-        wob_r = 28 + np.random.normal(0, 3, len(md_recent))
-        md_mse = md_recent
-        rop_mse = rop_recent
+        torque_r = np.zeros(0)
+        rpm_r = np.zeros(0)
+        wob_r = np.zeros(0)
+        md_mse = np.zeros(0)
+        rop_mse = np.zeros(0)
 
     bit_diameter = 8.75  # inches
-    mse_vals = (480 * torque_r * rpm_r) / (
-        bit_diameter**2 * np.clip(rop_mse, 1, None)
-    ) + (4 * wob_r * 1000) / (np.pi * bit_diameter**2)
-    mse_vals = mse_vals / 1000  # kpsi
-
-    mse_s = pd.Series(mse_vals)
-    mse_rolling = mse_s.rolling(10, min_periods=1).mean().values
-
     mse_fig = go.Figure()
-    mse_fig.add_trace(go.Scatter(
-        x=md_mse, y=mse_vals,
-        name="MSE", mode="lines",
-        line=dict(color=COLORS["warning"], width=1.5),
-        fill="tozeroy", fillcolor="rgba(255, 215, 0, 0.06)",
-    ))
-    mse_fig.add_trace(go.Scatter(
-        x=md_mse, y=mse_rolling,
-        name="MSE Avg (rolling)", mode="lines",
-        line=dict(color=COLORS["secondary"], width=2),
-    ))
+    if len(md_mse) > 0 and len(rop_mse) > 0:
+        mse_vals = (480 * torque_r * rpm_r) / (
+            bit_diameter**2 * np.clip(rop_mse, 1, None)
+        ) + (4 * wob_r * 1000) / (np.pi * bit_diameter**2)
+        mse_vals = mse_vals / 1000  # kpsi
+
+        mse_s = pd.Series(mse_vals)
+        mse_rolling = mse_s.rolling(10, min_periods=1).mean().values
+
+        mse_fig.add_trace(go.Scatter(
+            x=md_mse, y=mse_vals,
+            name="MSE", mode="lines",
+            line=dict(color=COLORS["warning"], width=1.5),
+            fill="tozeroy", fillcolor="rgba(255, 215, 0, 0.06)",
+        ))
+        mse_fig.add_trace(go.Scatter(
+            x=md_mse, y=mse_rolling,
+            name="MSE Avg (rolling)", mode="lines",
+            line=dict(color=COLORS["secondary"], width=2),
+        ))
+    else:
+        mse_fig.add_annotation(
+            text="Torque/RPM/WOB channels required for MSE",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=13, color=COLORS["text_dim"]),
+        )
     mse_fig.update_layout(
         paper_bgcolor=COLORS["card"], plot_bgcolor=COLORS["background"],
         font=dict(color=COLORS["text_muted"], family="Consolas, monospace", size=10),
@@ -289,26 +300,15 @@ def page_supervisory(channel_map_data: dict | None = None):
         yaxis=dict(title="MSE (kpsi)", gridcolor=COLORS["card_border"]),
     )
 
-    # Connection time analysis (box plot of last 20 connections)
-    np.random.seed(42)
-    conn_times = np.random.lognormal(mean=np.log(12), sigma=0.3, size=20)
-    conn_times = np.clip(conn_times, 6, 35)
-    connection_count = len(conn_times)  # finalize KPI value
+    # Connection time analysis — requires time-indexed data not in LAS files
+    conn_times = np.zeros(0)
+    connection_count = 0
 
     conn_fig = go.Figure()
-    conn_fig.add_trace(go.Box(
-        y=conn_times,
-        name="Connection Time",
-        marker=dict(color=COLORS["primary"]),
-        line=dict(color=COLORS["primary"]),
-        fillcolor="rgba(0, 212, 255, 0.15)",
-        boxmean="sd",
-    ))
-    conn_fig.add_hline(
-        y=15, line_dash="dash", line_color=COLORS["warning"],
-        annotation_text="Target: 15 min",
-        annotation_font_color=COLORS["warning"],
-        annotation_font_size=10,
+    conn_fig.add_annotation(
+        text="Connection time data requires time-indexed operational logs",
+        xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+        font=dict(size=13, color=COLORS["text_dim"]),
     )
     conn_fig.update_layout(
         paper_bgcolor=COLORS["card"], plot_bgcolor=COLORS["background"],
@@ -458,8 +458,8 @@ def page_supervisory(channel_map_data: dict | None = None):
                            f"{zone_stability_count_stable}/{zone_stability_count_total}", "cyan",
                            "stable zones"),
             _make_kpi_card("Connections Analyzed",
-                           f"{connection_count}", "gold",
-                           f"Avg {np.mean(conn_times):.1f} min"),
+                           f"{connection_count}" if connection_count > 0 else "N/A", "gold",
+                           f"Avg {np.mean(conn_times):.1f} min" if len(conn_times) > 0 else "No time-indexed data"),
         ], className="kpi-row"),
 
         # Computed engineering values with tooltip panels
@@ -482,20 +482,18 @@ def page_supervisory(channel_map_data: dict | None = None):
             ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap"}),
         ], style={"marginBottom": "16px"}),
 
-        # 24-Hour Pressure Trend
+        # Pressure Profile (Depth Domain)
         html.Div([
-            html.Div("24-HOUR PRESSURE HISTORY", className="card-header"),
+            html.Div("PRESSURE PROFILE (DEPTH DOMAIN)", className="card-header"),
             dcc.Graph(figure=pressure_fig, config={"displayModeBar": True}),
             html.Div([
                 html.P([
                     html.Span("Green", style={"color": COLORS["success"]}),
-                    " = BHP actual | ",
+                    " = APWD (BHP) | ",
                     html.Span("Dashed gray", style={"color": COLORS["text_muted"]}),
-                    " = BHP target | ",
+                    " = BHP target (hydrostatic+SBP) | ",
                     html.Span("Orange", style={"color": COLORS["secondary"]}),
-                    " = SBP (right axis) | ",
-                    html.Span("Gold dotted", style={"color": COLORS["ecd"]}),
-                    " = ECD as BHP",
+                    " = SPP (right axis)",
                 ], style={"fontSize": "11px", "color": COLORS["text_dim"],
                           "marginTop": "6px"}),
             ]),
@@ -527,13 +525,14 @@ def page_supervisory(channel_map_data: dict | None = None):
                     ], style={"flex": "1", "minWidth": "250px"}),
                     html.Div([
                         _make_kpi_card("Avg Connection",
-                                       f"{np.mean(conn_times):.1f} min", "cyan"),
+                                       f"{np.mean(conn_times):.1f} min" if len(conn_times) > 0 else "N/A",
+                                       "cyan"),
                         _make_kpi_card("Min / Max",
-                                       f"{np.min(conn_times):.0f} / {np.max(conn_times):.0f} min",
+                                       f"{np.min(conn_times):.0f} / {np.max(conn_times):.0f} min" if len(conn_times) > 0 else "N/A",
                                        "gold"),
                         _make_kpi_card("Std Dev",
-                                       f"{np.std(conn_times):.1f} min",
-                                       "green" if np.std(conn_times) < 4 else "orange"),
+                                       f"{np.std(conn_times):.1f} min" if len(conn_times) > 0 else "N/A",
+                                       "green" if len(conn_times) > 0 and np.std(conn_times) < 4 else "cyan"),
                     ], style={"flex": "1", "minWidth": "200px",
                               "display": "flex", "flexDirection": "column", "gap": "8px"}),
                 ], style={"display": "flex", "gap": "16px", "flexWrap": "wrap",

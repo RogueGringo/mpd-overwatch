@@ -304,15 +304,22 @@ def file_manager_layout():
         ),
 
         # ---- Well header card (populated after load) ----
-        html.Div(
-            id="well-header-card",
-            className="well-header-card",
+        dcc.Loading(
+            id="loading-file",
+            type="circle",
+            color=COLORS["primary"],
             children=[
-                html.P(
-                    "No file loaded.",
-                    className="card-placeholder",
-                    style={"color": COLORS["text_dim"], "fontSize": "13px"},
-                )
+                html.Div(
+                    id="well-header-card",
+                    className="well-header-card",
+                    children=[
+                        html.P(
+                            "No file loaded.",
+                            className="card-placeholder",
+                            style={"color": COLORS["text_dim"], "fontSize": "13px"},
+                        )
+                    ],
+                ),
             ],
         ),
 
@@ -326,7 +333,7 @@ def file_manager_layout():
 # Header card renderer
 # ---------------------------------------------------------------------------
 
-def _render_header_card(info: Dict[str, Any]) -> List:
+def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None) -> List:
     """Build Dash components for the well header preview card."""
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
@@ -394,6 +401,87 @@ def _render_header_card(info: Dict[str, Any]) -> List:
                 style={"color": COLORS["warning"], "fontSize": "12px", "marginTop": "8px"},
             )
         )
+    elif map_summary and map_summary.get("mapped", 0) > 0:
+        # Auto-mapped — show summary and go straight to analysis
+        mapped = map_summary["mapped"]
+        total = map_summary["total"]
+        parked = map_summary.get("parked", 0)
+
+        # Build mapped channel list
+        channel_names = sorted(map_summary.get("channels", {}).keys())
+        channel_tags = [
+            html.Span(
+                name,
+                style={
+                    "display": "inline-block",
+                    "padding": "2px 8px",
+                    "margin": "2px",
+                    "backgroundColor": COLORS.get("card_border", "#1e293b"),
+                    "borderRadius": "3px",
+                    "fontSize": "11px",
+                    "fontFamily": "Consolas, monospace",
+                    "color": COLORS["text"],
+                },
+            )
+            for name in channel_names
+        ]
+
+        children.extend([
+            html.Div(
+                [
+                    html.Span(
+                        f"{mapped} channels mapped",
+                        style={
+                            "color": COLORS["success"],
+                            "fontSize": "14px",
+                            "fontWeight": "700",
+                        },
+                    ),
+                    html.Span(
+                        f" / {total} total / {parked} dropped",
+                        style={
+                            "color": COLORS["text_dim"],
+                            "fontSize": "13px",
+                        },
+                    ),
+                ],
+                style={"marginBottom": "10px"},
+            ),
+            html.Div(
+                channel_tags,
+                style={"marginBottom": "16px", "lineHeight": "1.8"},
+            ),
+            html.Div(
+                [
+                    dcc.Link(
+                        "Go to Well Overview",
+                        href="/well-overview",
+                        style={
+                            "display": "inline-block",
+                            "padding": "8px 20px",
+                            "backgroundColor": COLORS["primary"],
+                            "color": COLORS["background"],
+                            "borderRadius": "4px",
+                            "fontWeight": "600",
+                            "textDecoration": "none",
+                            "fontSize": "13px",
+                            "marginRight": "12px",
+                        },
+                    ),
+                    dcc.Link(
+                        "Refine Channels",
+                        href="/channels",
+                        style={
+                            "display": "inline-block",
+                            "padding": "8px 16px",
+                            "color": COLORS["text_muted"],
+                            "textDecoration": "none",
+                            "fontSize": "12px",
+                        },
+                    ),
+                ],
+            ),
+        ])
     else:
         children.append(
             dcc.Link(
@@ -443,17 +531,31 @@ def _error_card(filename: str, error: str) -> List:
 # ---------------------------------------------------------------------------
 
 def _load_and_build(filepath: str):
-    """Load a file via data_store and build the header card + app state.
+    """Load a file via data_store, auto-map channels, build header card + app state.
+
+    Auto-maps channels using the registry so the system goes straight to
+    analysis-ready state — no manual channel selection required.
 
     Returns (card_children, app_state_dict).
     Raises on failure.
     """
-    from mpd_overwatch.dashboard.data_store import load_file
+    from mpd_overwatch.dashboard.data_store import (
+        auto_map_channels,
+        load_file,
+    )
 
     header_info = load_file(filepath)
-    card = _render_header_card(header_info)
+
+    # Auto-map channels using registry + MNEMONIC_MAP
+    map_summary = auto_map_channels()
+
+    card = _render_header_card(header_info, map_summary)
+
+    # Go straight to analysis-ready if we mapped channels
+    stage = "analysis" if map_summary.get("mapped", 0) > 0 else "channel_select"
+
     app_state = {
-        "stage": "channel_select",
+        "stage": stage,
         "filename": header_info["filename"],
         "filepath": header_info["filepath"],
         "well_name": header_info["well_name"],
@@ -461,6 +563,8 @@ def _load_and_build(filepath: str):
         "curve_units": header_info["curve_units"],
         "has_data": not header_info["header_only"],
         "row_count": header_info["row_count"],
+        "selected_channels": list(map_summary.get("channels", {}).keys()),
+        "auto_mapped": True,
         "well_header": {
             "well_name": header_info.get("well_name", ""),
             "company": header_info.get("company", ""),
@@ -484,6 +588,17 @@ def _recent_dropdown_options() -> List[Dict]:
     ]
 
 
+def _auto_channel_map():
+    """Serialize auto-mapped channel data for the channel-map store."""
+    from mpd_overwatch.dashboard.app_state import serialize_channel_map
+    from mpd_overwatch.dashboard.data_store import get_auto_mapped
+
+    auto = get_auto_mapped()
+    if auto:
+        return serialize_channel_map(auto)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Dash callbacks
 # ---------------------------------------------------------------------------
@@ -499,6 +614,7 @@ def register_file_manager_callbacks(app):
         Output("well-header-card", "children"),
         Output("app-state", "data"),
         Output("recent-files-dropdown", "options"),
+        Output("channel-map", "data"),
         Input("browse-btn", "n_clicks"),
         prevent_initial_call=True,
     )
@@ -517,15 +633,16 @@ def register_file_manager_callbacks(app):
         try:
             card, app_state = _load_and_build(filepath)
         except Exception as exc:
-            return filepath, _error_card(p.name, str(exc)), no_update, no_update
+            return filepath, _error_card(p.name, str(exc)), no_update, no_update, no_update
 
-        return filepath, card, app_state, _recent_dropdown_options()
+        return filepath, card, app_state, _recent_dropdown_options(), _auto_channel_map()
 
     # ---- 2. Load from typed path ----
     @app.callback(
         Output("well-header-card", "children", allow_duplicate=True),
         Output("app-state", "data", allow_duplicate=True),
         Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Output("channel-map", "data", allow_duplicate=True),
         Input("load-file-btn", "n_clicks"),
         State("file-path-input", "value"),
         prevent_initial_call=True,
@@ -538,16 +655,16 @@ def register_file_manager_callbacks(app):
         p = Path(filepath)
 
         if not p.exists():
-            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update
+            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update, no_update
         if p.suffix.lower() != ".las":
-            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update, no_update
+            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update, no_update, no_update
 
         try:
             card, app_state = _load_and_build(filepath)
         except Exception as exc:
-            return _error_card(p.name, str(exc)), no_update, no_update
+            return _error_card(p.name, str(exc)), no_update, no_update, no_update
 
-        return card, app_state, _recent_dropdown_options()
+        return card, app_state, _recent_dropdown_options(), _auto_channel_map()
 
     # ---- 3. Drag-drop upload ----
     @app.callback(
@@ -555,6 +672,7 @@ def register_file_manager_callbacks(app):
         Output("app-state", "data", allow_duplicate=True),
         Output("file-path-input", "value", allow_duplicate=True),
         Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Output("channel-map", "data", allow_duplicate=True),
         Input("upload-las-file", "contents"),
         State("upload-las-file", "filename"),
         prevent_initial_call=True,
@@ -573,9 +691,9 @@ def register_file_manager_callbacks(app):
         try:
             card, app_state = _load_and_build(str(tmp))
         except Exception as exc:
-            return _error_card(filename, str(exc)), no_update, no_update, no_update
+            return _error_card(filename, str(exc)), no_update, no_update, no_update, no_update
 
-        return card, app_state, str(tmp), _recent_dropdown_options()
+        return card, app_state, str(tmp), _recent_dropdown_options(), _auto_channel_map()
 
     # ---- 4. Recent files dropdown ----
     @app.callback(
@@ -583,6 +701,7 @@ def register_file_manager_callbacks(app):
         Output("app-state", "data", allow_duplicate=True),
         Output("file-path-input", "value", allow_duplicate=True),
         Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Output("channel-map", "data", allow_duplicate=True),
         Input("recent-files-dropdown", "value"),
         prevent_initial_call=True,
     )
@@ -597,14 +716,15 @@ def register_file_manager_callbacks(app):
                 no_update,
                 no_update,
                 _recent_dropdown_options(),
+                no_update,
             )
 
         try:
             card, app_state = _load_and_build(filepath)
         except Exception as exc:
-            return _error_card(p.name, str(exc)), no_update, no_update, no_update
+            return _error_card(p.name, str(exc)), no_update, no_update, no_update, no_update
 
-        return card, app_state, filepath, _recent_dropdown_options()
+        return card, app_state, filepath, _recent_dropdown_options(), _auto_channel_map()
 
     # ---- 5a. Scan directory ----
     @app.callback(
@@ -660,6 +780,7 @@ def register_file_manager_callbacks(app):
         Output("app-state", "data", allow_duplicate=True),
         Output("file-path-input", "value", allow_duplicate=True),
         Output("recent-files-dropdown", "options", allow_duplicate=True),
+        Output("channel-map", "data", allow_duplicate=True),
         Input("scan-files-dropdown", "value"),
         prevent_initial_call=True,
     )
@@ -669,11 +790,11 @@ def register_file_manager_callbacks(app):
 
         p = Path(filepath)
         if not p.exists():
-            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update, no_update
+            return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update, no_update, no_update
 
         try:
             card, app_state = _load_and_build(filepath)
         except Exception as exc:
-            return _error_card(p.name, str(exc)), no_update, no_update, no_update
+            return _error_card(p.name, str(exc)), no_update, no_update, no_update, no_update
 
-        return card, app_state, filepath, _recent_dropdown_options()
+        return card, app_state, filepath, _recent_dropdown_options(), _auto_channel_map()

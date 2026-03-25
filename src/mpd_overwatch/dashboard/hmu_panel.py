@@ -23,10 +23,11 @@ def page_hmu(channel_map_data: dict | None = None):
     Parameters
     ----------
     channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name → list of floats).
-        If None or empty, placeholder values are used.
+        Serialized channel map from dcc.Store (channel name -> list of floats).
+        If None or empty, shows data-required notice.
     """
-    # --- Resolve channel data or use defaults ---
+    from mpd_overwatch.dashboard.no_data import data_required_layout
+
     channel_map = None
     if channel_map_data:
         try:
@@ -35,13 +36,21 @@ def page_hmu(channel_map_data: dict | None = None):
             logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
+    if not channel_map:
+        return data_required_layout(
+            "HMU Operator Panel",
+            "Real-time MPD choke management, BHP monitoring, and connection procedures",
+            ["depth_md", "spp", "mud_weight"],
+            optional=["tvd", "apwd", "flow_in", "flow_out_pct", "wob", "torque"],
+        )
+
     def _last(key: str, default: float) -> float:
         """Return the last value of a channel, or default if not available."""
         if channel_map and key in channel_map and len(channel_map[key]) > 0:
             return float(channel_map[key][-1])
         return default
 
-    # --- Current state values (latest data point or placeholder defaults) ---
+    # --- Current state values (latest data point or config defaults) ---
     current_md = _last("depth_md", 15_200.0)
     current_tvd = _last("tvd", 10_300.0)
     current_bhp_psi = _last("apwd", 6_850.0)
@@ -58,7 +67,7 @@ def page_hmu(channel_map_data: dict | None = None):
     current_torque = _last("torque", 14_500.0)
     current_mud_weight = _last("mud_weight", DEFAULTS["mpd_mud_weight"])
 
-    # AFP estimation: approximate from SBP and hydrostatic context (placeholder)
+    # AFP estimation: approximate from SBP and hydrostatic context
     # When real annular friction pressure channel is not available, use a fraction of SBP
     afp_default = max(current_sbp * 0.6, 80.0)
     current_afp = _last("differential_pressure", afp_default)
@@ -290,52 +299,14 @@ def page_hmu(channel_map_data: dict | None = None):
     # ================================================================
     # CONNECTION SEQUENCE PANEL
     # ================================================================
-    # Simulate last 5 connection events from the current depth context
-    np.random.seed(99)
-    connection_events = []
-    conn_depths = np.linspace(current_md - 500, current_md - 50, 5)
-    for i, depth in enumerate(conn_depths):
-        bhp_change = np.random.uniform(-80, -20)  # BHP drops on connection
-        swab_psi = np.random.uniform(30, 120)
-        sbp_adj = np.random.uniform(10, 80)
-        severity = "normal"
-        severity_color = COLORS["success"]
-        if abs(bhp_change) > 60 or swab_psi > 100:
-            severity = "elevated"
-            severity_color = COLORS["warning"]
-        if abs(bhp_change) > 75 or swab_psi > 110:
-            severity = "critical"
-            severity_color = COLORS["danger"]
-
-        conn_time_offset = (5 - i) * 45  # minutes ago
-        conn_time_str = f"-{conn_time_offset} min"
-
-        connection_events.append(
-            html.Div([
-                html.Div([
-                    html.Span(conn_time_str,
-                              style={"color": COLORS["primary"], "fontWeight": "600",
-                                     "fontSize": "12px"}),
-                    html.Span(f"  {depth:,.0f} ft",
-                              style={"color": COLORS["text_muted"], "fontSize": "11px",
-                                     "marginLeft": "8px"}),
-                ]),
-                html.Div([
-                    html.Span(f"BHP: {bhp_change:+.0f} psi",
-                              style={"fontSize": "11px", "marginRight": "12px"}),
-                    html.Span(f"Swab: {swab_psi:.0f} psi",
-                              style={"fontSize": "11px", "marginRight": "12px"}),
-                    html.Span(f"SBP Adj: +{sbp_adj:.0f} psi",
-                              style={"fontSize": "11px"}),
-                ], style={"marginTop": "2px", "color": COLORS["text"]}),
-            ], style={
-                "padding": "10px 14px",
-                "borderLeft": f"3px solid {severity_color}",
-                "backgroundColor": "rgba(19, 26, 43, 0.8)",
-                "marginBottom": "6px",
-                "borderRadius": "0 4px 4px 0",
-            })
-        )
+    # Connection events require time-indexed operational logs, not available from LAS
+    connection_events = [
+        html.Div([
+            html.Div("Connection event data requires time-indexed operational logs",
+                     style={"color": COLORS["text_dim"], "fontSize": "13px",
+                            "padding": "20px", "textAlign": "center"}),
+        ])
+    ]
 
     # ================================================================
     # ALERT PANEL
@@ -381,13 +352,9 @@ def page_hmu(channel_map_data: dict | None = None):
     # ================================================================
     # DATA-LOADED INDICATOR
     # ================================================================
-    data_status = (
-        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
-                                       "fontWeight": "700", "fontFamily": "Consolas, monospace"})
-        if channel_map
-        else html.Span("PLACEHOLDER — load a LAS/EDR file to see real values",
-                       style={"color": COLORS["warning"], "fontSize": "11px",
-                              "fontStyle": "italic"})
+    data_status = html.Span(
+        "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                            "fontWeight": "700", "fontFamily": "Consolas, monospace"},
     )
 
     # ================================================================

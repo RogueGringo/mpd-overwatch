@@ -2,6 +2,7 @@
 
 Displays d-exponent trend, Eaton pore pressure prediction,
 normal compaction trend, and prediction confidence along the wellbore.
+Real well data only — no synthetic fallbacks.
 """
 
 import logging
@@ -15,6 +16,7 @@ from mpd_overwatch.core.pore_pressure import analyze_pore_pressure_profile
 from mpd_overwatch.core.engine_wrappers import compute_d_exponent, compute_eaton_pp
 from mpd_overwatch.components.tooltip import render_engineering_value
 from mpd_overwatch.dashboard.app_state import deserialize_channel_map
+from mpd_overwatch.dashboard.no_data import data_required_layout
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,8 @@ def page_pore_pressure(channel_map_data: dict | None = None) -> html.Div:
     ----------
     channel_map_data : dict or None
         Serialized channel map from dcc.Store (channel name -> list of floats).
-        If None or empty, placeholder synthetic values are used.
+        If None or empty, shows data-required notice.
     """
-    # --- Resolve channel data or use placeholder defaults ---
     channel_map = None
     if channel_map_data:
         try:
@@ -37,28 +38,44 @@ def page_pore_pressure(channel_map_data: dict | None = None) -> html.Div:
             logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
-    def _channel(key: str, default: np.ndarray) -> np.ndarray:
-        """Return channel array or default if not available."""
-        if channel_map and key in channel_map and len(channel_map[key]) > 0:
-            return np.asarray(channel_map[key], dtype=float)
-        return default
+    if not channel_map:
+        return data_required_layout(
+            "Pore Pressure Analysis",
+            "D-exponent trend, Eaton pore pressure prediction, and overpressure detection",
+            ["depth_md", "tvd", "rop", "rpm", "wob"],
+            optional=["mud_weight"],
+        )
 
-    # --- Build placeholder arrays when no real data is loaded ---
-    n = 500
-    rng = np.random.default_rng(42)
-    _md_default = np.linspace(9500, 20500, n)
-    _tvd_default = np.linspace(9500, 10500, n)
-    _rop_default = np.abs(rng.normal(80, 20, n)).clip(5, 200)
-    _rpm_default = np.abs(rng.normal(120, 15, n)).clip(20, 250)
-    _wob_default = np.abs(rng.normal(28, 4, n)).clip(5, 55)  # klbs
-    _mw_default = np.full(n, DEFAULTS["conventional_mud_weight"])
+    def _get(key: str) -> np.ndarray | None:
+        arr = channel_map.get(key)
+        if arr is not None and len(arr) > 0:
+            return np.asarray(arr, dtype=float)
+        return None
 
-    md = _channel("depth_md", _md_default)
-    tvd = _channel("tvd", _tvd_default)
-    rop = _channel("rop", _rop_default)
-    rpm = _channel("rpm", _rpm_default)
-    wob = _channel("wob", _wob_default)
-    mw = _channel("mud_weight", _mw_default)
+    md = _get("depth_md")
+    tvd = _get("tvd")
+    rop = _get("rop")
+    rpm = _get("rpm")
+    wob = _get("wob")
+    mw = _get("mud_weight")
+
+    required_missing = [k for k in ["depth_md", "rop", "rpm", "wob"]
+                        if _get(k) is None]
+    if required_missing:
+        return data_required_layout(
+            "Pore Pressure Analysis",
+            "D-exponent trend, Eaton pore pressure prediction, and overpressure detection",
+            ["depth_md", "tvd", "rop", "rpm", "wob"],
+            optional=["mud_weight"],
+            missing=required_missing,
+        )
+
+    # Use md as tvd approximation if TVD not available
+    if tvd is None:
+        tvd = md.copy()
+    # Use config default mud weight if not in channels
+    if mw is None:
+        mw = np.full(len(md), DEFAULTS["conventional_mud_weight"])
 
     # Align lengths in case channels differ
     n = min(len(md), len(tvd), len(rop), len(rpm), len(wob), len(mw))
@@ -206,13 +223,9 @@ def page_pore_pressure(channel_map_data: dict | None = None) -> html.Div:
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=1, col=i)
 
     # --- Data-loaded indicator ---
-    data_status = (
-        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
-                                      "fontWeight": "700", "fontFamily": "Consolas, monospace"})
-        if channel_map
-        else html.Span("PLACEHOLDER \u2014 load a LAS/EDR file to see real values",
-                       style={"color": COLORS["warning"], "fontSize": "11px",
-                              "fontStyle": "italic"})
+    data_status = html.Span(
+        "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                            "fontWeight": "700", "fontFamily": "Consolas, monospace"},
     )
 
     return html.Div([

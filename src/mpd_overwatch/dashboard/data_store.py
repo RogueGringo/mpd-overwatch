@@ -41,6 +41,9 @@ _header_only: bool = False
 
 # ---- public API -----------------------------------------------------------
 
+_LARGE_FILE_THRESHOLD_MB = 10  # Skip slow lasio full-read for files above this
+
+
 def load_file(filepath: str) -> Dict[str, Any]:
     """Read a LAS file from disk and cache its data server-side.
 
@@ -49,21 +52,30 @@ def load_file(filepath: str) -> Dict[str, Any]:
       2. lasio header + raw ~ section data parse (when lasio can't reshape)
       3. Full raw ~ section parse (when lasio fails entirely)
 
+    For files larger than _LARGE_FILE_THRESHOLD_MB, Tier 1 is skipped because
+    lasio's full read is extremely slow on large EDR files (40+ seconds to
+    fail), while Tier 2 completes in seconds.
+
     Returns the header info dict.  Raises only if the file is unreadable.
     """
     global _file_path, _channel_data, _header_info
     global _curve_names, _curve_units, _header_only
 
     filepath = str(Path(filepath).resolve())
-    logger.info("Loading LAS file: %s", filepath)
+    file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
+    logger.info("Loading LAS file: %s (%.1f MB)", filepath, file_size_mb)
 
-    # --- Tier 1: lasio full read ---
-    try:
-        import lasio
-        las = lasio.read(filepath)
-        return _cache_from_lasio(las, filepath, header_only=False)
-    except Exception as exc:
-        logger.debug("Tier 1 (lasio full) failed: %s", exc)
+    # --- Tier 1: lasio full read (skip for large files) ---
+    if file_size_mb <= _LARGE_FILE_THRESHOLD_MB:
+        try:
+            import lasio
+            las = lasio.read(filepath)
+            return _cache_from_lasio(las, filepath, header_only=False)
+        except Exception as exc:
+            logger.debug("Tier 1 (lasio full) failed: %s", exc)
+    else:
+        logger.info("Skipping Tier 1 (lasio full read) for %.1f MB file — going straight to Tier 2",
+                     file_size_mb)
 
     # --- Tier 2: lasio headers + raw data parse ---
     try:
@@ -337,52 +349,67 @@ def _parse_well_section(lines: List[str]) -> Dict[str, str]:
 def _parse_data_section(text: str, curve_names: List[str]) -> tuple:
     """Parse ~A data section into channel arrays.
 
-    Detects delimiter (tab or space), reads numeric values, maps columns
-    to curve names.  Non-numeric values (dates, times, status strings)
-    are stored as NaN.
+    Uses numpy.genfromtxt for fast parsing of the data block.
+    Falls back to line-by-line Python parsing if numpy fails.
 
     Returns (channel_data dict, row_count).
     """
+    import io
+
     sections = _split_sections(text)
     data_lines = sections.get("A", [])
 
     if not data_lines:
         return {}, 0
 
+    n_curves = len(curve_names)
+
     # Detect delimiter from first data line
     first = data_lines[0]
-    if "\t" in first:
-        delimiter = "\t"
-    else:
-        delimiter = None  # whitespace split
+    delimiter = "\t" if "\t" in first else None
 
-    n_curves = len(curve_names)
-    # Pre-allocate columns
+    # --- Fast path: numpy.genfromtxt ---
+    try:
+        data_text = "\n".join(data_lines)
+        data = np.genfromtxt(
+            io.StringIO(data_text),
+            dtype=np.float64,
+            delimiter=delimiter,
+            invalid_raise=False,
+            filling_values=np.nan,
+            max_rows=None,
+        )
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        row_count = data.shape[0]
+        # Trim or pad columns to match expected curve count
+        channel_data: Dict[str, np.ndarray] = {}
+        for i, name in enumerate(curve_names):
+            if i < data.shape[1]:
+                channel_data[name] = data[:, i].copy()
+            else:
+                channel_data[name] = np.full(row_count, np.nan, dtype=np.float64)
+        return channel_data, row_count
+    except Exception as exc:
+        logger.debug("numpy fast parse failed, falling back to Python loop: %s", exc)
+
+    # --- Slow fallback: line-by-line Python ---
     columns: List[List[float]] = [[] for _ in range(n_curves)]
-
     row_count = 0
     for line in data_lines:
         if not line.strip():
             continue
-        if delimiter:
-            vals = line.split(delimiter)
-        else:
-            vals = line.split()
-
-        # Handle row with different column count gracefully
+        vals = line.split(delimiter) if delimiter else line.split()
         for i in range(min(len(vals), n_curves)):
             try:
                 columns[i].append(float(vals[i]))
             except (ValueError, IndexError):
                 columns[i].append(float("nan"))
-        # Pad short rows with NaN
         for i in range(len(vals), n_curves):
             columns[i].append(float("nan"))
-
         row_count += 1
 
-    # Build channel_data dict
-    channel_data: Dict[str, np.ndarray] = {}
+    channel_data = {}
     for i, name in enumerate(curve_names):
         if columns[i]:
             channel_data[name] = np.array(columns[i], dtype=np.float64)
@@ -462,6 +489,97 @@ def get_file_path() -> Optional[str]:
 def is_loaded() -> bool:
     """True if a file has been loaded and data is available."""
     return _file_path is not None and len(_channel_data) > 0
+
+
+# ---- auto-ingestion (registry-driven channel mapping) --------------------
+
+_auto_mapped: Dict[str, np.ndarray] = {}
+_auto_map_summary: Dict[str, Any] = {}
+
+
+def auto_map_channels() -> Dict[str, Any]:
+    """Auto-map loaded channels to canonical names using the channel registry.
+
+    Uses three resolution layers:
+      1. MNEMONIC_MAP (config.py) — vendor-specific :N suffix mappings
+      2. ChannelRegistry aliases — standard mnemonic aliases
+      3. Unit heuristics — classify unknown channels as SUGGESTED
+
+    Returns a summary dict with mapping results and stores the mapped
+    channel data in the module cache for immediate analysis use.
+    """
+    global _auto_mapped, _auto_map_summary
+
+    from mpd_overwatch.config import MNEMONIC_MAP
+    from mpd_overwatch.pointcloud.channel_registry import (
+        ChannelRegistry,
+        ChannelTier,
+        classify_channels,
+    )
+
+    if not _channel_data:
+        return {"mapped": 0, "total": 0, "channels": {}}
+
+    reg = ChannelRegistry()
+    tiers = classify_channels(_curve_names, reg, _curve_units)
+
+    # Build canonical mapping: vendor_mnemonic -> canonical_name
+    mapped: Dict[str, str] = {}
+    for mnemonic in _curve_names:
+        if tiers.get(mnemonic) != ChannelTier.CORE:
+            continue
+        # Try MNEMONIC_MAP first (handles Pason :N suffixes)
+        canonical = MNEMONIC_MAP.get(mnemonic.upper())
+        if canonical:
+            mapped[mnemonic] = canonical
+            continue
+        # Try registry resolution
+        try:
+            cid = reg.mnemonic_to_channel(mnemonic)
+            ch = reg.lookup_id(cid)
+            mapped[mnemonic] = ch.name
+        except KeyError:
+            pass
+
+    # Build the auto-mapped channel data (canonical_name -> numpy array)
+    # When multiple vendor channels map to same canonical, keep the first
+    _auto_mapped = {}
+    canonical_sources: Dict[str, str] = {}  # canonical -> vendor mnemonic used
+    for vendor, canonical in mapped.items():
+        if canonical not in _auto_mapped and vendor in _channel_data:
+            _auto_mapped[canonical] = _channel_data[vendor]
+            canonical_sources[canonical] = vendor
+
+    core_count = sum(1 for t in tiers.values() if t == ChannelTier.CORE)
+    suggested_count = sum(1 for t in tiers.values() if t == ChannelTier.SUGGESTED)
+    parked_count = sum(1 for t in tiers.values() if t == ChannelTier.PARKED)
+
+    _auto_map_summary = {
+        "mapped": len(_auto_mapped),
+        "total": len(_curve_names),
+        "core": core_count,
+        "suggested": suggested_count,
+        "parked": parked_count,
+        "channels": canonical_sources,
+    }
+
+    logger.info(
+        "Auto-mapped %d/%d channels (%d CORE, %d SUGGESTED, %d PARKED)",
+        len(_auto_mapped), len(_curve_names),
+        core_count, suggested_count, parked_count,
+    )
+
+    return _auto_map_summary
+
+
+def get_auto_mapped() -> Dict[str, np.ndarray]:
+    """Return auto-mapped channel data (canonical_name -> numpy array)."""
+    return _auto_mapped
+
+
+def get_auto_map_summary() -> Dict[str, Any]:
+    """Return the auto-mapping summary from the last load."""
+    return _auto_map_summary
 
 
 def build_selected_channel_map(selections: List[Dict]) -> Dict[str, np.ndarray]:
@@ -606,6 +724,7 @@ def clear():
     """Clear all cached data."""
     global _file_path, _channel_data, _header_info
     global _curve_names, _curve_units, _curve_descriptions, _header_only
+    global _auto_mapped, _auto_map_summary
     _file_path = None
     _channel_data = {}
     _header_info = {}
@@ -613,6 +732,8 @@ def clear():
     _curve_units = {}
     _curve_descriptions = {}
     _header_only = False
+    _auto_mapped = {}
+    _auto_map_summary = {}
 
 
 # ---- recent files ---------------------------------------------------------

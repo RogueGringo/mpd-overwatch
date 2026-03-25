@@ -1029,6 +1029,12 @@ def register_channel_selector_callbacks(app):
                 item["selected"] = item["tier"] == ChannelTier.CORE
 
         selected_count = sum(1 for ch in channel_list if ch.get("selected", False))
+        # Count unique canonicals — this is what actually loads
+        unique_canonicals = {
+            ch["canonical"]
+            for ch in channel_list
+            if ch.get("selected") and ch.get("canonical")
+        }
         rows = _render_channel_rows(channel_list)
 
         store = [
@@ -1043,7 +1049,13 @@ def register_channel_selector_callbacks(app):
             for ch in channel_list
         ]
 
-        return rows, f"{selected_count} channels selected", store
+        unique_count = len(unique_canonicals)
+        if unique_count < selected_count:
+            budget = f"{unique_count} unique channels from {selected_count} mapped"
+        else:
+            budget = f"{selected_count} channels selected"
+
+        return rows, budget, store
 
     # Intent buttons re-classify channels
     @app.callback(
@@ -1181,13 +1193,27 @@ def register_channel_selector_callbacks(app):
                 ch["canonical"] = override_map[vendor]
                 ch["selected"] = True
 
+        # Count what was selected before building
+        selected_count = sum(1 for ch in store_data if ch.get("selected"))
+        no_canonical = [
+            ch["vendor_mnemonic"]
+            for ch in store_data
+            if ch.get("selected") and not ch.get("canonical")
+        ]
+
         channel_map = build_selected_channel_map(store_data)
 
         if not channel_map:
+            msg_parts = ["No channels with data loaded."]
+            if no_canonical:
+                msg_parts.append(
+                    f" {len(no_canonical)} selected channels have no canonical mapping"
+                    " (set the MAP TO dropdown for SUGGESTED/PARKED channels)."
+                )
             return (
                 no_update,
                 html.Span(
-                    "No channels with data selected. Select channels with data available.",
+                    " ".join(msg_parts),
                     style={"color": COLORS["warning"], "fontSize": "12px"},
                 ),
             )
@@ -1196,11 +1222,32 @@ def register_channel_selector_callbacks(app):
         updated_state["stage"] = "analysis"
         updated_state["selected_channels"] = list(channel_map.keys())
 
-        status = html.Div([
+        # Build informative status message
+        map_count = len(channel_map)
+        status_parts = [
             html.Span(
-                f"{len(channel_map)} channels loaded. ",
+                f"{map_count} unique channels loaded",
                 style={"color": COLORS["success"], "fontSize": "13px", "fontWeight": "600"},
             ),
+        ]
+        # Explain deduplication if multiple vendor mnemonics merged
+        if selected_count > map_count:
+            merged = selected_count - map_count
+            status_parts.append(
+                html.Span(
+                    f" ({selected_count} mapped, {merged} duplicate{'s' if merged != 1 else ''} merged)",
+                    style={"color": COLORS["text_dim"], "fontSize": "12px"},
+                ),
+            )
+        if no_canonical:
+            status_parts.append(
+                html.Span(
+                    f" | {len(no_canonical)} skipped (no mapping)",
+                    style={"color": COLORS["warning"], "fontSize": "12px"},
+                ),
+            )
+        status_parts.append(html.Span(" ", style={"display": "inline"}))
+        status_parts.append(
             dcc.Link(
                 "Go to Well Overview",
                 href="/well-overview",
@@ -1211,6 +1258,8 @@ def register_channel_selector_callbacks(app):
                     "marginLeft": "8px",
                 },
             ),
-        ])
+        )
+
+        status = html.Div(status_parts)
 
         return updated_state, status

@@ -2,6 +2,7 @@
 
 Displays MSE, rock strength, brittleness, drilling efficiency,
 and wellbore stability analysis along the lateral.
+Real well data only — no synthetic fallbacks.
 """
 
 import logging
@@ -11,6 +12,7 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
+from mpd_overwatch.dashboard.no_data import data_required_layout
 
 logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import compute_mse, compute_ucs, compute_brittleness
@@ -24,10 +26,9 @@ def page_geomechanics(channel_map_data: dict | None = None):
     Parameters
     ----------
     channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name → list of floats).
-        If None or empty, placeholder synthetic values are used.
+        Serialized channel map from dcc.Store (channel name -> list of floats).
+        If None or empty, shows data-required notice.
     """
-    # --- Resolve channel data or use placeholder defaults ---
     channel_map = None
     if channel_map_data:
         try:
@@ -36,27 +37,45 @@ def page_geomechanics(channel_map_data: dict | None = None):
             logger.warning("channel map deserialization failed", exc_info=True)
             channel_map = None
 
-    def _channel(key: str, default: np.ndarray) -> np.ndarray:
-        """Return channel array or default if not available."""
-        if channel_map and key in channel_map and len(channel_map[key]) > 0:
-            return np.asarray(channel_map[key], dtype=float)
-        return default
+    if not channel_map:
+        return data_required_layout(
+            "Geomechanics Analysis",
+            "MSE-derived rock properties, brittleness, and fracability along the lateral",
+            ["depth_md", "rop", "wob", "torque", "rpm"],
+            optional=["gamma_ray"],
+        )
 
-    # --- Build placeholder arrays when no real data is loaded ---
-    n = 500
-    _md_default = np.linspace(9500, 17500, n)
-    _rop_default = np.abs(np.random.default_rng(42).normal(80, 20, n)).clip(5, 200)
-    _wob_default = np.abs(np.random.default_rng(7).normal(28000, 4000, n)).clip(5000, 55000)
-    _torque_default = np.abs(np.random.default_rng(13).normal(14500, 2000, n)).clip(2000, 30000)
-    _rpm_default = np.abs(np.random.default_rng(21).normal(120, 15, n)).clip(20, 250)
-    _gamma_default = np.abs(np.random.default_rng(33).normal(65, 20, n)).clip(5, 200)
+    def _get(key: str) -> np.ndarray | None:
+        arr = channel_map.get(key)
+        if arr is not None and len(arr) > 0:
+            return np.asarray(arr, dtype=float)
+        return None
 
-    md = _channel("depth_md", _md_default)
-    rop = _channel("rop", _rop_default)
-    wob = _channel("wob", _wob_default)          # lbs
-    torque = _channel("torque", _torque_default)  # ft-lbs
-    rpm = _channel("rpm", _rpm_default)
-    gamma = _channel("gamma_ray", _gamma_default)
+    md = _get("depth_md")
+    rop = _get("rop")
+    wob = _get("wob")
+    torque = _get("torque")
+    rpm = _get("rpm")
+    gamma = _get("gamma_ray")
+
+    required_missing = [k for k in ["depth_md", "rop", "wob", "rpm"]
+                        if _get(k) is None]
+    if required_missing:
+        return data_required_layout(
+            "Geomechanics Analysis",
+            "MSE-derived rock properties, brittleness, and fracability along the lateral",
+            ["depth_md", "rop", "wob", "torque", "rpm"],
+            optional=["gamma_ray"],
+            missing=required_missing,
+        )
+
+    # Torque fallback: if missing, MSE will only include axial component
+    if torque is None:
+        torque = np.zeros(len(md))
+    # Gamma fallback: use zeros (fracability will only use brittleness)
+    if gamma is None:
+        gamma = np.zeros(len(md))
+
     bit_diameter = 8.75  # inches
 
     # Align lengths in case channels differ
@@ -68,7 +87,7 @@ def page_geomechanics(channel_map_data: dict | None = None):
     rpm = rpm[:n]
     gamma = gamma[:n]
 
-    # --- Calculate MSE, UCS, Brittleness arrays (vectorised, same formulas as before) ---
+    # --- Calculate MSE, UCS, Brittleness arrays (vectorised) ---
     with np.errstate(divide="ignore", invalid="ignore"):
         mse_rotary = np.where(
             (rop > 0) & (rpm > 0),
@@ -194,13 +213,9 @@ def page_geomechanics(channel_map_data: dict | None = None):
     fig.update_xaxes(title="Measured Depth (ft)", row=5, col=1)
 
     # --- Data-loaded indicator ---
-    data_status = (
-        html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
-                                      "fontWeight": "700", "fontFamily": "Consolas, monospace"})
-        if channel_map
-        else html.Span("PLACEHOLDER — load a LAS/EDR file to see real values",
-                       style={"color": COLORS["warning"], "fontSize": "11px",
-                              "fontStyle": "italic"})
+    data_status = html.Span(
+        "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
+                            "fontWeight": "700", "fontFamily": "Consolas, monospace"},
     )
 
     return html.Div([
@@ -214,11 +229,10 @@ def page_geomechanics(channel_map_data: dict | None = None):
             ]),
         ], className="page-header"),
 
-        # KPI row — MSE, UCS, Brittleness wrapped in render_engineering_value()
+        # KPI row
         html.Div("COMPUTED VALUES", className="card-header",
                  style={"marginBottom": "8px"}),
         html.Div([
-            # MSE tooltip card
             html.Div([
                 render_engineering_value(mse_result),
                 html.Div(f"Avg: {avg_mse:,.0f} psi",
@@ -229,7 +243,6 @@ def page_geomechanics(channel_map_data: dict | None = None):
                       "borderRadius": "6px",
                       "border": f"1px solid {COLORS['card_border']}"}),
 
-            # UCS tooltip card
             html.Div([
                 render_engineering_value(ucs_result),
                 html.Div(f"Avg: {avg_ucs:,.0f} psi",
@@ -240,7 +253,6 @@ def page_geomechanics(channel_map_data: dict | None = None):
                       "borderRadius": "6px",
                       "border": f"1px solid {COLORS['card_border']}"}),
 
-            # Brittleness tooltip card
             html.Div([
                 render_engineering_value(brittleness_result),
                 html.Div(f"Avg: {avg_bi:.2f}  |  {brittle_pct:.0f}% brittle",
@@ -251,7 +263,6 @@ def page_geomechanics(channel_map_data: dict | None = None):
                       "borderRadius": "6px",
                       "border": f"1px solid {COLORS['card_border']}"}),
 
-            # Fracability plain KPI (no wrapper — not a core engine value)
             _kpi("Avg Fracability", f"{avg_frac:.2f}", "green"),
         ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
                   "marginBottom": "16px"}),

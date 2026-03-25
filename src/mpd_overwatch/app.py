@@ -444,6 +444,17 @@ def create_app() -> dash.Dash:
             stage = app_state_data.get("stage", "file_select")
         channels_ready = stage in ("analysis", "report")
 
+        # Fall back to auto-mapped data when channel-map store is empty
+        if not channel_map_data and channels_ready:
+            try:
+                from mpd_overwatch.dashboard.data_store import get_auto_mapped
+                from mpd_overwatch.dashboard.app_state import serialize_channel_map
+                auto = get_auto_mapped()
+                if auto:
+                    channel_map_data = serialize_channel_map(auto)
+            except Exception:
+                pass
+
         try:
             # ---- landing page ---------------------------------------------
             if pathname == "/":

@@ -68,14 +68,14 @@ def page_topology(channel_map_data: dict | None = None):
     Parameters
     ----------
     channel_map_data : dict or None
-        Serialized channel map from dcc.Store.  If None or empty, synthetic
-        placeholder data is used.
+        Serialized channel map from dcc.Store.  If None or empty, shows
+        data-required notice.
     """
     # ------------------------------------------------------------------ #
     # Attempt to build a PointCloud4D from real channel data               #
     # ------------------------------------------------------------------ #
     pc = None
-    using_placeholder = False
+    data_missing = False
 
     if channel_map_data:
         try:
@@ -88,28 +88,37 @@ def page_topology(channel_map_data: dict | None = None):
         except Exception:
             logger.warning("topology ingestion failed", exc_info=True)
 
-    # Build depth/channel arrays for plotting — use real data if available, else synthetic
+    # Build depth/channel arrays for plotting — real data only
     if pc is not None and channel_map_data:
         try:
             from mpd_overwatch.dashboard.app_state import deserialize_channel_map as _dcm
             _cm = _dcm(channel_map_data)
-            md_arr = np.asarray(_cm.get("depth_md", np.linspace(10000, 16000, 200)), dtype=float)
-            gamma_arr = np.asarray(_cm.get("gamma_ray", np.random.default_rng(42).normal(80, 20, len(md_arr))), dtype=float)
-            apwd_arr = np.asarray(_cm.get("apwd", np.random.default_rng(43).normal(6800, 120, len(md_arr))), dtype=float)
-            # Align lengths
-            _n = min(len(md_arr), len(gamma_arr), len(apwd_arr))
-            md_arr, gamma_arr, apwd_arr = md_arr[:_n], gamma_arr[:_n], apwd_arr[:_n]
+            md_arr = np.asarray(_cm["depth_md"], dtype=float) if "depth_md" in _cm else None
+            gamma_arr = np.asarray(_cm["gamma_ray"], dtype=float) if "gamma_ray" in _cm else None
+            apwd_arr = np.asarray(_cm["apwd"], dtype=float) if "apwd" in _cm else None
+            if md_arr is None:
+                data_missing = True
+                md_arr = np.zeros(0)
+                gamma_arr = np.zeros(0)
+                apwd_arr = np.zeros(0)
+            else:
+                if gamma_arr is None:
+                    gamma_arr = np.zeros(len(md_arr))
+                if apwd_arr is None:
+                    apwd_arr = np.zeros(len(md_arr))
+                _n = min(len(md_arr), len(gamma_arr), len(apwd_arr))
+                md_arr, gamma_arr, apwd_arr = md_arr[:_n], gamma_arr[:_n], apwd_arr[:_n]
         except Exception:
             logger.warning("channel map deserialization for topology plot failed", exc_info=True)
-            md_arr = np.linspace(10000, 16000, 200)
-            gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
-            apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
-            using_placeholder = True
+            data_missing = True
+            md_arr = np.zeros(0)
+            gamma_arr = np.zeros(0)
+            apwd_arr = np.zeros(0)
     else:
-        md_arr = np.linspace(10000, 16000, 200)
-        gamma_arr = np.random.default_rng(42).normal(80, 20, 200)
-        apwd_arr = np.random.default_rng(43).normal(6800, 120, 200)
-        using_placeholder = True
+        data_missing = True
+        md_arr = np.zeros(0)
+        gamma_arr = np.zeros(0)
+        apwd_arr = np.zeros(0)
 
     # ------------------------------------------------------------------ #
     # Run sheaf coherence analysis                                         #
@@ -343,12 +352,12 @@ def page_topology(channel_map_data: dict | None = None):
             )
 
     # ------------------------------------------------------------------ #
-    # Placeholder notice                                                   #
+    # Data-required notice                                                  #
     # ------------------------------------------------------------------ #
-    placeholder_notice = html.Div()
-    if using_placeholder:
-        placeholder_notice = html.Div(
-            "PLACEHOLDER --- load a LAS/EDR file via the File Manager to analyse real well data",
+    data_notice = html.Div()
+    if data_missing:
+        data_notice = html.Div(
+            "DATA REQUIRED --- load a .las file via the File Manager to analyse real well data",
             style={"color": COLORS["warning"], "fontSize": "11px",
                    "fontStyle": "italic", "marginBottom": "12px"},
         )
@@ -362,7 +371,7 @@ def page_topology(channel_map_data: dict | None = None):
             ),
         ], className="page-header"),
 
-        placeholder_notice,
+        data_notice,
 
         html.Div(kpi_items, className="kpi-row"),
 
