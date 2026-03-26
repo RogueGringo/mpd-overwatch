@@ -2,15 +2,16 @@
 MPD Overwatch — File Manager Page
 ===================================
 
-Five ways to open a LAS file, because humans don't all work the same way:
+Five ways to open a SQL EDR dump, because humans don't all work the same way:
 
 1. Browse — native OS file dialog (tkinter)
 2. Type path — power users who know where their files are
 3. Drag & drop — for users with Explorer already open
 4. Recent files — quick re-open of previously loaded files
-5. Directory scan — explore a folder tree for all LAS files
+5. Directory scan — explore a folder tree for all SQL files
 
-All paths converge to data_store.load_file() — same pipeline as the CLI.
+All paths converge to data_store.load_file() which parses via SQLDumpParser
+and caches a WellDatabase server-side.
 """
 
 from __future__ import annotations
@@ -33,80 +34,26 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# LAS header parsing (standalone, used by CLI too)
+# SQL header summary (used by CLI too)
 # ---------------------------------------------------------------------------
 
-def parse_las_header(filepath: str) -> Dict[str, Any]:
-    """Parse a LAS file and return a summary of its header information."""
-    import lasio
+def parse_sql_header(filepath: str) -> Dict[str, Any]:
+    """Load a SQL dump file and return a summary of its header information.
 
-    las = _read_las(lasio, filepath)
+    Delegates to data_store.load_file() which uses sql_parser.ingest().
+    """
+    from mpd_overwatch.dashboard.data_store import load_file
 
-    def _hdr(key: str, default: str = "") -> str:
-        try:
-            val = las.well[key].value
-            return str(val).strip() if val else default
-        except (KeyError, IndexError, AttributeError):
-            return default
-
-    def _hdr_unit(key: str) -> str:
-        try:
-            return str(las.well[key].unit).strip()
-        except (KeyError, IndexError, AttributeError):
-            return ""
-
-    curve_names: List[str] = [c.mnemonic for c in las.curves]
-    curve_units: Dict[str, str] = {c.mnemonic: str(c.unit).strip() for c in las.curves}
-
-    try:
-        null_value = float(las.well["NULL"].value)
-    except (KeyError, ValueError, TypeError):
-        null_value = -999.25
-
-    return {
-        "well_name": _hdr("WELL") or Path(filepath).stem,
-        "company": _hdr("COMP"),
-        "service_company": _hdr("SRVC"),
-        "field_name": _hdr("FLD"),
-        "api": _hdr("API") or _hdr("UWI"),
-        "curve_count": len(curve_names),
-        "curve_names": curve_names,
-        "curve_units": curve_units,
-        "start": _hdr("STRT"),
-        "stop": _hdr("STOP"),
-        "start_unit": _hdr_unit("STRT"),
-        "null_value": null_value,
-    }
-
-
-def _read_las(lasio_module: Any, filepath: str) -> Any:
-    """Attempt a full lasio read; fall back to header-only on reshape errors."""
-    try:
-        return lasio_module.read(filepath)
-    except Exception as exc:
-        logger.debug("Full read failed for %s (%s), retrying header-only", filepath, exc)
-        try:
-            return lasio_module.read(filepath, ignore_data=True)
-        except Exception:
-            raise
+    return load_file(filepath)
 
 
 # ---------------------------------------------------------------------------
 # Index type detection
 # ---------------------------------------------------------------------------
 
-_DEPTH_UNITS = {"ft", "m", "feet", "meters", "metre", "metres"}
-_TIME_UNITS = {"s", "sec", "min", "hr", "h", "ms", "seconds", "minutes", "hours"}
-
-
 def detect_index_type(header_info: Dict[str, Any]) -> str:
-    """Determine whether a LAS file is depth-indexed or time-indexed."""
-    unit = str(header_info.get("start_unit", "")).strip().lower()
-    if unit in _TIME_UNITS:
-        return "time"
-    if unit in _DEPTH_UNITS:
-        return "depth"
-    return "depth"
+    """SQL EDR dumps contain both time and depth data — always dual-indexed."""
+    return "dual"
 
 
 # ---------------------------------------------------------------------------
@@ -123,8 +70,8 @@ def _open_file_dialog() -> str | None:
         root.attributes("-topmost", True)
         root.focus_force()
         filepath = tk_filedialog.askopenfilename(
-            title="Select LAS File",
-            filetypes=[("LAS files", "*.las *.LAS"), ("All files", "*.*")],
+            title="Select SQL EDR Dump",
+            filetypes=[("SQL dump files", "*.sql *.SQL"), ("All files", "*.*")],
         )
         root.destroy()
         return filepath if filepath else None
@@ -192,7 +139,7 @@ def file_manager_layout():
 
     children = [
         html.H2("File Manager", className="page-title"),
-        html.P("Open a LAS file to begin analysis.", className="page-subtitle"),
+        html.P("Open a SQL EDR dump to begin analysis.", className="page-subtitle"),
 
         # ---- SECTION 1: Open File ----
         html.Div(
@@ -205,7 +152,7 @@ def file_manager_layout():
                         dcc.Input(
                             id="file-path-input",
                             type="text",
-                            placeholder="C:\\path\\to\\well_data.las",
+                            placeholder="C:\\path\\to\\edr_dump.sql",
                             debounce=True,
                             style=input_style,
                         ),
@@ -224,13 +171,13 @@ def file_manager_layout():
                             style={"color": COLORS["text_dim"], "fontSize": "12px", "cursor": "pointer"},
                         ),
                         dcc.Upload(
-                            id="upload-las-file",
+                            id="upload-sql-file",
                             children=html.Div(
                                 [
-                                    html.Span("Drop LAS file here", style={"color": COLORS["text_muted"]}),
+                                    html.Span("Drop SQL dump file here", style={"color": COLORS["text_muted"]}),
                                     html.Br(),
                                     html.Span(
-                                        "Supports LAS 2.0 and LAS 3.0",
+                                        "WITS EDR SQL dump format",
                                         style={"color": COLORS["text_dim"], "fontSize": "11px"},
                                     ),
                                 ]
@@ -244,7 +191,7 @@ def file_manager_layout():
                                 "cursor": "pointer",
                             },
                             multiple=False,
-                            accept=".las,.LAS",
+                            accept=".sql,.SQL",
                         ),
                     ],
                 ),
@@ -274,7 +221,7 @@ def file_manager_layout():
         html.Div(
             style=section_style,
             children=[
-                html.H4("Scan Directory for LAS Files", style=heading_style),
+                html.H4("Scan Directory for SQL Files", style=heading_style),
                 html.Div(
                     style={"display": "flex", "gap": "8px", "alignItems": "center", "marginBottom": "10px"},
                     children=[
@@ -333,8 +280,20 @@ def file_manager_layout():
 # Header card renderer
 # ---------------------------------------------------------------------------
 
-def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None) -> List:
-    """Build Dash components for the well header preview card."""
+def _render_header_card(
+    header: Dict[str, Any],
+    suggestions: Dict[str, str] | None = None,
+) -> List:
+    """Build Dash components for the well header preview card.
+
+    header comes from data_store.load_file() — keys:
+        source_ip, dump_timestamp, channel_count, raw_channels,
+        computed_channels, total_points, time_start, time_end,
+        depth_min, depth_max, filepath, filename
+
+    suggestions comes from engine_manifest.auto_suggest_assignments() —
+        maps canonical names to WITS IDs.
+    """
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
 
@@ -353,22 +312,30 @@ def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None
         "fontFamily": "Consolas, monospace",
     }
 
-    data_status = (
-        "Header only (data unreadable)"
-        if info.get("header_only")
-        else f"{info.get('row_count', 0):,}"
-    )
+    # Build depth range string
+    depth_min = header.get("depth_min")
+    depth_max = header.get("depth_max")
+    if depth_min is not None and depth_max is not None and depth_max > 0:
+        depth_str = f"{depth_min:.1f} -- {depth_max:.1f} ft"
+    else:
+        depth_str = ""
+
+    # Build time range string
+    time_start = header.get("time_start", "")
+    time_end = header.get("time_end", "")
+    if time_start and time_end:
+        time_str = f"{time_start}  to  {time_end}"
+    else:
+        time_str = ""
 
     rows_data = [
-        ("Well", info.get("well_name", "")),
-        ("Company", info.get("company", "")),
-        ("Service Co.", info.get("service_company", "")),
-        ("Field", info.get("field", "")),
-        ("API / UWI", info.get("api", "")),
-        ("Depth Range", f"{info.get('start', '?')} -- {info.get('stop', '?')}"),
-        ("Channels", str(info.get("curve_count", 0))),
-        ("Data Points", data_status),
-        ("File", info.get("filepath", "")),
+        ("Source IP", header.get("source_ip", "")),
+        ("Dump Time", header.get("dump_timestamp", "")),
+        ("Channels", f"{header.get('raw_channels', 0)} raw + {header.get('computed_channels', 0)} computed = {header.get('channel_count', 0)} total"),
+        ("Data Points", f"{header.get('total_points', 0):,}"),
+        ("Depth Range", depth_str),
+        ("Time Range", time_str),
+        ("File", header.get("filepath", "")),
     ]
 
     table_rows = []
@@ -384,7 +351,7 @@ def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None
 
     children = [
         html.H3(
-            info.get("filename", "File loaded"),
+            header.get("filename", "File loaded"),
             style={"color": COLORS["success"], "fontSize": "16px", "marginBottom": "12px"},
         ),
         html.Table(
@@ -393,25 +360,12 @@ def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None
         ),
     ]
 
-    if info.get("header_only"):
-        children.append(
-            html.P(
-                "Data columns could not be parsed (LAS 3.0 format issue). "
-                "Channel headers are available but curve data cannot be loaded.",
-                style={"color": COLORS["warning"], "fontSize": "12px", "marginTop": "8px"},
-            )
-        )
-    elif map_summary and map_summary.get("mapped", 0) > 0:
-        # Auto-mapped — show summary and go straight to analysis
-        mapped = map_summary["mapped"]
-        total = map_summary["total"]
-        parked = map_summary.get("parked", 0)
-
-        # Build mapped channel list
-        channel_names = sorted(map_summary.get("channels", {}).keys())
+    # Show auto-suggest summary if we have suggestions
+    if suggestions:
+        n_suggested = len(suggestions)
         channel_tags = [
             html.Span(
-                name,
+                f"{canonical} ({wits_id})",
                 style={
                     "display": "inline-block",
                     "padding": "2px 8px",
@@ -423,14 +377,14 @@ def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None
                     "color": COLORS["text"],
                 },
             )
-            for name in channel_names
+            for canonical, wits_id in sorted(suggestions.items())
         ]
 
         children.extend([
             html.Div(
                 [
                     html.Span(
-                        f"{mapped} channels mapped",
+                        f"{n_suggested} channels auto-suggested",
                         style={
                             "color": COLORS["success"],
                             "fontSize": "14px",
@@ -438,7 +392,7 @@ def _render_header_card(info: Dict[str, Any], map_summary: Dict[str, Any] = None
                         },
                     ),
                     html.Span(
-                        f" / {total} total / {parked} dropped",
+                        f" / {header.get('channel_count', 0)} total available",
                         style={
                             "color": COLORS["text_dim"],
                             "fontSize": "13px",
@@ -531,48 +485,53 @@ def _error_card(filename: str, error: str) -> List:
 # ---------------------------------------------------------------------------
 
 def _load_and_build(filepath: str):
-    """Load a file via data_store, auto-map channels, build header card + app state.
+    """Load a SQL file via data_store, auto-suggest channels, build header card + app state.
 
-    Auto-maps channels using the registry so the system goes straight to
-    analysis-ready state — no manual channel selection required.
+    Uses engine_manifest.auto_suggest_assignments() to propose canonical
+    names for WITS channels found in the dump.  Suggestions are applied
+    to WellDatabase.assignments so downstream engines can resolve them.
 
     Returns (card_children, app_state_dict).
     Raises on failure.
     """
-    from mpd_overwatch.dashboard.data_store import (
-        auto_map_channels,
-        load_file,
-    )
+    from mpd_overwatch.dashboard.data_store import get_well_database, load_file
+    from mpd_overwatch.data.engine_manifest import auto_suggest_assignments
 
-    header_info = load_file(filepath)
+    header = load_file(filepath)
+    db = get_well_database()
 
-    # Auto-map channels using registry + MNEMONIC_MAP
-    map_summary = auto_map_channels()
+    # Auto-suggest canonical assignments from WITS codes
+    suggestions: Dict[str, str] = {}
+    if db is not None:
+        suggestions = auto_suggest_assignments(db)
+        # Apply suggestions to the WellDatabase so they're available downstream
+        db.assignments.update(suggestions)
 
-    card = _render_header_card(header_info, map_summary)
+    card = _render_header_card(header, suggestions)
 
-    # Go straight to analysis-ready if we mapped channels
-    stage = "analysis" if map_summary.get("mapped", 0) > 0 else "channel_select"
+    # Go straight to analysis-ready if we have suggestions
+    stage = "analysis" if suggestions else "channel_select"
+
+    channel_names = list(db.channels.keys()) if db else []
 
     app_state = {
         "stage": stage,
-        "filename": header_info["filename"],
-        "filepath": header_info["filepath"],
-        "well_name": header_info["well_name"],
-        "curve_names": header_info["curve_names"],
-        "curve_units": header_info["curve_units"],
-        "has_data": not header_info["header_only"],
-        "row_count": header_info["row_count"],
-        "selected_channels": list(map_summary.get("channels", {}).keys()),
-        "auto_mapped": True,
+        "filename": header["filename"],
+        "filepath": header["filepath"],
+        "well_name": header.get("source_ip", ""),
+        "channel_count": header.get("channel_count", 0),
+        "has_data": header.get("total_points", 0) > 0,
+        "total_points": header.get("total_points", 0),
+        "selected_channels": list(suggestions.keys()),
+        "auto_mapped": bool(suggestions),
         "well_header": {
-            "well_name": header_info.get("well_name", ""),
-            "company": header_info.get("company", ""),
-            "field_name": header_info.get("field", ""),
-            "api": header_info.get("api", ""),
-            "curve_count": header_info.get("curve_count", 0),
-            "start": header_info.get("start"),
-            "stop": header_info.get("stop"),
+            "source_ip": header.get("source_ip", ""),
+            "dump_timestamp": header.get("dump_timestamp", ""),
+            "channel_count": header.get("channel_count", 0),
+            "depth_min": header.get("depth_min"),
+            "depth_max": header.get("depth_max"),
+            "time_start": header.get("time_start"),
+            "time_end": header.get("time_end"),
         },
     }
     return card, app_state
@@ -589,13 +548,13 @@ def _recent_dropdown_options() -> List[Dict]:
 
 
 def _auto_channel_map():
-    """Serialize auto-mapped channel data for the channel-map store."""
+    """Serialize channel data from WellDatabase assignments for the channel-map store."""
+    from mpd_overwatch.dashboard.data_store import get_channel_map_from_assignments
     from mpd_overwatch.dashboard.app_state import serialize_channel_map
-    from mpd_overwatch.dashboard.data_store import get_auto_mapped
 
-    auto = get_auto_mapped()
-    if auto:
-        return serialize_channel_map(auto)
+    mapped = get_channel_map_from_assignments()
+    if mapped:
+        return serialize_channel_map(mapped)
     return None
 
 
@@ -627,7 +586,7 @@ def register_file_manager_callbacks(app):
             raise PreventUpdate
 
         p = Path(filepath)
-        if not p.exists() or p.suffix.lower() != ".las":
+        if not p.exists() or p.suffix.lower() != ".sql":
             raise PreventUpdate
 
         try:
@@ -656,8 +615,8 @@ def register_file_manager_callbacks(app):
 
         if not p.exists():
             return _error_card(p.name, f"File not found: {filepath}"), no_update, no_update, no_update
-        if p.suffix.lower() != ".las":
-            return _error_card(p.name, f"Not a LAS file: {p.suffix}"), no_update, no_update, no_update
+        if p.suffix.lower() != ".sql":
+            return _error_card(p.name, f"Not a SQL file: {p.suffix}"), no_update, no_update, no_update
 
         try:
             card, app_state = _load_and_build(filepath)
@@ -673,8 +632,8 @@ def register_file_manager_callbacks(app):
         Output("file-path-input", "value", allow_duplicate=True),
         Output("recent-files-dropdown", "options", allow_duplicate=True),
         Output("channel-map", "data", allow_duplicate=True),
-        Input("upload-las-file", "contents"),
-        State("upload-las-file", "filename"),
+        Input("upload-sql-file", "contents"),
+        State("upload-sql-file", "filename"),
         prevent_initial_call=True,
     )
     def on_file_upload(contents, filename):
@@ -741,7 +700,7 @@ def register_file_manager_callbacks(app):
 
         from dash import html
         from mpd_overwatch.config import COLORS
-        from mpd_overwatch.dashboard.data_store import scan_for_las_files
+        from mpd_overwatch.dashboard.data_store import scan_for_sql_files
 
         dirpath = dirpath.strip().strip('"').strip("'")
         p = Path(dirpath)
@@ -752,10 +711,10 @@ def register_file_manager_callbacks(app):
                 style={"color": COLORS["danger"], "fontSize": "12px"},
             )
 
-        results = scan_for_las_files(dirpath)
+        results = scan_for_sql_files(dirpath)
         if not results:
             return [], True, html.Span(
-                "No LAS files found in this directory.",
+                "No SQL files found in this directory.",
                 style={"color": COLORS["warning"], "fontSize": "12px"},
             )
 
@@ -768,7 +727,7 @@ def register_file_manager_callbacks(app):
         ]
 
         status = html.Span(
-            f"Found {len(results)} LAS file{'s' if len(results) != 1 else ''}",
+            f"Found {len(results)} SQL file{'s' if len(results) != 1 else ''}",
             style={"color": COLORS["success"], "fontSize": "12px"},
         )
 
