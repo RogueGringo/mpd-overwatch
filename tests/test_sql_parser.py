@@ -1,6 +1,7 @@
 # tests/test_sql_parser.py
 import pytest
 import numpy as np
+from datetime import datetime
 from pathlib import Path
 from mpd_overwatch.data.sql_parser import SQLDumpParser
 
@@ -92,3 +93,51 @@ class TestDepthFileParsing:
         for wid in welldb.channels:
             assert not (wid.isdigit() and int(wid) >= 9001), \
                 f"Computed channel {wid} should be in welldb.computed"
+
+
+class TestTimeFileParsing:
+    @pytest.fixture(scope="class")
+    def parser(self):
+        return SQLDumpParser()
+
+    @pytest.fixture(scope="class")
+    def time_result(self, parser):
+        return parser._parse_time_file(TIME_FILE)
+
+    def test_returns_channel_data(self, time_result):
+        channel_data, witsidcfg = time_result
+        assert len(channel_data) > 10  # expect 20+ channels
+
+    def test_pump_pressure_present(self, time_result):
+        channel_data, _ = time_result
+        assert "0121" in channel_data
+        ts_list = channel_data["0121"]
+        assert len(ts_list) > 100  # should have many data points
+
+    def test_hole_depth_present(self, time_result):
+        """WITS 0108 (hole depth) must be present — it's the depth source."""
+        channel_data, _ = time_result
+        assert "0108" in channel_data
+
+    def test_witsidcfg_loaded(self, time_result):
+        _, witsidcfg = time_result
+        assert len(witsidcfg) > 0
+        # Pump Pressure should have config
+        if "0121" in witsidcfg:
+            assert "description" in witsidcfg["0121"]
+
+    def test_non_numeric_values_are_nan(self, time_result):
+        """WITS 1984 mostly contains text — most values should be NaN."""
+        channel_data, _ = time_result
+        if "1984" in channel_data:
+            ts_list = channel_data["1984"]
+            values = [v for _, v in ts_list]
+            nan_count = sum(1 for v in values if np.isnan(v))
+            # Vast majority should be NaN (text values)
+            assert nan_count / len(values) > 0.99
+
+    def test_timestamps_are_datetime(self, time_result):
+        channel_data, _ = time_result
+        ts_list = channel_data["0121"]
+        first_ts, first_val = ts_list[0]
+        assert isinstance(first_ts, datetime)

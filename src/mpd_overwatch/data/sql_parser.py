@@ -210,6 +210,64 @@ class SQLDumpParser:
                 result[epoch] = cal
         return result
 
+    def _parse_time_file(
+        self, filepath: str
+    ) -> Tuple[Dict[str, List[Tuple[datetime, float]]], Dict[str, Dict[str, Any]]]:
+        """Parse time-indexed file. Returns (channel_data, witsidcfg).
+
+        channel_data: {wits_id: [(datetime, float_value), ...]}
+        witsidcfg: {wits_id: {"description": str, "lc": str, "min": float, "max": float}}
+        """
+        channel_data: Dict[str, List[Tuple[datetime, float]]] = {}
+        witsidcfg: Dict[str, Dict[str, Any]] = {}
+
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("COPY public.witsidcfg "):
+                    col_names = self._parse_copy_columns(line)
+                    rows = self._read_copy_block(f, col_names)
+                    for row in rows:
+                        wid = str(row.get("witsid", "")).strip()
+                        if wid:
+                            witsidcfg[wid] = row
+                elif line.startswith("COPY public.timedata "):
+                    self._read_timedata_block(f, channel_data)
+
+        return channel_data, witsidcfg
+
+    def _read_timedata_block(
+        self, f, channel_data: Dict[str, List[Tuple[datetime, float]]]
+    ) -> None:
+        """Read timedata COPY block, pivoting to per-channel time series."""
+        for line in f:
+            stripped = line.rstrip("\n\r")
+            if stripped == "\\.":
+                break
+            if not stripped:
+                continue
+            # Format: timestamp\trealtime_csv
+            parts = stripped.split("\t", 1)
+            if len(parts) < 2:
+                continue
+            try:
+                ts = datetime.strptime(parts[0].strip(), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            realtime = parts[1]
+            for token in realtime.split(","):
+                eq_pos = token.find("=")
+                if eq_pos < 0:
+                    continue
+                wid = token[:eq_pos].strip()
+                val_str = token[eq_pos + 1:].strip()
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = float("nan")
+                if wid not in channel_data:
+                    channel_data[wid] = []
+                channel_data[wid].append((ts, val))
+
     def _build_channel_frame(
         self, wits_id: str, meta: Dict[str, Any],
         times: np.ndarray, depths: np.ndarray,
