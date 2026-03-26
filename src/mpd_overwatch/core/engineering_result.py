@@ -12,9 +12,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
+
+from mpd_overwatch.data.sql_models import DataLineage
 
 # The standard channel data container used throughout the pipeline.
 # Maps canonical channel names (e.g. "hookload", "spp") to numpy arrays.
@@ -68,3 +70,4 @@ class EngineeringResult:
     threshold_green: str = ""
     threshold_amber: str = ""
     threshold_red: str = ""
+    lineage: Optional[DataLineage] = None
