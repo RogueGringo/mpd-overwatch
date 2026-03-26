@@ -83,6 +83,16 @@ DEFAULT_CHANNELS: Dict[int, ChannelDef] = {
     29: ChannelDef(29, "temperature_gradient", "degF/ft", 0, 5,     "Temperature gradient"),
     30: ChannelDef(30, "mud_volume",      "bbl",     0,     2000,    "Active mud volume"),
     31: ChannelDef(31, "bit_depth",       "ft",      0,    30000,    "Bit depth MD"),
+    # Depth indices — the most fundamental channels in any LAS file
+    32: ChannelDef(32, "depth_md",        "ft",      0,    35000,    "Measured depth"),
+    33: ChannelDef(33, "hole_depth",      "ft",      0,    35000,    "Hole depth (driller)"),
+    34: ChannelDef(34, "bit_tvd",         "ft",      0,    30000,    "Bit true vertical depth"),
+    35: ChannelDef(35, "hole_tvd",        "ft",      0,    30000,    "Hole true vertical depth"),
+    # Resistivity variants (deep vs shallow)
+    36: ChannelDef(36, "resistivity_deep",    "ohm-m", 0.1, 10000,  "Deep resistivity"),
+    37: ChannelDef(37, "resistivity_shallow", "ohm-m", 0.1, 10000,  "Shallow resistivity"),
+    # Time index
+    38: ChannelDef(38, "timestamp",       "s",       0,    1e10,     "Time index"),
 }
 
 
@@ -91,6 +101,14 @@ DEFAULT_CHANNELS: Dict[int, ChannelDef] = {
 # ---------------------------------------------------------------------------
 
 _DEFAULT_ALIASES: Dict[str, str] = {
+    # Depth — the primary LAS index channel
+    "dept":     "depth_md",
+    "depth":    "depth_md",
+    "md":       "depth_md",
+    "dmea":     "depth_md",
+    "tdep":     "depth_md",
+    "nomd":     "depth_md",
+
     # Gamma-ray variants
     "gr":       "gamma_ray",
     "grc":      "gamma_ray",
@@ -546,15 +564,11 @@ def classify_channels(
         except KeyError:
             pass
 
-        # Try MNEMONIC_MAP (vendor mnemonic → canonical name → registry)
+        # Try MNEMONIC_MAP — curated vendor-to-canonical mapping is authoritative
         canonical = MNEMONIC_MAP.get(mnemonic.upper())
         if canonical:
-            try:
-                registry.mnemonic_to_channel(canonical)
-                result[mnemonic] = ChannelTier.CORE
-                continue
-            except KeyError:
-                pass
+            result[mnemonic] = ChannelTier.CORE
+            continue
 
         # Not in registry — check unit heuristic
         unit = units.get(mnemonic, "")

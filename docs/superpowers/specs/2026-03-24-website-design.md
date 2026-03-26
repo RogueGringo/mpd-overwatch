@@ -1,7 +1,7 @@
 # BHOverwatch Website & Platform Front Door — Design Specification
 
 **Date:** 2026-03-24
-**Status:** Draft
+**Status:** IMPLEMENTED (all tasks complete, 278 tests passing)
 **Spec:** 1 of 2 (this spec covers front door + platform restructure; Spec 2 covers 3D visualization engine)
 **Predecessor:** `2026-03-20-dashboard-refactor-design.md` (v0.4.0 refactor — fully implemented and superseded)
 **Target:** v0.1bl (current: v1.0.0b1) — bl = beta looped iterative development

@@ -1,7 +1,7 @@
 # MPD Overwatch Dashboard Refactor — Design Specification
 
 **Date:** 2026-03-20
-**Status:** Approved
+**Status:** IMPLEMENTED (all tasks complete, 278 tests passing)
 **Approach:** B — Rebuild Dashboard Shell, Reuse Engines
 
 ## 1. Vision
