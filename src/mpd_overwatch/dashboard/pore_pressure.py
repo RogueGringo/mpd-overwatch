@@ -3,6 +3,8 @@
 Displays d-exponent trend, Eaton pore pressure prediction,
 normal compaction trend, and prediction confidence along the wellbore.
 Real well data only — no synthetic fallbacks.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -15,58 +17,58 @@ from mpd_overwatch.config import COLORS, DEFAULTS
 from mpd_overwatch.core.pore_pressure import analyze_pore_pressure_profile
 from mpd_overwatch.core.engine_wrappers import compute_d_exponent, compute_eaton_pp
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 from mpd_overwatch.dashboard.no_data import data_required_layout
 
 logger = logging.getLogger(__name__)
 
 
-def page_pore_pressure(channel_map_data: dict | None = None) -> html.Div:
+def page_pore_pressure(assignments_data: dict | None = None) -> html.Div:
     """Render the pore pressure analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
+    from mpd_overwatch.dashboard.data_store import get_well_database
 
-    if not channel_map:
+    db = get_well_database()
+    if db is None or not assignments_data:
         return data_required_layout(
             "Pore Pressure Analysis",
             "D-exponent trend, Eaton pore pressure prediction, and overpressure detection",
-            ["depth_md", "tvd", "rop", "rpm", "wob"],
-            optional=["mud_weight"],
+            ["hole_depth", "depth_tvd", "rop", "rpm", "wob"],
+            optional=["mud_weight_in"],
         )
 
-    def _get(key: str) -> np.ndarray | None:
-        arr = channel_map.get(key)
-        if arr is not None and len(arr) > 0:
-            return np.asarray(arr, dtype=float)
+    db.assignments = dict(assignments_data)
+
+    def _get(canonical: str) -> np.ndarray | None:
+        try:
+            cf = db.assigned(canonical)
+            arr = cf.calibrated_value
+            if len(arr) > 0:
+                return arr
+        except KeyError:
+            pass
         return None
 
-    md = _get("depth_md")
-    tvd = _get("tvd")
+    md = _get("hole_depth")
+    tvd = _get("depth_tvd")
     rop = _get("rop")
     rpm = _get("rpm")
     wob = _get("wob")
-    mw = _get("mud_weight")
+    mw = _get("mud_weight_in")
 
-    required_missing = [k for k in ["depth_md", "rop", "rpm", "wob"]
+    required_missing = [k for k in ["hole_depth", "rop", "rpm", "wob"]
                         if _get(k) is None]
     if required_missing:
         return data_required_layout(
             "Pore Pressure Analysis",
             "D-exponent trend, Eaton pore pressure prediction, and overpressure detection",
-            ["depth_md", "tvd", "rop", "rpm", "wob"],
-            optional=["mud_weight"],
+            ["hole_depth", "depth_tvd", "rop", "rpm", "wob"],
+            optional=["mud_weight_in"],
             missing=required_missing,
         )
 

@@ -3,6 +3,8 @@
 Displays ECD, BHP (static/dynamic), hydrostatic pressure, and SPP
 along the wellbore for real-time hydraulics analysis.
 Real well data only — no synthetic fallbacks.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -19,45 +21,45 @@ from mpd_overwatch.core.engine_wrappers import (
     compute_ecd, compute_hydrostatic, compute_bhp_static, compute_bhp_dynamic,
 )
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
-def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
+def page_hydraulics(assignments_data: dict | None = None) -> html.Div:
     """Render the hydraulics analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
+    from mpd_overwatch.dashboard.data_store import get_well_database
 
-    if not channel_map:
+    db = get_well_database()
+    if db is None or not assignments_data:
         return data_required_layout(
             "Hydraulics Analysis",
             "ECD, BHP, hydrostatic pressure, and SPP along the wellbore",
-            ["depth_md", "tvd", "mud_weight", "spp"],
-            optional=["apwd", "flow_in"],
+            ["hole_depth", "depth_tvd", "mud_weight_in", "standpipe_pressure"],
+            optional=["annular_pressure", "flow_in"],
         )
 
-    def _get(key: str) -> np.ndarray | None:
-        arr = channel_map.get(key)
-        if arr is not None and len(arr) > 0:
-            return np.asarray(arr, dtype=float)
+    db.assignments = dict(assignments_data)
+
+    def _get(canonical: str) -> np.ndarray | None:
+        try:
+            cf = db.assigned(canonical)
+            arr = cf.calibrated_value
+            if len(arr) > 0:
+                return arr
+        except KeyError:
+            pass
         return None
 
-    md = _get("depth_md")
-    tvd = _get("tvd")
-    mud_weight = _get("mud_weight")
-    spp = _get("spp")
-    apwd = _get("apwd")
+    md = _get("hole_depth")
+    tvd = _get("depth_tvd")
+    mud_weight = _get("mud_weight_in")
+    spp = _get("standpipe_pressure")
+    apwd = _get("annular_pressure")
     flow_in = _get("flow_in")
 
     # Must have at minimum depth and one pressure channel
@@ -65,9 +67,9 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
         return data_required_layout(
             "Hydraulics Analysis",
             "ECD, BHP, hydrostatic pressure, and SPP along the wellbore",
-            ["depth_md", "tvd", "mud_weight", "spp"],
-            optional=["apwd", "flow_in"],
-            missing=[k for k in ["depth_md", "spp"] if _get(k) is None],
+            ["hole_depth", "depth_tvd", "mud_weight_in", "standpipe_pressure"],
+            optional=["annular_pressure", "flow_in"],
+            missing=[k for k in ["hole_depth", "standpipe_pressure"] if _get(k) is None],
         )
 
     # Use tvd = md if TVD not available (vertical well approximation)
@@ -78,6 +80,10 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
         mud_weight = np.full(len(md), DEFAULTS["mpd_mud_weight"])
     if flow_in is None:
         flow_in = np.full(len(md), 0.0)
+    if spp is None:
+        spp = np.zeros(len(md))
+    if apwd is None:
+        apwd = np.zeros(len(md))
 
     # Align lengths in case channels differ
     n = min(len(md), len(tvd), len(mud_weight), len(spp), len(apwd), len(flow_in))
@@ -90,7 +96,7 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
 
     # --- Use a representative scalar mud weight for KPI computations ---
     mw_scalar = float(np.mean(mud_weight))
-    tvd_scalar = float(tvd[-1]) if len(tvd) > 0 else total_depth_tvd
+    tvd_scalar = float(tvd[-1]) if len(tvd) > 0 else 10000.0
     sbp = float(np.mean(DEFAULTS["mpd_sbp_range"]))  # midpoint SBP
 
     # --- Calculate hydraulics arrays (vectorised) ---
@@ -307,7 +313,7 @@ def page_hydraulics(channel_map_data: dict | None = None) -> html.Div:
                 ], style={"marginBottom": "8px", "fontSize": "13px"}),
                 html.Li([
                     html.Span("BHP: ", style={"color": COLORS["primary"], "fontWeight": "bold"}),
-                    f"Bottom Hole Pressure — static (avg {avg_bhp_static:,.0f} psi) and "
+                    f"Bottom Hole Pressure \u2014 static (avg {avg_bhp_static:,.0f} psi) and "
                     f"dynamic (avg {avg_bhp_dynamic:,.0f} psi). ",
                     "Static BHP = hydrostatic + SBP (pumps off). "
                     "Dynamic BHP = hydrostatic + AFP + SBP (pumps on). "

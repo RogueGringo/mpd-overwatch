@@ -1,8 +1,10 @@
 import json
+import warnings
 import pytest
 import numpy as np
 from mpd_overwatch.dashboard.app_state import (
     serialize_channel_map, deserialize_channel_map,
+    serialize_assignments, deserialize_assignments,
     AppState, WorkflowStage,
 )
 
@@ -15,25 +17,62 @@ def test_workflow_stage_enum():
 
 
 def test_serialize_channel_map_roundtrip():
-    """ChannelMap survives JSON serialization for dcc.Store."""
+    """ChannelMap survives JSON serialization for dcc.Store (deprecated path)."""
     original = {
         "hookload": np.array([100.0, 150.0, 200.0]),
         "spp": np.array([2000.0, 2100.0, 2200.0]),
     }
-    serialized = serialize_channel_map(original)
-    json_str = json.dumps(serialized)
-    assert isinstance(json_str, str)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        serialized = serialize_channel_map(original)
+        json_str = json.dumps(serialized)
+        assert isinstance(json_str, str)
 
-    restored = deserialize_channel_map(serialized)
+        restored = deserialize_channel_map(serialized)
     assert set(restored.keys()) == {"hookload", "spp"}
     np.testing.assert_array_almost_equal(restored["hookload"], original["hookload"])
     np.testing.assert_array_almost_equal(restored["spp"], original["spp"])
 
 
 def test_serialize_empty_channel_map():
-    serialized = serialize_channel_map({})
-    restored = deserialize_channel_map(serialized)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        serialized = serialize_channel_map({})
+        restored = deserialize_channel_map(serialized)
     assert len(restored) == 0
+
+
+def test_serialize_channel_map_emits_deprecation():
+    """Legacy serialize/deserialize should emit DeprecationWarning."""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        serialize_channel_map({})
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        deserialize_channel_map({})
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+
+
+def test_serialize_assignments_roundtrip():
+    """Assignments (str->str) survive serialization."""
+    original = {
+        "hole_depth": "0110",
+        "standpipe_pressure": "0120",
+        "annular_pressure": "0131",
+    }
+    serialized = serialize_assignments(original)
+    json_str = json.dumps(serialized)
+    assert isinstance(json_str, str)
+
+    restored = deserialize_assignments(json.loads(json_str))
+    assert restored == original
+
+
+def test_deserialize_assignments_empty():
+    assert deserialize_assignments({}) == {}
+    assert deserialize_assignments(None) == {}
 
 
 def test_app_state_defaults():

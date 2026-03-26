@@ -9,6 +9,8 @@ Runs the full TDA pipeline on PointCloud4D from channel data and visualises:
 References:
 - Edelsbrunner & Harer, *Computational Topology* (2010)
 - Ghrist, *Elementary Applied Topology* (2014)
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -19,12 +21,11 @@ from plotly.subplots import make_subplots
 from dash import html, dcc
 
 from mpd_overwatch.config import COLORS
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 logger = logging.getLogger(__name__)
 
 
-# Real data only — no fallbacks
+# Real data only --- no fallbacks
 
 
 # ------------------------------------------------------------------ #
@@ -60,16 +61,17 @@ def _error_fallback(error_msg: str):
 # Main page function                                                  #
 # ------------------------------------------------------------------ #
 
-def page_persistent_homology(channel_map_data: dict | None = None):
+def page_persistent_homology(assignments_data: dict | None = None):
     """Render the Persistent Homology analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
     from mpd_overwatch.dashboard.no_data import data_required_layout
+    from mpd_overwatch.dashboard.data_store import get_well_database
 
     # Lazy imports to avoid circular dependencies
     from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
@@ -85,10 +87,13 @@ def page_persistent_homology(channel_map_data: dict | None = None):
     # ------------------------------------------------------------------ #
     pc = None
 
-    if channel_map_data:
+    db = get_well_database()
+    if db is not None and assignments_data:
+        db.assignments = dict(assignments_data)
         try:
+            from mpd_overwatch.dashboard.data_store import get_channel_map_from_assignments
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
-            cm = deserialize_channel_map(channel_map_data)
+            cm = get_channel_map_from_assignments()
             pc = ingest_channel_map(cm)
         except Exception:
             logger.warning("PH channel map ingestion failed", exc_info=True)
@@ -98,8 +103,8 @@ def page_persistent_homology(channel_map_data: dict | None = None):
         return data_required_layout(
             "Persistent Homology",
             "Topological data analysis: persistence barcodes, Betti curves, drilling feature detection",
-            ["depth_md", "rop", "wob", "rpm"],
-            optional=["torque", "gamma_ray", "spp"],
+            ["hole_depth", "rop", "wob", "rpm"],
+            optional=["torque", "gamma_ray", "standpipe_pressure"],
         )
 
     # ------------------------------------------------------------------ #

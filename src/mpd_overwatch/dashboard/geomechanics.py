@@ -3,6 +3,8 @@
 Displays MSE, rock strength, brittleness, drilling efficiency,
 and wellbore stability analysis along the lateral.
 Real well data only — no synthetic fallbacks.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -17,54 +19,54 @@ from mpd_overwatch.dashboard.no_data import data_required_layout
 logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import compute_mse, compute_ucs, compute_brittleness
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
-def page_geomechanics(channel_map_data: dict | None = None):
+def page_geomechanics(assignments_data: dict | None = None):
     """Render the geomechanics analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
+    from mpd_overwatch.dashboard.data_store import get_well_database
 
-    if not channel_map:
+    db = get_well_database()
+    if db is None or not assignments_data:
         return data_required_layout(
             "Geomechanics Analysis",
             "MSE-derived rock properties, brittleness, and fracability along the lateral",
-            ["depth_md", "rop", "wob", "torque", "rpm"],
+            ["hole_depth", "rop", "wob", "torque", "rpm"],
             optional=["gamma_ray"],
         )
 
-    def _get(key: str) -> np.ndarray | None:
-        arr = channel_map.get(key)
-        if arr is not None and len(arr) > 0:
-            return np.asarray(arr, dtype=float)
+    db.assignments = dict(assignments_data)
+
+    def _get(canonical: str) -> np.ndarray | None:
+        try:
+            cf = db.assigned(canonical)
+            arr = cf.calibrated_value
+            if len(arr) > 0:
+                return arr
+        except KeyError:
+            pass
         return None
 
-    md = _get("depth_md")
+    md = _get("hole_depth")
     rop = _get("rop")
     wob = _get("wob")
     torque = _get("torque")
     rpm = _get("rpm")
     gamma = _get("gamma_ray")
 
-    required_missing = [k for k in ["depth_md", "rop", "wob", "rpm"]
+    required_missing = [k for k in ["hole_depth", "rop", "wob", "rpm"]
                         if _get(k) is None]
     if required_missing:
         return data_required_layout(
             "Geomechanics Analysis",
             "MSE-derived rock properties, brittleness, and fracability along the lateral",
-            ["depth_md", "rop", "wob", "torque", "rpm"],
+            ["hole_depth", "rop", "wob", "torque", "rpm"],
             optional=["gamma_ray"],
             missing=required_missing,
         )
@@ -295,7 +297,7 @@ def page_geomechanics(channel_map_data: dict | None = None):
                     html.Span("Brittleness: ",
                               style={"color": COLORS["secondary"], "fontWeight": "bold"}),
                     f"{brittle_pct:.0f}% of the lateral is in brittle rock (BI > 0.5). ",
-                    "Brittle rock fractures more completely during stimulation — target these zones. ",
+                    "Brittle rock fractures more completely during stimulation \u2014 target these zones. ",
                     html.Span("(Jarvie 2007; Rickman et al. 2008, SPE 115258)",
                               style={"color": COLORS["text_dim"], "fontSize": "11px",
                                      "fontStyle": "italic"}),

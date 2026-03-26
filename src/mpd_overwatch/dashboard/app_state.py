@@ -1,18 +1,20 @@
 """App state management — defines where data lives in the Dash app.
 
-The dashboard uses dcc.Store (client-side JSON storage) to pass data between
-pages. ChannelMap (Dict[str, np.ndarray]) must be serialized to JSON for storage
-and deserialized back when callbacks need it.
+The dashboard uses dcc.Store (client-side JSON storage) to pass lightweight
+state between pages.  Actual well data lives server-side in the WellDatabase
+(data_store module).  Only the assignments dict (canonical_name -> wits_id)
+travels through the browser store.
 
 Data flow:
-  File Manager → sets las_filepath, well_header → advances to CHANNEL_SELECT
-  Channel Selector → sets channel_map_serialized → advances to ANALYSIS
-  Analysis tabs → read channel_map, call engine wrappers → render tooltips
-  Report → reads channel_map + EngineeringResults → generates HTML
+  File Manager → loads file into data_store → advances to CHANNEL_SELECT
+  Channel Selector → sets assignments in WellDatabase → advances to ANALYSIS
+  Analysis tabs → pull data from get_well_database() → render
+  Report → reads WellDatabase + EngineeringResults → generates HTML
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -27,11 +29,41 @@ class WorkflowStage(Enum):
     REPORT = "report"
 
 
+# ---------------------------------------------------------------------------
+# Assignment serialization (new pattern — assignments are str->str dicts)
+# ---------------------------------------------------------------------------
+
+def serialize_assignments(assignments: Dict[str, str]) -> Dict[str, str]:
+    """Assignments are already JSON-serializable (str -> str)."""
+    return dict(assignments)
+
+
+def deserialize_assignments(data: Dict[str, str]) -> Dict[str, str]:
+    """Deserialize assignments dict from dcc.Store."""
+    return dict(data) if data else {}
+
+
+# ---------------------------------------------------------------------------
+# Legacy channel map serialization (deprecated — kept for backward compat)
+# ---------------------------------------------------------------------------
+
 def serialize_channel_map(channel_map: Dict[str, np.ndarray]) -> Dict[str, List[float]]:
+    """Deprecated: use serialize_assignments instead."""
+    warnings.warn(
+        "serialize_channel_map is deprecated; use serialize_assignments",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return {name: arr.tolist() for name, arr in channel_map.items()}
 
 
 def deserialize_channel_map(data: Dict[str, List[float]]) -> Dict[str, np.ndarray]:
+    """Deprecated: use deserialize_assignments instead."""
+    warnings.warn(
+        "deserialize_channel_map is deprecated; use deserialize_assignments",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return {name: np.array(values) for name, values in data.items()}
 
 

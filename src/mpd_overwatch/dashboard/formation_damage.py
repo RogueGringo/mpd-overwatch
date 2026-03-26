@@ -3,6 +3,8 @@
 Compares conventional overbalanced drilling (OBD) vs Managed Pressure Drilling
 (MPD) formation damage using skin factor, productivity index, and damage
 mechanism analysis.  Uses reservoir default parameters for parametric analysis.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -21,28 +23,27 @@ from mpd_overwatch.core.engine_wrappers import (
     compute_skin_factor, compute_productivity_index,
 )
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 logger = logging.getLogger(__name__)
 
 
-def page_formation_damage(channel_map_data: dict | None = None):
+def page_formation_damage(assignments_data: dict | None = None):
     """Render the formation damage analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, default reservoir parameters are used.
     """
+    from mpd_overwatch.dashboard.data_store import get_well_database
+
     # --- Resolve channel data (for status indicator only) ---
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
+    db = get_well_database()
+    has_data = db is not None and assignments_data
+
+    if has_data:
+        db.assignments = dict(assignments_data)
 
     # --- Use default reservoir properties ---
     reservoir = ReservoirProperties()
@@ -117,7 +118,7 @@ def page_formation_damage(channel_map_data: dict | None = None):
 
     # Panel 2: Skin vs Overbalance sweep
     fig.add_trace(go.Scatter(
-        x=sweep["dp"], y=sweep["skin"], name="Skin vs ΔP",
+        x=sweep["dp"], y=sweep["skin"], name="Skin vs \u0394P",
         mode="lines", line=dict(color=COLORS["primary"], width=2),
         showlegend=False,
     ), row=2, col=1)
@@ -174,7 +175,7 @@ def page_formation_damage(channel_map_data: dict | None = None):
     data_status = (
         html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
                                       "fontWeight": "700", "fontFamily": "Consolas, monospace"})
-        if channel_map
+        if has_data
         else html.Span("DEFAULT PARAMETERS \u2014 Delaware Basin Wolfcamp",
                        style={"color": COLORS["warning"], "fontSize": "11px",
                               "fontStyle": "italic"})
@@ -265,7 +266,7 @@ def page_formation_damage(channel_map_data: dict | None = None):
                                      "fontStyle": "italic"}),
                 ], style={"marginBottom": "8px", "fontSize": "13px"}),
                 html.Li([
-                    html.Span("Key Mechanism — Invasion Radius: ",
+                    html.Span("Key Mechanism \u2014 Invasion Radius: ",
                               style={"color": COLORS["secondary"], "fontWeight": "bold"}),
                     f"Conventional invasion radius = {conv.invasion_radius_ft:.3f} ft vs "
                     f"MPD = {mpd.invasion_radius_ft:.3f} ft. "

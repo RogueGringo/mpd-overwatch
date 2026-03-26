@@ -1,8 +1,10 @@
 """MPD Command - Well Overview Page
 
-Displays a summary of the loaded LAS file: well header metadata, depth/time
+Displays a summary of the loaded well data: well header metadata, depth/time
 range, loaded channel inventory with data quality metrics, and a trajectory
 placeholder when directional data is present.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 from __future__ import annotations
@@ -16,7 +18,6 @@ from dash import html
 from mpd_overwatch.config import COLORS
 
 logger = logging.getLogger(__name__)
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ def _header_row(label: str, value: str) -> html.Tr:
             "whiteSpace": "nowrap",
             "width": "1%",
         }),
-        html.Td(value or "—", style={
+        html.Td(value or "\u2014", style={
             "color": COLORS["text"],
             "fontSize": "13px",
             "fontFamily": "Consolas, monospace",
@@ -53,11 +54,11 @@ def _channel_row(i: int, name: str, values: np.ndarray) -> html.Tr:
     v_max = float(np.nanmax(values)) if valid > 0 else float("nan")
 
     if np.isnan(v_min):
-        range_str = "—"
+        range_str = "\u2014"
     elif abs(v_max - v_min) < 0.001:
         range_str = f"{v_min:.4g}"
     else:
-        range_str = f"{v_min:.4g} – {v_max:.4g}"
+        range_str = f"{v_min:.4g} \u2013 {v_max:.4g}"
 
     quality_color = COLORS["success"] if null_count == 0 else (
         COLORS["warning"] if null_count / max(total, 1) < 0.10 else COLORS["danger"]
@@ -80,23 +81,26 @@ def _channel_row(i: int, name: str, values: np.ndarray) -> html.Tr:
 
 def page_well_overview(
     well_header: Optional[Dict[str, Any]] = None,
-    channel_map_data: Optional[Dict[str, list]] = None,
+    assignments_data: Optional[Dict[str, str]] = None,
 ) -> html.Div:
     """Return the Well Overview Dash layout.
 
     Parameters
     ----------
     well_header : dict or None
-        Keys: well_name, company, field_name, api, curve_count, start, stop.
-        Produced by the LAS parser and stored in dcc.Store.
-    channel_map_data : dict or None
-        Serialized ChannelMap (channel name -> list of float values) from
-        dcc.Store.  Deserialized here for quality metrics.
+        Keys: source_ip, dump_timestamp, channel_count, depth_min, depth_max, etc.
+        Produced by data_store.load_file() and stored in dcc.Store.
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
     """
+    from mpd_overwatch.dashboard.data_store import get_well_database
+
+    db = get_well_database()
+
     # ------------------------------------------------------------------ #
     # No data loaded — show placeholder                                    #
     # ------------------------------------------------------------------ #
-    if well_header is None and channel_map_data is None:
+    if db is None and well_header is None:
         return html.Div([
             html.Div([
                 html.H1("Well Overview"),
@@ -113,7 +117,7 @@ def page_well_overview(
                     }),
                     html.H3("No well data loaded",
                             style={"color": COLORS["text_muted"], "marginBottom": "8px"}),
-                    html.P("Open a LAS file to begin.",
+                    html.P("Open a data file to begin.",
                            style={"color": COLORS["text_dim"], "fontSize": "14px"}),
                 ], style={
                     "textAlign": "center",
@@ -123,36 +127,50 @@ def page_well_overview(
         ])
 
     # ------------------------------------------------------------------ #
-    # Resolve channel map                                                  #
+    # Apply assignments if provided                                        #
+    # ------------------------------------------------------------------ #
+    if db is not None and assignments_data:
+        db.assignments = dict(assignments_data)
+
+    # ------------------------------------------------------------------ #
+    # Build channel map from WellDatabase for quality metrics              #
     # ------------------------------------------------------------------ #
     channel_map: Optional[Dict[str, np.ndarray]] = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
+    if db is not None and db.channels:
+        channel_map = {}
+        for wid, cf in db.channels.items():
+            label = cf.mnemonic or wid
+            channel_map[label] = cf.calibrated_value
 
     header = well_header or {}
 
     # ------------------------------------------------------------------ #
     # Well Header Card                                                     #
     # ------------------------------------------------------------------ #
-    well_name = header.get("well_name") or "Unknown Well"
-    company = header.get("company") or "—"
-    field_name = header.get("field_name") or "—"
-    api = header.get("api") or "—"
-    curve_count = header.get("curve_count", len(channel_map) if channel_map else 0)
-    depth_start = header.get("start")
-    depth_stop = header.get("stop")
+    well_name = header.get("well_name") or (
+        db.source_ip if db is not None else "Unknown Well"
+    )
+    company = header.get("company") or "\u2014"
+    field_name = header.get("field_name") or "\u2014"
+    api = header.get("api") or "\u2014"
+
+    if db is not None:
+        curve_count = len(db.channels) + len(db.computed)
+        depth_range = db.depth_range()
+        depth_start = depth_range[0]
+        depth_stop = depth_range[1]
+    else:
+        curve_count = header.get("curve_count", len(channel_map) if channel_map else 0)
+        depth_start = header.get("start") or header.get("depth_min")
+        depth_stop = header.get("stop") or header.get("depth_max")
 
     if depth_start is not None and depth_stop is not None:
         try:
-            depth_range_str = f"{float(depth_start):,.1f} – {float(depth_stop):,.1f} ft"
+            depth_range_str = f"{float(depth_start):,.1f} \u2013 {float(depth_stop):,.1f} ft"
         except (TypeError, ValueError):
-            depth_range_str = f"{depth_start} – {depth_stop}"
+            depth_range_str = f"{depth_start} \u2013 {depth_stop}"
     else:
-        depth_range_str = "—"
+        depth_range_str = "\u2014"
 
     header_table = html.Table([
         html.Tbody([
@@ -218,7 +236,7 @@ def page_well_overview(
         html.Div("TRAJECTORY", className="card-header"),
         html.Div(
             html.P(
-                "Inclination/azimuth data detected — trajectory visualization coming soon.",
+                "Inclination/azimuth data detected \u2014 trajectory visualization coming soon.",
                 style={"color": COLORS["text_muted"], "fontSize": "13px",
                        "fontStyle": "italic", "padding": "24px 16px"},
             )
@@ -238,7 +256,7 @@ def page_well_overview(
         # Page header
         html.Div([
             html.H1("Well Overview"),
-            html.P(f"{well_name} — channel inventory and data quality summary",
+            html.P(f"{well_name} \u2014 channel inventory and data quality summary",
                    className="description"),
         ], className="page-header"),
 

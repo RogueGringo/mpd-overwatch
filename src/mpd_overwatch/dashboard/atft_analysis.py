@@ -5,6 +5,8 @@ routing confidence, and well fingerprint from the ATFTEngine.
 
 Language: plain operational names first; technical detail via [?] tooltip.
 No adjectives. No claims without computation.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -106,17 +108,18 @@ def _atft_result(
     )
 
 
-def page_atft_analysis(channel_map_data: dict | None = None):
+def page_atft_analysis(assignments_data: dict | None = None):
     """Render the ATFT topological analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store.  If None or empty, the page
-        shows a data-required notice and skips analysis.
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
+        If None or empty, the page shows a data-required notice and skips analysis.
     """
     from mpd_overwatch.pointcloud.atft_engine import ATFTEngine
     from mpd_overwatch.pointcloud.sheaf_analysis import coherence_log
+    from mpd_overwatch.dashboard.data_store import get_well_database
 
     # ------------------------------------------------------------------ #
     # Resolve PointCloud4D from real channel data only (no demo fallback)  #
@@ -124,17 +127,18 @@ def page_atft_analysis(channel_map_data: dict | None = None):
     pc = None
     data_missing = True
 
-    if channel_map_data:
+    db = get_well_database()
+    if db is not None and assignments_data:
+        db.assignments = dict(assignments_data)
         try:
-            from mpd_overwatch.dashboard.app_state import deserialize_channel_map
+            from mpd_overwatch.dashboard.data_store import get_channel_map_from_assignments
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
-            from mpd_overwatch.dashboard.data_store import get_header_info
-            cm = deserialize_channel_map(channel_map_data)
-            _hdr = get_header_info()
-            pc = ingest_channel_map(cm, well_name=_hdr.get("well_name", ""))
+            cm = get_channel_map_from_assignments()
+            well_name = db.source_ip or ""
+            pc = ingest_channel_map(cm, well_name=well_name)
             data_missing = False
         except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
+            logger.warning("channel map build for ATFT failed", exc_info=True)
             pc = None
 
     # ------------------------------------------------------------------ #

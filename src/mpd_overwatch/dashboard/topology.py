@@ -4,6 +4,8 @@ Visualizes the 4D point cloud topology: coherence log, spectral gaps,
 and persistent homology features mapped to drilling context.
 
 Language: plain operational names first; technical detail available via [?] tooltip.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -62,40 +64,51 @@ def _topo_result(
     )
 
 
-def page_topology(channel_map_data: dict | None = None):
+def page_topology(assignments_data: dict | None = None):
     """Render the topology analysis page.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store.  If None or empty, shows
-        data-required notice.
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
+        If None or empty, shows data-required notice.
     """
+    from mpd_overwatch.dashboard.data_store import get_well_database
+
     # ------------------------------------------------------------------ #
     # Attempt to build a PointCloud4D from real channel data               #
     # ------------------------------------------------------------------ #
     pc = None
     data_missing = False
 
-    if channel_map_data:
+    db = get_well_database()
+    if db is not None and assignments_data:
+        db.assignments = dict(assignments_data)
         try:
-            from mpd_overwatch.dashboard.app_state import deserialize_channel_map
+            from mpd_overwatch.dashboard.data_store import get_channel_map_from_assignments
             from mpd_overwatch.pointcloud.ingestion import ingest_channel_map
-            from mpd_overwatch.dashboard.data_store import get_header_info
-            cm = deserialize_channel_map(channel_map_data)
-            _hdr = get_header_info()
-            pc = ingest_channel_map(cm, well_name=_hdr.get("well_name", ""))
+            cm = get_channel_map_from_assignments()
+            well_name = db.source_ip or ""
+            pc = ingest_channel_map(cm, well_name=well_name)
         except Exception:
             logger.warning("topology ingestion failed", exc_info=True)
 
-    # Build depth/channel arrays for plotting — real data only
-    if pc is not None and channel_map_data:
+    # Build depth/channel arrays for plotting --- real data only
+    if pc is not None and db is not None:
         try:
-            from mpd_overwatch.dashboard.app_state import deserialize_channel_map as _dcm
-            _cm = _dcm(channel_map_data)
-            md_arr = np.asarray(_cm["depth_md"], dtype=float) if "depth_md" in _cm else None
-            gamma_arr = np.asarray(_cm["gamma_ray"], dtype=float) if "gamma_ray" in _cm else None
-            apwd_arr = np.asarray(_cm["apwd"], dtype=float) if "apwd" in _cm else None
+            def _get_arr(canonical: str) -> np.ndarray | None:
+                try:
+                    cf = db.assigned(canonical)
+                    arr = cf.calibrated_value
+                    if len(arr) > 0:
+                        return arr
+                except KeyError:
+                    pass
+                return None
+
+            md_arr = _get_arr("hole_depth")
+            gamma_arr = _get_arr("gamma_ray")
+            apwd_arr = _get_arr("annular_pressure")
             if md_arr is None:
                 data_missing = True
                 md_arr = np.zeros(0)
@@ -109,7 +122,7 @@ def page_topology(channel_map_data: dict | None = None):
                 _n = min(len(md_arr), len(gamma_arr), len(apwd_arr))
                 md_arr, gamma_arr, apwd_arr = md_arr[:_n], gamma_arr[:_n], apwd_arr[:_n]
         except Exception:
-            logger.warning("channel map deserialization for topology plot failed", exc_info=True)
+            logger.warning("channel data extraction for topology plot failed", exc_info=True)
             data_missing = True
             md_arr = np.zeros(0)
             gamma_arr = np.zeros(0)
@@ -357,7 +370,7 @@ def page_topology(channel_map_data: dict | None = None):
     data_notice = html.Div()
     if data_missing:
         data_notice = html.Div(
-            "DATA REQUIRED --- load a .las file via the File Manager to analyse real well data",
+            "DATA REQUIRED --- load a data file via the File Manager to analyse real well data",
             style={"color": COLORS["warning"], "fontSize": "11px",
                    "fontStyle": "italic", "marginBottom": "12px"},
         )
