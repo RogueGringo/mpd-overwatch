@@ -1,9 +1,10 @@
-"""Channel Selector Page -- C-to-B intent-driven channel classification flow.
+"""Channel Selector Page -- WellDatabase-driven channel assignment flow.
 
-Implements the three-stage C→B pipeline:
-  1. Classify vendor mnemonics into CORE / SUGGESTED / PARKED tiers
+Implements the channel selection pipeline using WellDatabase as the single
+source of truth:
+  1. List available channels from WellDatabase with auto-suggested assignments
   2. Apply an analysis intent to auto-select the relevant subset
-  3. Build a canonical ChannelMap from the user's final selection
+  3. Confirm assignments → stored in db.assignments as Dict[str, str]
 
 The pure-logic functions (build_channel_list, apply_intent, build_channel_map)
 are Dash-independent and fully testable.  The Dash layout is provided by
@@ -14,8 +15,17 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-import numpy as np
-
+from mpd_overwatch.data.sql_models import ChannelSummary, WellDatabase
+from mpd_overwatch.data.engine_manifest import (
+    CANONICAL_CHANNELS,
+    WITS_SUGGESTIONS,
+    auto_suggest_assignments,
+)
+from mpd_overwatch.data.channel_profiles import (
+    validate_profile,
+    apply_profile,
+    ProfileValidationResult,
+)
 from mpd_overwatch.pointcloud.channel_registry import (
     ChannelRegistry,
     ChannelTier,
@@ -28,17 +38,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Unit heuristics for SUGGESTED tier (channel-selector-specific)
 # ---------------------------------------------------------------------------
-# This is a stricter subset compared to the registry's _SUGGESTED_UNIT_FRAGMENTS.
-# We deliberately exclude broad fragments like "deg", "bbl", "degc"/"degf" to
-# avoid false SUGGESTED promotions for ancillary sensors (cement, generators, etc.).
 _CHANNEL_SELECTOR_UNIT_FRAGMENTS: List[str] = [
     "psi", "kpa", "mpa", "bar",      # pressure
-    "gpm", "lpm",                     # flow (not "bbl" — too broad)
+    "gpm", "lpm",                     # flow (not "bbl" -- too broad)
     "ppg", "sg", "g/cm",              # density / mud weight
     "ft/hr", "m/hr", "m/h",          # rate of penetration
     "klbs", "klb", "kn", "lbf",      # force
     "rpm", "rev",                     # rotation
-    "ft-lb", "nm", "n-m",            # torque (not "deg" — would match degC)
+    "ft-lb", "nm", "n-m",            # torque (not "deg" -- would match degC)
     "ohm",                            # resistivity
     "api",                            # gamma-ray
 ]
@@ -51,261 +58,112 @@ def _unit_suggests_drilling_strict(unit: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Display-name lookup table
+# Canonical options for manual assignment dropdown
 # ---------------------------------------------------------------------------
-# Maps common human-readable curve names (as they appear in LAS/EDR exports)
-# to canonical registry names.  Keys are lower-cased.
-_DISPLAY_NAME_TO_CANONICAL: Dict[str, str] = {
-    # Hookload
-    "hook load":            "hookload",
-    "hookload":             "hookload",
-    "hook_load":            "hookload",
 
-    # Flow rates
-    "flow in":              "flow_in",
-    "flow_in":              "flow_in",
-    "flow rate in":         "flow_in",
-    "pump rate":            "flow_in",
-    "flow out":             "flow_out",
-    "flow_out":             "flow_out",
-    "flow rate out":        "flow_out",
+def _build_canonical_options() -> List[Dict[str, str]]:
+    """Build dropdown options from engine_manifest CANONICAL_CHANNELS."""
+    options = [{"label": "-- Not Mapped --", "value": ""}]
+    for name, domain in sorted(CANONICAL_CHANNELS.items(), key=lambda x: (x[1], x[0])):
+        options.append({"label": f"{name} ({domain})", "value": name})
+    return options
 
-    # Standpipe pressure
-    "standpipe pressure":   "spp",
-    "standpipe_pressure":   "spp",
-    "spp":                  "spp",
-    "sp pressure":          "spp",
-    "surface pressure":     "spp",
 
-    # Rotary RPM
-    "rotary rpm":           "rpm",
-    "rotary_rpm":           "rpm",
-    "surface rpm":          "rpm",
-    "rpm":                  "rpm",
-
-    # Rate of penetration
-    "rate of penetration":  "rop",
-    "rate_of_penetration":  "rop",
-    "rop":                  "rop",
-
-    # Weight on bit
-    "weight on bit":        "wob",
-    "weight_on_bit":        "wob",
-    "wob":                  "wob",
-
-    # Torque
-    "torque":               "torque",
-    "rotary torque":        "torque",
-
-    # Gamma ray
-    "gamma ray":            "gamma_ray",
-    "gamma_ray":            "gamma_ray",
-    "gr":                   "gamma_ray",
-
-    # Mud weight
-    "mud weight":           "mud_weight",
-    "mud_weight":           "mud_weight",
-    "mud weight in":        "mud_weight",
-    "mud weight out":       "mud_weight",
-    "mw":                   "mud_weight",
-    "mwi":                  "mud_weight",
-
-    # Total depth
-    "total depth":          "rop",  # depth is not a physical channel — map to rop as fallback?
-    # (total depth has no registry entry; this won't be CORE since it's not resolvable)
-
-    # MPD / choke pressure
-    "mpd pressure":         "choke_pressure",
-    "mpd_pressure":         "choke_pressure",
-    "choke pressure":       "choke_pressure",
-    "choke_pressure":       "choke_pressure",
-
-    # Casing pressure (surface casing pressure — distinct from downhole APWD)
-    "casing pressure":      "casing_pressure",
-    "casing_pressure":      "casing_pressure",
-    # Annular / downhole pressure
-    "annular pressure":     "apwd",
-    "annular_pressure":     "apwd",
-    "apwd":                 "apwd",
-
-    # Temperature
-    "temperature":          "temperature",
-    "downhole temperature": "temperature",
-    "temp":                 "temperature",
-
-    # ECD
-    "ecd":                  "ecd",
-    "equivalent circulating density": "ecd",
-
-    # MSE
-    "mse":                  "mse",
-    "mechanical specific energy": "mse",
-
-    # Inclination / Azimuth
-    "inclination":          "inclination",
-    "azimuth":              "azimuth",
-
-    # Resistivity
-    "resistivity":          "resistivity",
-}
+_CANONICAL_OPTIONS = _build_canonical_options()
 
 
 # ---------------------------------------------------------------------------
-# Description-based auto-mapping (keywords from ~C description text)
+# build_channel_list -- from WellDatabase
 # ---------------------------------------------------------------------------
-# Maps keywords/phrases found in ~C descriptions to canonical channel names.
-# Checked when mnemonic resolution fails. Ordered by specificity (most
-# specific first so "hook load" matches before just "load").
 
-_DESCRIPTION_KEYWORDS: List[tuple] = [
-    # Pressure
-    ("standpipe pressure", "spp"),
-    ("pump pressure", "spp"),
-    ("surface pressure", "spp"),
-    ("annular pressure", "apwd"),
-    ("casing pressure", "casing_pressure"),
-    ("bottomhole pressure", "bhp"),
-    ("choke pressure", "choke_pressure"),
-    ("mpd pressure", "choke_pressure"),
-    ("back pressure", "choke_pressure"),
-    ("differential pressure", "spp"),
-    # Drilling mechanics
-    ("hook load", "hookload"),
-    ("hookload", "hookload"),
-    ("weight on bit", "wob"),
-    ("bit weight", "wob"),
-    ("rotary torque", "torque"),
-    ("surface torque", "torque"),
-    ("rate of penetration", "rop"),
-    ("drilling rate", "rop"),
-    ("rotary speed", "rpm"),
-    ("rotary rpm", "rpm"),
-    ("surface rpm", "rpm"),
-    ("top drive rpm", "rpm"),
-    ("top drive torque", "torque"),
-    # Flow
-    ("flow in", "flow_in"),
-    ("flow rate in", "flow_in"),
-    ("pump output", "flow_in"),
-    ("pump rate", "flow_in"),
-    ("flow out", "flow_out"),
-    ("flow rate out", "flow_out"),
-    ("return flow", "flow_out"),
-    ("mud flow", "flow_in"),
-    # MWD/LWD
-    ("gamma ray", "gamma_ray"),
-    ("gamma radiation", "gamma_ray"),
-    ("natural gamma", "gamma_ray"),
-    ("inclination", "inclination"),
-    ("hole angle", "inclination"),
-    ("azimuth", "azimuth"),
-    ("hole direction", "azimuth"),
-    ("resistivity", "resistivity"),
-    ("formation resistivity", "resistivity"),
-    # Mud properties
-    ("mud weight in", "mud_weight"),
-    ("mud weight out", "mud_weight"),
-    ("mud density", "mud_weight"),
-    ("fluid density", "mud_weight"),
-    ("mud weight", "mud_weight"),
-    # Derived
-    ("ecd", "ecd"),
-    ("equivalent circulating", "ecd"),
-    ("mechanical specific energy", "mse"),
-    ("temperature", "temperature"),
-    ("downhole temp", "temperature"),
-    ("annular temp", "temperature"),
-    # Pason-style descriptions (base:N disambiguation)
-    ("bit position", "bit_depth"),
-    ("bit tvd", "tvd"),
-    ("bit wt", "wob"),
-    ("bit rpm", "rpm"),
-    ("block height", "block_position"),
-    ("mud volume", "mud_volume"),
-    ("pit volume", "mud_volume"),
-    ("trip tank", "mud_volume"),
-    ("motor rpm", "rpm"),
-    ("string weight", "hookload"),
-    ("string torque", "torque"),
-    ("pipe torque", "torque"),
-    ("tong torque", "torque"),
-    ("survey azimuth", "azimuth"),
-    ("survey inclination", "inclination"),
-    ("survey depth", "depth_md"),
-    ("continuous azimuth", "azimuth"),
-    ("continuous inclination", "inclination"),
-    ("hole depth", "depth_md"),
-    ("gain loss", "flow_out"),
-    ("gain/loss", "flow_out"),
-    ("spm total", "flow_in"),
-    ("spm", "flow_in"),
-    ("choke position", "choke_pressure"),
-    ("dogleg", "dls"),
-    ("wellhead pressure", "casing_pressure"),
-    ("well head pressure", "casing_pressure"),
-    ("rcd pressure", "casing_pressure"),
-    ("mse downhole", "mse"),
-    ("mse total", "mse"),
-    ("specific energy", "mse"),
-    ("gamma depth", "depth_md"),
-    ("flow pressure", "spp"),
-    ("flow in rate", "flow_in"),
-    ("flow out rate", "flow_out"),
-    ("flow out percent", "flow_out_pct"),
-    ("d-exponent", "rop"),
-    ("d exponent", "rop"),
-    # Motor/mud subsystem disambiguation (prevent :N base fallback errors)
-    ("mud temp", "temperature"),
-    ("motor torque", "torque"),
-    ("motor max torque", "torque"),
-    ("diff press", "differential_pressure"),
-    ("mud conductivity", "temperature"),  # no canonical; park under temperature
-    ("bit size", "bit_depth"),            # not WOB — closer to bit_depth
-]
+def build_channel_list(
+    db: WellDatabase,
+    registry: Optional[ChannelRegistry] = None,
+) -> List[Dict]:
+    """Classify each channel from db into a tier and return a list of channel dicts.
+
+    For each channel in db.available_channels():
+    - If the WITS ID has a suggested canonical assignment -> CORE
+    - If the mnemonic/description resolves via registry -> CORE
+    - If unrecognized but the unit matches drilling patterns -> SUGGESTED
+    - Otherwise -> PARKED
+
+    Parameters
+    ----------
+    db : WellDatabase
+        The loaded well database with channels and any existing assignments.
+    registry : ChannelRegistry, optional
+        Registry to consult for mnemonic resolution. Defaults to new instance.
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys:
+        ``wits_id`` (str), ``mnemonic`` (str), ``canonical`` (str|None),
+        ``tier`` (ChannelTier), ``unit`` (str), ``description`` (str),
+        ``n_points`` (int).
+    """
+    if registry is None:
+        registry = ChannelRegistry()
+
+    # Get auto-suggested assignments from WITS codes
+    suggestions = auto_suggest_assignments(db)
+    # Invert: wits_id -> canonical
+    wits_to_canonical = {v: k for k, v in suggestions.items()}
+
+    # Also consider existing assignments (user may have set some already)
+    for canonical, wits_id in db.assignments.items():
+        if wits_id not in wits_to_canonical:
+            wits_to_canonical[wits_id] = canonical
+
+    result: List[Dict] = []
+    for cs in db.available_channels():
+        canonical = wits_to_canonical.get(cs.wits_id)
+
+        # If not suggested by WITS, try mnemonic resolution via registry
+        if canonical is None and cs.mnemonic:
+            canonical = _resolve_mnemonic(cs.mnemonic, cs.description, registry)
+
+        if canonical is not None:
+            tier = ChannelTier.CORE
+        elif cs.units and _unit_suggests_drilling_strict(cs.units):
+            tier = ChannelTier.SUGGESTED
+        else:
+            tier = ChannelTier.PARKED
+
+        result.append({
+            "wits_id": cs.wits_id,
+            "mnemonic": cs.mnemonic,
+            "canonical": canonical,
+            "tier": tier,
+            "unit": cs.units,
+            "description": cs.description,
+            "n_points": cs.n_points,
+        })
+
+    return result
 
 
-def _match_description(description: str) -> Optional[str]:
-    """Try to match a ~C description string to a canonical channel name."""
-    if not description:
-        return None
-    desc_lower = description.lower().strip()
-    for keyword, canonical in _DESCRIPTION_KEYWORDS:
-        if keyword in desc_lower:
-            return canonical
-    return None
-
-
-def _resolve_display_name(
+def _resolve_mnemonic(
     mnemonic: str,
+    description: str,
     registry: ChannelRegistry,
-    description: str = "",
-    user_mappings: Optional[Dict[str, str]] = None,
 ) -> Optional[str]:
-    """Try to resolve a human-readable mnemonic to a canonical channel name.
+    """Try to resolve a mnemonic to a canonical channel name via registry.
 
     Resolution order:
-    1. User-saved mappings (highest priority — user knows best)
-    2. Direct registry lookup (canonical name or alias table)
-    3. Remove all spaces and try again  (e.g. "Hook Load" -> "hookload")
-    4. Replace spaces with underscores  (e.g. "Flow In" -> "flow_in")
-    5. Display-name lookup table        (e.g. "Standpipe Pressure" -> "spp")
-    6. Config MNEMONIC_MAP              (vendor mnemonic -> canonical)
-    7. Description keyword matching     (~C description text -> canonical)
-
-    Returns the canonical name string, or None if unresolvable.
+    1. Direct registry lookup (canonical name or alias table)
+    2. Remove spaces / replace with underscores
+    3. Description keyword matching
     """
-    # 1. User-saved mappings (highest priority)
-    if user_mappings and mnemonic in user_mappings:
-        return user_mappings[mnemonic]
-
-    # 2. Direct registry lookup
+    # Direct registry lookup
     try:
         cid = registry.mnemonic_to_channel(mnemonic)
         return registry.lookup_id(cid).name
     except KeyError:
         pass
 
-    # 3. Remove spaces
+    # Remove spaces
     no_space = mnemonic.replace(" ", "").lower()
     try:
         cid = registry.mnemonic_to_channel(no_space)
@@ -313,7 +171,7 @@ def _resolve_display_name(
     except KeyError:
         pass
 
-    # 4. Replace spaces with underscores
+    # Replace spaces with underscores
     underscored = mnemonic.replace(" ", "_").lower()
     try:
         cid = registry.mnemonic_to_channel(underscored)
@@ -321,111 +179,15 @@ def _resolve_display_name(
     except KeyError:
         pass
 
-    # 5. Display-name table
-    key = mnemonic.lower().strip()
-    if key in _DISPLAY_NAME_TO_CANONICAL:
-        canonical = _DISPLAY_NAME_TO_CANONICAL[key]
-        try:
-            registry.lookup(canonical)
-            return canonical
-        except KeyError:
-            pass
-
-    # 6. Config MNEMONIC_MAP (vendor mnemonic -> canonical channel name)
-    from mpd_overwatch.config import MNEMONIC_MAP
-    mapped = MNEMONIC_MAP.get(mnemonic)
-    if not mapped and ":" in mnemonic:
-        # Pason/Totco :N suffix convention — the same base mnemonic can
-        # represent different physical quantities (e.g. ROTA:1=RPM,
-        # ROTA:2=Torque).  Description-based disambiguation is more
-        # reliable than the stripped base, so try it first.
-        desc_match = _match_description(description)
-        if desc_match:
-            return desc_match
-        # Last resort: strip suffix and try the base mnemonic.
-        mapped = MNEMONIC_MAP.get(mnemonic.split(":")[0])
-    if mapped:
-        try:
-            registry.lookup(mapped)
-            return mapped
-        except KeyError:
-            return mapped
-
-    # 7. Description keyword matching (~C section description text)
-    desc_match = _match_description(description)
-    if desc_match:
-        return desc_match
+    # Description keyword matching
+    if description:
+        desc_lower = description.lower().strip()
+        for canonical in CANONICAL_CHANNELS:
+            # Check if the canonical name appears in the description
+            if canonical.replace("_", " ") in desc_lower:
+                return canonical
 
     return None
-
-
-# ---------------------------------------------------------------------------
-# build_channel_list
-# ---------------------------------------------------------------------------
-
-def build_channel_list(
-    curve_names: List[str],
-    units: Dict[str, str],
-    registry: ChannelRegistry,
-    descriptions: Optional[Dict[str, str]] = None,
-    user_mappings: Optional[Dict[str, str]] = None,
-) -> List[Dict]:
-    """Classify each curve name into a tier and return a list of channel dicts.
-
-    For each curve name:
-    - If the name resolves to a registry channel → CORE with canonical mapping
-    - If unrecognized but the unit matches drilling patterns → SUGGESTED
-    - Otherwise → PARKED
-
-    Parameters
-    ----------
-    curve_names : list of str
-        Raw curve mnemonics or display names from a data file.
-    units : dict
-        Mapping of curve name → unit string.
-    registry : ChannelRegistry
-        Registry to consult for CORE recognition.
-    descriptions : dict, optional
-        Mapping of curve name → ~C description text.
-    user_mappings : dict, optional
-        Mapping of vendor_mnemonic → canonical from saved user profiles.
-
-    Returns
-    -------
-    list of dict
-        Each dict has keys:
-        ``vendor_mnemonic`` (str), ``canonical`` (str|None),
-        ``tier`` (ChannelTier), ``unit`` (str), ``description`` (str).
-    """
-    if descriptions is None:
-        descriptions = {}
-
-    result: List[Dict] = []
-
-    for name in curve_names:
-        unit = units.get(name, "")
-        desc = descriptions.get(name, "")
-        canonical = _resolve_display_name(
-            name, registry, description=desc, user_mappings=user_mappings,
-        )
-
-        if canonical is not None:
-            tier = ChannelTier.CORE
-        else:
-            if unit and _unit_suggests_drilling_strict(unit):
-                tier = ChannelTier.SUGGESTED
-            else:
-                tier = ChannelTier.PARKED
-
-        result.append({
-            "vendor_mnemonic": name,
-            "canonical": canonical,
-            "tier": tier,
-            "unit": unit,
-            "description": desc,
-        })
-
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -462,31 +224,31 @@ def apply_intent(intent_name: str, channel_list: List[Dict]) -> List[Dict]:
 
 
 # ---------------------------------------------------------------------------
-# build_channel_map
+# build_channel_map -- sets db.assignments instead of building arrays
 # ---------------------------------------------------------------------------
 
 def build_channel_map(
     selections: List[Dict],
-    raw_data: Dict[str, np.ndarray],
-) -> Dict[str, np.ndarray]:
-    """Build a canonical ChannelMap from the user's final selection.
+    db: WellDatabase,
+) -> Dict[str, str]:
+    """Build a canonical assignment map from the user's final selection.
 
-    For each selected channel with a canonical mapping, the corresponding
-    array is fetched from ``raw_data`` using the vendor_mnemonic as key.
+    For each selected channel with a canonical mapping, the assignment
+    canonical_name -> wits_id is set on the database.
 
     Parameters
     ----------
     selections : list of dict
-        Channel list with ``selected``, ``vendor_mnemonic``, and ``canonical`` keys.
-    raw_data : dict
-        Mapping of vendor_mnemonic → numpy array.
+        Channel list with ``selected``, ``wits_id``, and ``canonical`` keys.
+    db : WellDatabase
+        The well database to update assignments on.
 
     Returns
     -------
     dict
-        ``{canonical_name: np.ndarray}`` for all selected channels.
+        ``{canonical_name: wits_id}`` for all selected channels.
     """
-    channel_map: Dict[str, np.ndarray] = {}
+    assignments: Dict[str, str] = {}
 
     for item in selections:
         if not item.get("selected", False):
@@ -494,54 +256,31 @@ def build_channel_map(
         canonical = item.get("canonical")
         if canonical is None:
             continue
-        vendor = item["vendor_mnemonic"]
-        arr = raw_data.get(vendor)
-        if arr is None:
+        wits_id = item["wits_id"]
+        if wits_id not in db.channels:
             continue
-        channel_map[canonical] = arr
+        assignments[canonical] = wits_id
 
-    return channel_map
+    # Apply to db
+    db.assignments.update(assignments)
+
+    return assignments
 
 
 # ---------------------------------------------------------------------------
 # Dash layout
 # ---------------------------------------------------------------------------
 
-_CANONICAL_OPTIONS = [
-    {"label": "-- Not Mapped --", "value": ""},
-    {"label": "hookload", "value": "hookload"},
-    {"label": "spp (standpipe pressure)", "value": "spp"},
-    {"label": "apwd (annular pressure)", "value": "apwd"},
-    {"label": "choke_pressure", "value": "choke_pressure"},
-    {"label": "flow_in", "value": "flow_in"},
-    {"label": "flow_out", "value": "flow_out"},
-    {"label": "rop (rate of penetration)", "value": "rop"},
-    {"label": "wob (weight on bit)", "value": "wob"},
-    {"label": "torque", "value": "torque"},
-    {"label": "rpm", "value": "rpm"},
-    {"label": "gamma_ray", "value": "gamma_ray"},
-    {"label": "mud_weight", "value": "mud_weight"},
-    {"label": "ecd", "value": "ecd"},
-    {"label": "mse", "value": "mse"},
-    {"label": "inclination", "value": "inclination"},
-    {"label": "azimuth", "value": "azimuth"},
-    {"label": "temperature", "value": "temperature"},
-    {"label": "resistivity", "value": "resistivity"},
-]
-
-
 def channel_selector_layout():
     """Return a Dash layout for the channel selector page.
 
-    Pre-populates the channel list from server-side data_store if a file
-    is loaded — no callback round-trip needed for initial display.
+    Pre-populates the channel list from server-side WellDatabase if a file
+    is loaded -- no callback round-trip needed for initial display.
     """
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
     from mpd_overwatch.dashboard.data_store import (
-        get_curve_descriptions,
-        get_curve_names,
-        get_curve_units,
+        get_well_database,
         is_loaded,
         load_user_mappings,
     )
@@ -585,43 +324,13 @@ def channel_selector_layout():
     saved_profiles = load_user_mappings()
     profile_options = [{"label": "-- No saved profile --", "value": ""}]
     profile_options += [
-        {"label": f"{name} ({len(m)} mappings)", "value": name}
-        for name, m in saved_profiles.items()
+        {"label": f"{name} ({len(p.get('assignments', {}))} assignments)", "value": name}
+        for name, p in saved_profiles.items()
     ]
 
     if is_loaded():
-        curve_names = get_curve_names()
-        curve_units = get_curve_units()
-        descriptions = get_curve_descriptions()
-        registry = ChannelRegistry()
-
-        # Check if any saved mappings apply to current mnemonics
-        active_user_mappings = _find_matching_profile(curve_names, saved_profiles)
-
-        # Try LLM mapper if no saved profile matches
-        if not active_user_mappings:
-            try:
-                from mpd_overwatch.dashboard.data_store import (
-                    apply_llm_mapping,
-                    get_file_path,
-                )
-                filepath = get_file_path()
-                if filepath:
-                    llm_mappings = apply_llm_mapping(filepath)
-                    if llm_mappings:
-                        active_user_mappings = llm_mappings
-                        logger.info(
-                            "Using LLM mappings for channel selector (%d channels)",
-                            len(llm_mappings),
-                        )
-            except Exception as exc:
-                logger.debug("LLM mapping unavailable: %s", exc)
-
-        channel_list = build_channel_list(
-            curve_names, curve_units, registry,
-            descriptions=descriptions,
-            user_mappings=active_user_mappings,
-        )
+        db = get_well_database()
+        channel_list = build_channel_list(db)
 
         # Default: select all CORE channels
         for item in channel_list:
@@ -632,11 +341,13 @@ def channel_selector_layout():
         initial_budget = f"{selected_count} channels selected"
         initial_store = [
             {
-                "vendor_mnemonic": ch["vendor_mnemonic"],
+                "wits_id": ch["wits_id"],
+                "mnemonic": ch["mnemonic"],
                 "canonical": ch["canonical"],
                 "tier": ch["tier"].value if isinstance(ch["tier"], ChannelTier) else ch["tier"],
                 "unit": ch["unit"],
                 "description": ch.get("description", ""),
+                "n_points": ch.get("n_points", 0),
                 "selected": ch.get("selected", False),
             }
             for ch in channel_list
@@ -662,7 +373,7 @@ def channel_selector_layout():
                     "marginBottom": "16px",
                 },
                 children=[
-                    html.H4("Saved Channel Mappings", style={"color": COLORS["text"], "marginTop": "0"}),
+                    html.H4("Saved Channel Profiles", style={"color": COLORS["text"], "marginTop": "0"}),
                     html.Div(
                         style={"display": "flex", "alignItems": "center", "gap": "12px", "flexWrap": "wrap"},
                         children=[
@@ -682,6 +393,10 @@ def channel_selector_layout():
                                 id="apply-profile-btn",
                                 n_clicks=0,
                                 style=btn_style,
+                            ),
+                            html.Div(
+                                id="profile-validation-badges",
+                                style={"display": "flex", "gap": "6px", "alignItems": "center"},
                             ),
                             html.Span("|", style={"color": COLORS["text_dim"]}),
                             dcc.Input(
@@ -766,11 +481,13 @@ def channel_selector_layout():
                             "letterSpacing": "1px",
                         },
                         children=[
-                            html.Span("CHANNEL", style={"flex": "1"}),
+                            html.Span("WITS", style={"width": "60px"}),
+                            html.Span("MNEMONIC", style={"flex": "1"}),
                             html.Span("DESCRIPTION", style={"flex": "1"}),
-                            html.Span("MAP TO", style={"width": "160px"}),
+                            html.Span("MAP TO", style={"width": "180px"}),
                             html.Span("UNIT", style={"width": "80px"}),
                             html.Span("TIER", style={"width": "80px"}),
+                            html.Span("PTS", style={"width": "60px", "textAlign": "right"}),
                             html.Span("SEL", style={"width": "40px", "textAlign": "center"}),
                         ],
                     ),
@@ -802,33 +519,12 @@ def channel_selector_layout():
     return layout
 
 
-def _find_matching_profile(
-    curve_names: List[str],
-    saved_profiles: Dict[str, Dict[str, str]],
-) -> Optional[Dict[str, str]]:
-    """Find the saved profile with the most matching mnemonics for current data."""
-    if not saved_profiles:
-        return None
-
-    best_profile = None
-    best_count = 0
-    name_set = set(curve_names)
-
-    for _name, mappings in saved_profiles.items():
-        overlap = sum(1 for m in mappings if m in name_set)
-        if overlap > best_count:
-            best_count = overlap
-            best_profile = mappings
-
-    return best_profile if best_count >= 3 else None
-
-
 # ---------------------------------------------------------------------------
 # Channel list rendering
 # ---------------------------------------------------------------------------
 
 def _render_channel_rows(channel_list: List[Dict]) -> List:
-    """Build Dash components for the tiered channel list with descriptions and mapping dropdowns."""
+    """Build Dash components for the tiered channel list."""
     from dash import dcc, html
     from mpd_overwatch.config import COLORS
 
@@ -868,22 +564,19 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
             selected = ch.get("selected", False)
             canonical = ch.get("canonical") or ""
             description = ch.get("description", "")
-            vendor = ch["vendor_mnemonic"]
-
-            # Channel name with canonical mapping shown
-            display_name = vendor
-            if canonical and canonical != vendor.lower():
-                display_name = f"{vendor} -> {canonical}"
+            wits_id = ch["wits_id"]
+            mnemonic = ch.get("mnemonic", "")
+            n_points = ch.get("n_points", 0)
 
             # Manual mapping dropdown for non-CORE channels
             if tier != ChannelTier.CORE:
                 mapping_cell = dcc.Dropdown(
-                    id={"type": "manual-map-dropdown", "index": vendor},
+                    id={"type": "manual-map-dropdown", "index": wits_id},
                     options=_CANONICAL_OPTIONS,
                     value=canonical or "",
                     clearable=False,
                     style={
-                        "width": "150px",
+                        "width": "170px",
                         "fontSize": "11px",
                         "backgroundColor": COLORS["background"],
                     },
@@ -893,7 +586,7 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
                 mapping_cell = html.Span(
                     canonical,
                     style={
-                        "width": "160px",
+                        "width": "180px",
                         "color": COLORS["success"],
                         "fontSize": "11px",
                         "fontFamily": "Consolas, monospace",
@@ -911,9 +604,19 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
                         "backgroundColor": f"{COLORS['primary']}08" if selected else "transparent",
                     },
                     children=[
+                        # WITS ID
+                        html.Span(
+                            wits_id,
+                            style={
+                                "width": "60px",
+                                "color": COLORS["text_dim"],
+                                "fontSize": "11px",
+                                "fontFamily": "Consolas, monospace",
+                            },
+                        ),
                         # Mnemonic
                         html.Span(
-                            display_name,
+                            mnemonic,
                             style={
                                 "flex": "1",
                                 "color": COLORS["text"] if selected else COLORS["text_muted"],
@@ -921,10 +624,10 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
                                 "fontFamily": "Consolas, monospace",
                             },
                         ),
-                        # Description from ~C section
+                        # Description
                         html.Span(
                             description,
-                            title=f"~C: {description}" if description else "No description in file",
+                            title=description or "No description",
                             style={
                                 "flex": "1",
                                 "color": COLORS["text_dim"],
@@ -938,7 +641,7 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
                         # Manual mapping dropdown or canonical label
                         html.Div(
                             mapping_cell,
-                            style={"width": "160px"},
+                            style={"width": "180px"},
                         ),
                         # Unit
                         html.Span(
@@ -957,6 +660,16 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
                                 "color": TIER_COLORS.get(ch["tier"], COLORS["text_dim"]),
                                 "fontSize": "10px",
                                 "fontWeight": "600",
+                            },
+                        ),
+                        # Point count
+                        html.Span(
+                            f"{n_points:,}" if n_points else "--",
+                            style={
+                                "width": "60px",
+                                "textAlign": "right",
+                                "color": COLORS["text_dim"],
+                                "fontSize": "11px",
                             },
                         ),
                         # Selection indicator
@@ -978,6 +691,75 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
 
 
 # ---------------------------------------------------------------------------
+# Validation badge rendering
+# ---------------------------------------------------------------------------
+
+def _render_validation_badges(results: Dict[str, ProfileValidationResult]) -> List:
+    """Build colored badge components from profile validation results."""
+    from dash import html
+
+    STATUS_COLORS = {
+        "green": "#2ecc71",
+        "yellow": "#f39c12",
+        "red": "#e74c3c",
+    }
+
+    green = sum(1 for r in results.values() if r.status == "green")
+    yellow = sum(1 for r in results.values() if r.status == "yellow")
+    red = sum(1 for r in results.values() if r.status == "red")
+
+    badges = []
+    if green:
+        badges.append(html.Span(
+            f"{green} OK",
+            style={
+                "color": STATUS_COLORS["green"],
+                "fontSize": "11px",
+                "fontWeight": "600",
+                "padding": "2px 6px",
+                "border": f"1px solid {STATUS_COLORS['green']}44",
+                "borderRadius": "3px",
+            },
+        ))
+    if yellow:
+        badges.append(html.Span(
+            f"{yellow} UNITS?",
+            title="; ".join(
+                f"{r.canonical}: {r.message}"
+                for r in results.values() if r.status == "yellow"
+            ),
+            style={
+                "color": STATUS_COLORS["yellow"],
+                "fontSize": "11px",
+                "fontWeight": "600",
+                "padding": "2px 6px",
+                "border": f"1px solid {STATUS_COLORS['yellow']}44",
+                "borderRadius": "3px",
+                "cursor": "help",
+            },
+        ))
+    if red:
+        badges.append(html.Span(
+            f"{red} MISSING",
+            title="; ".join(
+                f"{r.canonical}: {r.message}"
+                for r in results.values() if r.status == "red"
+            ),
+            style={
+                "color": STATUS_COLORS["red"],
+                "fontSize": "11px",
+                "fontWeight": "600",
+                "padding": "2px 6px",
+                "border": f"1px solid {STATUS_COLORS['red']}44",
+                "borderRadius": "3px",
+                "cursor": "help",
+            },
+        ))
+
+    return badges
+
+
+# ---------------------------------------------------------------------------
 # Dash callbacks
 # ---------------------------------------------------------------------------
 
@@ -988,39 +770,19 @@ def register_channel_selector_callbacks(app):
     from dash.exceptions import PreventUpdate
     from mpd_overwatch.config import COLORS
     from mpd_overwatch.dashboard.data_store import (
-        get_curve_descriptions,
-        get_curve_names,
-        get_curve_units,
+        get_well_database,
         is_loaded,
         load_user_mappings,
         save_user_mappings,
     )
 
-    def _build_and_render(user_mappings=None, intent_name=None):
-        """Helper: build channel list with descriptions and user mappings."""
-        descriptions = get_curve_descriptions()
-        registry = ChannelRegistry()
+    def _build_and_render(intent_name=None):
+        """Helper: build channel list from WellDatabase and render."""
+        db = get_well_database()
+        if db is None:
+            return [], "No file loaded", []
 
-        # If no user mappings provided, try LLM mapper
-        if not user_mappings:
-            try:
-                from mpd_overwatch.dashboard.data_store import (
-                    apply_llm_mapping,
-                    get_file_path,
-                )
-                filepath = get_file_path()
-                if filepath:
-                    llm_mappings = apply_llm_mapping(filepath)
-                    if llm_mappings:
-                        user_mappings = llm_mappings
-            except Exception:
-                pass
-
-        channel_list = build_channel_list(
-            get_curve_names(), get_curve_units(), registry,
-            descriptions=descriptions,
-            user_mappings=user_mappings,
-        )
+        channel_list = build_channel_list(db)
 
         if intent_name and intent_name != "Custom":
             channel_list = apply_intent(intent_name, channel_list)
@@ -1029,7 +791,6 @@ def register_channel_selector_callbacks(app):
                 item["selected"] = item["tier"] == ChannelTier.CORE
 
         selected_count = sum(1 for ch in channel_list if ch.get("selected", False))
-        # Count unique canonicals — this is what actually loads
         unique_canonicals = {
             ch["canonical"]
             for ch in channel_list
@@ -1039,11 +800,13 @@ def register_channel_selector_callbacks(app):
 
         store = [
             {
-                "vendor_mnemonic": ch["vendor_mnemonic"],
+                "wits_id": ch["wits_id"],
+                "mnemonic": ch["mnemonic"],
                 "canonical": ch["canonical"],
                 "tier": ch["tier"].value if isinstance(ch["tier"], ChannelTier) else ch["tier"],
                 "unit": ch["unit"],
                 "description": ch.get("description", ""),
+                "n_points": ch.get("n_points", 0),
                 "selected": ch.get("selected", False),
             }
             for ch in channel_list
@@ -1080,11 +843,12 @@ def register_channel_selector_callbacks(app):
 
         return _build_and_render(intent_name=intent_name)
 
-    # Apply saved mapping profile
+    # Apply saved mapping profile with validation badges
     @app.callback(
         Output("channel-list-container", "children", allow_duplicate=True),
         Output("channel-budget-counter", "children", allow_duplicate=True),
         Output("channel-selector-store", "data", allow_duplicate=True),
+        Output("profile-validation-badges", "children"),
         Input("apply-profile-btn", "n_clicks"),
         State("mapping-profile-dropdown", "value"),
         prevent_initial_call=True,
@@ -1093,12 +857,25 @@ def register_channel_selector_callbacks(app):
         if not n_clicks or not profile_name or not is_loaded():
             raise PreventUpdate
 
-        profiles = load_user_mappings()
-        user_mappings = profiles.get(profile_name)
-        if not user_mappings:
+        db = get_well_database()
+        if db is None:
             raise PreventUpdate
 
-        return _build_and_render(user_mappings=user_mappings)
+        profiles = load_user_mappings()
+        profile = profiles.get(profile_name)
+        if not profile:
+            raise PreventUpdate
+
+        # Validate and apply profile -- green/yellow applied, red skipped
+        validation_results = apply_profile(profile, db)
+
+        # Rebuild the channel list (now with updated db.assignments)
+        rows, budget, store = _build_and_render()
+
+        # Render validation badges
+        badges = _render_validation_badges(validation_results)
+
+        return rows, budget, store, badges
 
     # Save current mappings as a profile
     @app.callback(
@@ -1118,49 +895,55 @@ def register_channel_selector_callbacks(app):
         if not n_clicks or not profile_name or not profile_name.strip():
             raise PreventUpdate
 
+        db = get_well_database()
+        if db is None:
+            raise PreventUpdate
+
         profile_name = profile_name.strip()
 
-        # Gather all mappings: CORE channels from store + manual dropdown overrides
-        mappings: Dict[str, str] = {}
+        # Gather all assignments: CORE channels from store + manual dropdown overrides
+        assignments: Dict[str, str] = {}
 
         # Add CORE mappings from store
         if store_data:
             for ch in store_data:
-                if ch.get("canonical"):
-                    mappings[ch["vendor_mnemonic"]] = ch["canonical"]
+                if ch.get("canonical") and ch.get("wits_id"):
+                    assignments[ch["canonical"]] = ch["wits_id"]
 
         # Override/add from manual dropdown selections
         if dropdown_ids and dropdown_values:
             for dd_id, dd_val in zip(dropdown_ids, dropdown_values):
                 if dd_val:
-                    vendor = dd_id["index"]
-                    mappings[vendor] = dd_val
+                    wits_id = dd_id["index"]
+                    assignments[dd_val] = wits_id
 
-        if not mappings:
+        if not assignments:
             return (
                 html.Span("No mappings to save.", style={"color": COLORS["warning"]}),
                 no_update,
             )
 
-        save_user_mappings(profile_name, mappings)
+        # Apply assignments to db then save via data_store
+        db.assignments.update(assignments)
+        save_user_mappings(profile_name, assignments)
 
         # Refresh profile dropdown options
         profiles = load_user_mappings()
         options = [{"label": "-- No saved profile --", "value": ""}]
         options += [
-            {"label": f"{name} ({len(m)} mappings)", "value": name}
-            for name, m in profiles.items()
+            {"label": f"{name} ({len(p.get('assignments', {}))} assignments)", "value": name}
+            for name, p in profiles.items()
         ]
 
         return (
             html.Span(
-                f"Saved '{profile_name}' ({len(mappings)} mappings)",
+                f"Saved '{profile_name}' ({len(assignments)} assignments)",
                 style={"color": COLORS["success"]},
             ),
             options,
         )
 
-    # Confirm selection
+    # Confirm selection -- update db.assignments and app-state
     @app.callback(
         Output("app-state", "data", allow_duplicate=True),
         Output("confirm-status", "children"),
@@ -1177,9 +960,12 @@ def register_channel_selector_callbacks(app):
             raise PreventUpdate
 
         from dash import dcc, html
-        from mpd_overwatch.dashboard.data_store import build_selected_channel_map
 
-        # Apply manual dropdown overrides to store data before building map
+        db = get_well_database()
+        if db is None:
+            raise PreventUpdate
+
+        # Apply manual dropdown overrides to store data
         override_map: Dict[str, str] = {}
         if dropdown_ids and dropdown_values:
             for dd_id, dd_val in zip(dropdown_ids, dropdown_values):
@@ -1188,22 +974,29 @@ def register_channel_selector_callbacks(app):
 
         # Merge overrides into store_data
         for ch in store_data:
-            vendor = ch["vendor_mnemonic"]
-            if vendor in override_map:
-                ch["canonical"] = override_map[vendor]
+            wits_id = ch["wits_id"]
+            if wits_id in override_map:
+                ch["canonical"] = override_map[wits_id]
                 ch["selected"] = True
 
-        # Count what was selected before building
-        selected_count = sum(1 for ch in store_data if ch.get("selected"))
-        no_canonical = [
-            ch["vendor_mnemonic"]
-            for ch in store_data
-            if ch.get("selected") and not ch.get("canonical")
-        ]
+        # Build assignments dict from selections
+        assignments: Dict[str, str] = {}
+        selected_count = 0
+        no_canonical = []
 
-        channel_map = build_selected_channel_map(store_data)
+        for ch in store_data:
+            if not ch.get("selected"):
+                continue
+            selected_count += 1
+            canonical = ch.get("canonical")
+            if not canonical:
+                no_canonical.append(ch.get("mnemonic", ch["wits_id"]))
+                continue
+            wits_id = ch["wits_id"]
+            if wits_id in db.channels:
+                assignments[canonical] = wits_id
 
-        if not channel_map:
+        if not assignments:
             msg_parts = ["No channels with data loaded."]
             if no_canonical:
                 msg_parts.append(
@@ -1218,31 +1011,33 @@ def register_channel_selector_callbacks(app):
                 ),
             )
 
+        # Apply to WellDatabase
+        db.assignments.update(assignments)
+
         updated_state = dict(app_state) if app_state else {}
         updated_state["stage"] = "analysis"
-        updated_state["selected_channels"] = list(channel_map.keys())
+        updated_state["selected_channels"] = list(assignments.keys())
 
         # Build informative status message
-        map_count = len(channel_map)
+        map_count = len(assignments)
         status_parts = [
             html.Span(
-                f"{map_count} unique channels loaded",
+                f"{map_count} channels assigned",
                 style={"color": COLORS["success"], "fontSize": "13px", "fontWeight": "600"},
             ),
         ]
-        # Explain deduplication if multiple vendor mnemonics merged
         if selected_count > map_count:
-            merged = selected_count - map_count
+            skipped = selected_count - map_count
             status_parts.append(
                 html.Span(
-                    f" ({selected_count} mapped, {merged} duplicate{'s' if merged != 1 else ''} merged)",
+                    f" ({skipped} skipped: no mapping or missing data)",
                     style={"color": COLORS["text_dim"], "fontSize": "12px"},
                 ),
             )
         if no_canonical:
             status_parts.append(
                 html.Span(
-                    f" | {len(no_canonical)} skipped (no mapping)",
+                    f" | {len(no_canonical)} unassigned",
                     style={"color": COLORS["warning"], "fontSize": "12px"},
                 ),
             )
