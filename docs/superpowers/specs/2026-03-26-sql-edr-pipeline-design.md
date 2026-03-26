@@ -71,7 +71,9 @@ class ChannelFrame:
     log_by: str               # raw idtable.logby value (see note below)
 
     # Time-varying calibration history (from idtable.changelog JSON)
-    # Keys are epoch timestamps, values are {bias, scale, depthoffset} dicts
+    # Keys are epoch timestamps (int), values are {bias, scale, depthoffset} dicts
+    # Raw JSON has string values ("0", "1", "78") — parsed to float on ingest
+    # The raw JSON also includes a "timestamp" key which is stripped on parse
     # Empty dict if no changelog present
     changelog: Dict[int, Dict[str, float]] = field(default_factory=dict)
 
@@ -526,7 +528,7 @@ Files being deleted have import sites that must be updated:
 
 | Component | Current | After |
 |-----------|---------|-------|
-| Parser | `LASParser` + `lasio` | `SQLDumpParser` (regex-based) + `LiveEDRConnection` (psycopg2) |
+| Parser | `LASParser` + `lasio` | `SQLDumpParser` (streaming, line-by-line) + `LiveEDRConnection` (psycopg2) |
 | Data unit | `Dict[str, np.ndarray]` | `ChannelFrame` dataclass |
 | Container | module-level cache in `data_store.py` | `WellDatabase` in `data_store.py` |
 | Channel identity | `MNEMONIC_MAP` (static, guessed) | `idtable` (self-describing, per-database) |
