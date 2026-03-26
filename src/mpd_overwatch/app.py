@@ -444,16 +444,23 @@ def create_app() -> dash.Dash:
             stage = app_state_data.get("stage", "file_select")
         channels_ready = stage in ("analysis", "report")
 
-        # Fall back to auto-mapped data when channel-map store is empty
-        if not channel_map_data and channels_ready:
-            try:
-                from mpd_overwatch.dashboard.data_store import get_auto_mapped
-                from mpd_overwatch.dashboard.app_state import serialize_channel_map
-                auto = get_auto_mapped()
-                if auto:
-                    channel_map_data = serialize_channel_map(auto)
-            except Exception:
-                pass
+        # Build assignments dict from WellDatabase (server-side).
+        # The channel-map store may carry legacy data or assignments;
+        # prefer assignments from WellDatabase if loaded.
+        assignments_data = None
+        try:
+            from mpd_overwatch.dashboard.data_store import get_well_database
+            db = get_well_database()
+            if db is not None and db.assignments:
+                assignments_data = dict(db.assignments)
+        except Exception:
+            pass
+
+        # Fall back to channel-map store data if it looks like assignments
+        if not assignments_data and channel_map_data and isinstance(channel_map_data, dict):
+            sample_val = next(iter(channel_map_data.values()), None)
+            if isinstance(sample_val, str):
+                assignments_data = channel_map_data
 
         try:
             # ---- landing page ---------------------------------------------
@@ -492,7 +499,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Well Overview", COLORS)
                 from mpd_overwatch.dashboard.well_overview import page_well_overview
                 well_header = app_state_data.get("well_header") if app_state_data else None
-                return page_well_overview(well_header, channel_map_data)
+                return page_well_overview(well_header, assignments_data)
 
             if pathname == "/hmu":
                 if not channels_ready:
@@ -522,7 +529,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Pressure & Flow", COLORS)
                 try:
                     from mpd_overwatch.dashboard.hydraulics import page_hydraulics
-                    return page_hydraulics(channel_map_data)
+                    return page_hydraulics(assignments_data)
                 except Exception as exc:
                     logger.warning("hydraulics render failed: %s", exc)
                     return _placeholder_page("Pressure & Flow", COLORS)
@@ -532,7 +539,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Rock Strength", COLORS)
                 try:
                     from mpd_overwatch.dashboard.geomechanics import page_geomechanics
-                    return page_geomechanics(channel_map_data)
+                    return page_geomechanics(assignments_data)
                 except Exception as exc:
                     logger.warning("geomechanics render failed: %s", exc)
                     return _placeholder_page("Rock Strength", COLORS)
@@ -542,7 +549,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Formation Pressure", COLORS)
                 try:
                     from mpd_overwatch.dashboard.pore_pressure import page_pore_pressure
-                    return page_pore_pressure(channel_map_data)
+                    return page_pore_pressure(assignments_data)
                 except Exception as exc:
                     logger.warning("pore_pressure render failed: %s", exc)
                     return _placeholder_page("Formation Pressure", COLORS)
@@ -552,7 +559,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Reservoir Protection", COLORS)
                 try:
                     from mpd_overwatch.dashboard.formation_damage import page_formation_damage
-                    return page_formation_damage(channel_map_data)
+                    return page_formation_damage(assignments_data)
                 except Exception as exc:
                     logger.warning("formation_damage render failed: %s", exc)
                     return _placeholder_page("Reservoir Protection", COLORS)
@@ -573,7 +580,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Physics Consistency", COLORS)
                 try:
                     from mpd_overwatch.dashboard.topology import page_topology
-                    return page_topology(channel_map_data)
+                    return page_topology(assignments_data)
                 except Exception as exc:
                     logger.warning("topology render failed: %s", exc)
                     return _placeholder_page("Physics Consistency", COLORS)
@@ -583,7 +590,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Risk Topology", COLORS)
                 try:
                     from mpd_overwatch.dashboard.atft_analysis import page_atft_analysis
-                    return page_atft_analysis(channel_map_data)
+                    return page_atft_analysis(assignments_data)
                 except Exception as exc:
                     logger.warning("atft_analysis render failed: %s", exc)
                     return _placeholder_page("Risk Topology", COLORS)
@@ -593,7 +600,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("Pattern Discovery", COLORS)
                 try:
                     from mpd_overwatch.dashboard.persistent_homology_page import page_persistent_homology
-                    return page_persistent_homology(channel_map_data)
+                    return page_persistent_homology(assignments_data)
                 except Exception as exc:
                     logger.warning("persistent_homology render failed: %s", exc)
                     return _placeholder_page("Pattern Discovery", COLORS)
