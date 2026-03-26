@@ -137,7 +137,6 @@ def _detect_libraries() -> Dict[str, bool]:
         "numba",
         "sklearn",
         "pandas",
-        "lasio",
         "gudhi",           # topological data analysis
         "ripser",          # fast Vietoris-Rips
         "persim",          # persistence diagram tools

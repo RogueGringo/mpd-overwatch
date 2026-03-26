@@ -86,20 +86,17 @@ def test_data_export_csv(tmp_path):
     assert "spp" in content
 
 
-def test_data_export_las(tmp_path):
+def test_data_export_las_raises(tmp_path):
+    """LAS export was removed; requesting format='las' should raise ValueError."""
     from mpd_overwatch.report_generator import export_channel_data
     channel_map = _sample_channel_map()
-    las_path = export_channel_data(
-        channel_map=channel_map,
-        format="las",
-        output_path=str(tmp_path / "data.las"),
-        well_header={"well_name": "Test Well"},
-    )
-    assert os.path.exists(las_path)
-    with open(las_path) as f:
-        content = f.read()
-    assert "~W" in content or "~WELL" in content
-    assert "hookload" in content.lower() or "HOOKLOAD" in content
+    with pytest.raises(ValueError, match="Unsupported format"):
+        export_channel_data(
+            channel_map=channel_map,
+            format="las",
+            output_path=str(tmp_path / "data.las"),
+            well_header={"well_name": "Test Well"},
+        )
 
 
 def test_audit_trail_export(tmp_path):

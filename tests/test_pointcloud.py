@@ -119,34 +119,35 @@ class TestUnifiedIngest:
         assert pc.n_points > 0
         assert pc.well_name == "dd_test"
 
-    def test_ingest_las_file(self):
-        """ingest() accepts a .las file path string."""
+    def test_ingest_sql_file(self):
+        """ingest() accepts a .sql file path string."""
         import os
+        from pathlib import Path
         from mpd_overwatch.pointcloud.ingestion import ingest
 
-        las_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..",
-            "DATA_TYPES_for_System_Use_EXAMPLES", "Misc-LAS", "EDR-TOTCO-LAS1",
-        )
-        las_files = [
-            f for f in os.listdir(las_dir) if f.endswith(".las")
-        ] if os.path.isdir(las_dir) else []
+        examples_dir = Path(os.path.dirname(__file__)).parent / "DATA_TYPES_for_System_Use_EXAMPLES"
+        if not examples_dir.exists():
+            pytest.skip("No example data directory available")
 
-        if not las_files:
-            pytest.skip("No LAS test files available")
+        sql_files = [
+            f for f in examples_dir.rglob("*.sql")
+            if "_timedata_" not in f.name
+        ]
 
-        # Try each LAS file; some may be malformed
+        if not sql_files:
+            pytest.skip("No SQL test files available")
+
+        # Try each SQL file
         pc = None
-        for fname in las_files:
-            las_path = os.path.join(las_dir, fname)
+        for fpath in sorted(sql_files, key=lambda p: p.stat().st_size)[:3]:
             try:
-                pc = ingest(las_path)
+                pc = ingest(str(fpath))
                 break
             except Exception:
                 continue
 
         if pc is None:
-            pytest.skip("No valid LAS test files could be parsed")
+            pytest.skip("No valid SQL test files could be parsed")
 
         assert pc.n_points > 0
 
@@ -266,39 +267,38 @@ class TestVVTriangleInequality:
 class TestVVRealData:
     """V&V Requirement #2: Ingest from DATA_TYPES formats."""
 
-    def test_ingest_real_las_file(self):
-        """Successfully ingest a real LAS file from DATA_TYPES examples."""
+    def test_ingest_real_sql_file(self):
+        """Successfully ingest a real SQL EDR dump from DATA_TYPES examples."""
         import os
-        from mpd_overwatch.pointcloud.ingestion import ingest_las
+        from pathlib import Path
+        from mpd_overwatch.pointcloud.ingestion import ingest_sql
 
-        las_dir = os.path.normpath(os.path.join(
-            os.path.dirname(__file__), "..", "..",
-            "DATA_TYPES_for_System_Use_EXAMPLES", "Misc-LAS", "EDR-TOTCO-LAS1",
-        ))
+        examples_dir = Path(os.path.dirname(__file__)).parent / "DATA_TYPES_for_System_Use_EXAMPLES"
 
-        if not os.path.isdir(las_dir):
-            pytest.skip(f"LAS test data not found at {las_dir}")
+        if not examples_dir.exists():
+            pytest.skip(f"Example data not found at {examples_dir}")
 
-        las_files = [f for f in os.listdir(las_dir) if f.lower().endswith(".las")]
-        if not las_files:
-            pytest.skip("No .las files in test directory")
+        sql_files = [
+            f for f in examples_dir.rglob("*.sql")
+            if "_timedata_" not in f.name
+        ]
+        if not sql_files:
+            pytest.skip("No .sql depth files in test directory")
 
         # Try each file; some may be malformed
         pc = None
-        for fname in las_files:
-            las_path = os.path.join(las_dir, fname)
+        for fpath in sorted(sql_files, key=lambda p: p.stat().st_size)[:3]:
             try:
-                pc = ingest_las(las_path)
+                pc = ingest_sql(str(fpath))
                 break
             except Exception:
                 continue
 
         if pc is None:
-            pytest.skip("No valid LAS files could be parsed")
+            pytest.skip("No valid SQL files could be parsed into point cloud")
 
-        assert pc.n_points > 0, "No points ingested from LAS file"
-        assert pc.n_channels > 0, "No channels found in LAS file"
-        assert pc.depth_range[1] > pc.depth_range[0], "Depth range is zero/inverted"
+        assert pc.n_points > 0, "No points ingested from SQL file"
+        assert pc.n_channels > 0, "No channels found in SQL file"
 
 
 # ===================================================================

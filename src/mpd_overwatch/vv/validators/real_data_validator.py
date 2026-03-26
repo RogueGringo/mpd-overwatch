@@ -2,13 +2,13 @@
 MPD Command -- Real-Data Validation Module
 ============================================
 
-Loads actual drilling data from LAS files and validates MPD Command's
+Loads actual drilling data from SQL EDR dump files and validates MPD Command's
 calculations against it.  Designed to work with files in the
 DATA_TYPES_for_System_Use_EXAMPLES directory tree.
 
 Classes
 -------
-RealDataLoader      - Discovers and loads LAS files from a directory tree.
+RealDataLoader      - Discovers and loads SQL files from a directory tree.
 HydrostatsValidator - Validates hydrostatic / ECD / pressure-gradient calcs.
 SurveyValidator     - Validates survey calculations (min-curvature, DLS, TVD).
 DataQualityChecker  - Checks data completeness, null rates, value ranges.
@@ -39,7 +39,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from mpd_overwatch.data.las_parser import LASParser, LASResult
+from mpd_overwatch.data.sql_parser import ingest as sql_ingest
+from mpd_overwatch.data.sql_models import WellDatabase
+from mpd_overwatch.data.engine_manifest import auto_suggest_assignments
 from mpd_overwatch.core.hydraulics import (
     HYDROSTATIC_CONSTANT,
     hydrostatic_pressure,
@@ -115,80 +117,96 @@ class ValidationResult:
 # ===================================================================
 
 class RealDataLoader:
-    """Discovers LAS files in a directory tree, loads them with LASParser,
+    """Discovers SQL EDR files in a directory tree, loads them with sql_parser,
     and returns metadata about what was loaded.
 
     Parameters
     ----------
     data_dir : str or Path
-        Root directory to search for .las files.
+        Root directory to search for .sql files.
     """
 
     def __init__(self, data_dir: str | Path) -> None:
         self.data_dir = Path(data_dir)
-        self._parser = LASParser()
         self.loaded: List[Dict[str, Any]] = []
         self.errors: List[Dict[str, str]] = []
 
     # ----- discovery -------------------------------------------------------
 
-    def discover_las_files(self) -> List[Path]:
-        """Recursively find all .las files under *data_dir*."""
+    def discover_sql_files(self) -> List[Path]:
+        """Recursively find all .sql files under *data_dir* (excluding time files)."""
         if not self.data_dir.exists():
             logger.warning("Data directory does not exist: %s", self.data_dir)
             return []
-        las_files = sorted(self.data_dir.rglob("*.las"))
-        logger.info("Discovered %d LAS file(s) under %s", len(las_files), self.data_dir)
-        return las_files
+        sql_files = sorted(
+            f for f in self.data_dir.rglob("*.sql")
+            if "_timedata_" not in f.name
+        )
+        logger.info("Discovered %d SQL file(s) under %s", len(sql_files), self.data_dir)
+        return sql_files
 
     # ----- loading ---------------------------------------------------------
 
     def load_all(self) -> List[Dict[str, Any]]:
-        """Load every discovered LAS file and return metadata dicts.
+        """Load every discovered SQL file and return metadata dicts.
 
         Each dict contains:
             file_path, well_name, curves, depth_min, depth_max,
-            row_count, result (the LASResult object).
+            row_count, db (the WellDatabase object).
         Files that fail to parse are recorded in *self.errors* and skipped.
         """
-        files = self.discover_las_files()
+        files = self.discover_sql_files()
         self.loaded.clear()
         self.errors.clear()
 
         for fp in files:
             try:
-                result = self._parser.parse(str(fp))
-                df = result.to_dataframe()
+                db = sql_ingest(str(fp))
+                suggestions = auto_suggest_assignments(db)
+                for canonical, wits_id in suggestions.items():
+                    db.assignments[canonical] = wits_id
+
+                # Build a DataFrame from assigned channels for validation
+                canonical_data = {}
+                for canonical, wits_id in db.assignments.items():
+                    cf = db.channels[wits_id]
+                    canonical_data[canonical] = cf.calibrated_value
+
+                if not canonical_data:
+                    # Fall back: use all channels by mnemonic
+                    for wid, cf in db.channels.items():
+                        canonical_data[cf.mnemonic.lower()] = cf.calibrated_value
+
+                # Align to min length
+                if canonical_data:
+                    min_len = min(len(v) for v in canonical_data.values())
+                    for k in canonical_data:
+                        canonical_data[k] = canonical_data[k][:min_len]
+
+                df = pd.DataFrame(canonical_data) if canonical_data else pd.DataFrame()
 
                 # Determine depth range
-                depth_col = None
-                for candidate in ("depth_md", "md"):
-                    if candidate in df.columns:
-                        depth_col = candidate
-                        break
-                # Also check for original mnemonic columns (lowered)
-                if depth_col is None:
-                    for col in df.columns:
-                        if col.lower() in ("dept", "depth", "md", "dmea"):
-                            depth_col = col
-                            break
+                depth_min, depth_max = None, None
+                d_min, d_max = db.depth_range()
+                if d_min != 0.0 or d_max != 0.0:
+                    depth_min, depth_max = d_min, d_max
 
-                depth_min = float(df[depth_col].dropna().min()) if depth_col and not df[depth_col].dropna().empty else None
-                depth_max = float(df[depth_col].dropna().max()) if depth_col and not df[depth_col].dropna().empty else None
+                well_name = db.source_ip or fp.stem
 
                 meta = {
                     "file_path": str(fp),
-                    "well_name": result.well_info.well_name,
+                    "well_name": well_name,
                     "curves": list(df.columns),
                     "depth_min": depth_min,
                     "depth_max": depth_max,
                     "row_count": len(df),
-                    "result": result,
+                    "db": db,
+                    "df": df,
                 }
                 self.loaded.append(meta)
                 logger.info(
-                    "Loaded %s -- %s (%d rows, %d curves)",
-                    fp.name, result.well_info.well_name, len(df), len(df.columns),
+                    "Loaded %s -- %s (%d rows, %d channels)",
+                    fp.name, well_name, len(df), len(db.channels),
                 )
             except Exception as exc:
                 logger.warning("Failed to load %s: %s", fp, exc)
@@ -258,8 +276,7 @@ class HydrostatsValidator:
 
     def _validate_one(self, meta: Dict[str, Any]) -> List[ValidationResult]:
         results: List[ValidationResult] = []
-        result: LASResult = meta["result"]
-        df = result.to_dataframe()
+        df = meta["df"]
         fname = Path(meta["file_path"]).name
 
         # --- 1. ECD from APWD ------------------------------------------------
@@ -277,7 +294,7 @@ class HydrostatsValidator:
             ))
 
         # --- 2. Hydrostatic at TD ---------------------------------------------
-        td_md = result.well_info.total_depth_md
+        td_md = meta.get("depth_max") or 0.0
         if td_md > 0 and has_tvd:
             results.extend(self._check_hydrostatic_at_td(df, fname, td_md))
 
@@ -490,8 +507,7 @@ class SurveyValidator:
 
     def _validate_one(self, meta: Dict[str, Any]) -> List[ValidationResult]:
         results: List[ValidationResult] = []
-        result: LASResult = meta["result"]
-        df = result.to_dataframe()
+        df = meta["df"]
         fname = Path(meta["file_path"]).name
 
         # Identify survey columns -- canonical or raw
@@ -827,8 +843,7 @@ class DataQualityChecker:
 
     def _check_one(self, meta: Dict[str, Any]) -> List[ValidationResult]:
         results: List[ValidationResult] = []
-        result: LASResult = meta["result"]
-        df = result.to_dataframe()
+        df = meta["df"]
         fname = Path(meta["file_path"]).name
         n_rows = len(df)
 

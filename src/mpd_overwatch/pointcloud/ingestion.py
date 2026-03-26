@@ -2,7 +2,7 @@
 
 Supported formats:
     * pandas DataFrame (wide format)
-    * LAS files (via ``lasio``)
+    * SQL EDR dumps (via ``sql_parser.ingest``)
     * CSV files
     * Directory of files (batch ingest)
 """
@@ -21,12 +21,6 @@ try:
     _HAS_PANDAS = True
 except ImportError:
     _HAS_PANDAS = False
-
-try:
-    import lasio
-    _HAS_LASIO = True
-except ImportError:
-    _HAS_LASIO = False
 
 from mpd_overwatch.pointcloud.channel_registry import ChannelRegistry
 from mpd_overwatch.pointcloud.pointcloud4d import PointCloud4D
@@ -92,103 +86,21 @@ def ingest_dataframe(
 
 
 # ---------------------------------------------------------------------------
-# LAS file ingestion
+# Depth column heuristic
 # ---------------------------------------------------------------------------
 
 def _guess_depth_column(curve_names: List[str]) -> str:
-    """Heuristic to find the depth index column in a LAS file."""
+    """Heuristic to find the depth index column."""
     depth_candidates = [
         "DEPT", "DEPTH", "MD", "MEASURED_DEPTH", "TVD", "TVDSS",
         "dept", "depth", "md", "measured_depth", "tvd",
+        "hole_depth", "bit_depth",
     ]
     for name in curve_names:
         if name.upper() in [c.upper() for c in depth_candidates]:
             return name
     # Fall back to first column
     return curve_names[0]
-
-
-def ingest_las(
-    filepath: str,
-    registry: Optional[ChannelRegistry] = None,
-    well_name: Optional[str] = None,
-    channel_map: Optional[Dict[str, str]] = None,
-) -> PointCloud4D:
-    """Load a LAS file and convert to PointCloud4D.
-
-    Parameters
-    ----------
-    filepath : str
-        Path to the .LAS file.
-    registry : ChannelRegistry, optional
-        Channel metadata.  Defaults to a fresh registry.
-    well_name : str, optional
-        If not provided the well name is extracted from the LAS header.
-    channel_map : dict, optional
-        Additional column-to-channel overrides.
-
-    Returns
-    -------
-    PointCloud4D
-
-    Raises
-    ------
-    ImportError
-        If ``lasio`` is not installed.
-    FileNotFoundError
-        If *filepath* does not exist.
-    """
-    if not _HAS_LASIO:
-        raise ImportError(
-            "lasio is required for LAS ingestion.  Install with: pip install lasio"
-        )
-    if not _HAS_PANDAS:
-        raise ImportError(
-            "pandas is required for LAS ingestion.  Install with: pip install pandas"
-        )
-
-    filepath = str(filepath)
-    if not os.path.isfile(filepath):
-        raise FileNotFoundError(f"LAS file not found: {filepath}")
-
-    las = lasio.read(filepath, ignore_header_errors=True)
-
-    # Extract well name from header if not provided
-    if well_name is None:
-        try:
-            well_name = las.well.WELL.value or ""
-        except Exception:
-            well_name = Path(filepath).stem
-
-    # Build DataFrame from curves
-    import pandas as pd
-    df = las.df().reset_index()
-
-    # Identify the depth column (lasio puts the index curve first)
-    curve_names = [c.mnemonic for c in las.curves]
-    depth_col = _guess_depth_column(list(df.columns))
-
-    # Build metadata from LAS header
-    meta: dict = {"source_file": filepath, "format": "LAS"}
-    try:
-        meta["field"] = las.well.FLD.value
-        meta["company"] = las.well.COMP.value
-        meta["location"] = las.well.LOC.value
-    except Exception:
-        pass
-
-    if registry is None:
-        registry = ChannelRegistry()
-
-    return PointCloud4D.from_dataframe(
-        df,
-        depth_col=depth_col,
-        time_col=None,  # LAS files rarely have explicit time
-        channel_map=channel_map,
-        registry=registry,
-        well_name=well_name,
-        metadata=meta,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -262,12 +174,89 @@ def ingest_csv(
 
 
 # ---------------------------------------------------------------------------
+# SQL EDR ingestion
+# ---------------------------------------------------------------------------
+
+def ingest_sql(
+    filepath: str,
+    registry: Optional[ChannelRegistry] = None,
+    well_name: Optional[str] = None,
+    channel_map: Optional[Dict[str, str]] = None,
+) -> PointCloud4D:
+    """Load a SQL EDR dump and convert to PointCloud4D.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the .sql dump file.
+    registry : ChannelRegistry, optional
+        Channel metadata.  Defaults to a fresh registry.
+    well_name : str, optional
+        If not provided the source IP is used.
+    channel_map : dict, optional
+        Additional column-to-channel overrides.
+
+    Returns
+    -------
+    PointCloud4D
+    """
+    if not _HAS_PANDAS:
+        raise ImportError("pandas is required for SQL ingestion.")
+
+    from mpd_overwatch.data.sql_parser import ingest as sql_ingest
+    from mpd_overwatch.data.engine_manifest import auto_suggest_assignments
+
+    db = sql_ingest(filepath)
+
+    if well_name is None:
+        well_name = db.source_ip or Path(filepath).stem
+
+    # Auto-suggest assignments
+    suggestions = auto_suggest_assignments(db)
+    for canonical, wits_id in suggestions.items():
+        db.assignments[canonical] = wits_id
+
+    # Build DataFrame from assigned channels
+    if not db.assignments:
+        raise ValueError(f"No channels could be auto-mapped from {filepath}")
+
+    canonical_data = {}
+    for canonical, wits_id in db.assignments.items():
+        cf = db.channels[wits_id]
+        canonical_data[canonical] = cf.calibrated_value
+
+    # Align arrays to same length
+    min_len = min(len(v) for v in canonical_data.values())
+    for k in canonical_data:
+        canonical_data[k] = canonical_data[k][:min_len]
+
+    import pandas as pd
+    df = pd.DataFrame(canonical_data)
+    depth_col = _guess_depth_column(list(df.columns))
+
+    if registry is None:
+        registry = ChannelRegistry()
+
+    meta: dict = {"source_file": filepath, "format": "SQL_EDR"}
+
+    return PointCloud4D.from_dataframe(
+        df,
+        depth_col=depth_col,
+        time_col=None,
+        channel_map=channel_map,
+        registry=registry,
+        well_name=well_name,
+        metadata=meta,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Directory batch ingestion
 # ---------------------------------------------------------------------------
 
 def ingest_directory(
     dirpath: str,
-    pattern: str = "*.las",
+    pattern: str = "*.sql",
     registry: Optional[ChannelRegistry] = None,
     channel_map: Optional[Dict[str, str]] = None,
 ) -> List[PointCloud4D]:
@@ -278,7 +267,7 @@ def ingest_directory(
     dirpath : str
         Root directory to scan.
     pattern : str
-        Glob pattern to match (e.g. ``"*.las"``, ``"*.csv"``).
+        Glob pattern to match (e.g. ``"*.sql"``, ``"*.csv"``).
     registry : ChannelRegistry, optional
         Shared channel registry.  A single instance is reused for all files
         so channel IDs are consistent across the returned list.
@@ -308,13 +297,13 @@ def ingest_directory(
 
     for fpath in files:
         try:
-            if ext_lower in ("las",):
-                pc = ingest_las(
+            if ext_lower == "sql":
+                pc = ingest_sql(
                     str(fpath),
                     registry=registry,
                     channel_map=channel_map,
                 )
-            elif ext_lower in ("csv",):
+            elif ext_lower == "csv":
                 pc = ingest_csv(
                     str(fpath),
                     registry=registry,
@@ -352,8 +341,8 @@ def ingest(
     Parameters
     ----------
     source : str, Path, pd.DataFrame, or DrillingData
-        - File path (``.las``, ``.csv``): auto-detects format.
-        - Directory path: batch-ingests all ``.las`` files (returns first).
+        - File path (``.sql``, ``.csv``): auto-detects format.
+        - Directory path: batch-ingests all ``.sql`` files (returns first).
         - ``pandas.DataFrame``: direct conversion.
         - ``DrillingData``: converts via ``to_dataframe()`` then ingests.
     well_name : str
@@ -421,8 +410,8 @@ def ingest(
         raise FileNotFoundError(f"Source not found: {source}")
 
     ext = path.suffix.lower()
-    if ext == ".las":
-        return ingest_las(
+    if ext == ".sql":
+        return ingest_sql(
             str(path),
             registry=registry,
             well_name=well_name or None,
@@ -464,7 +453,7 @@ def ingest_channel_map(
     Parameters
     ----------
     channel_map : dict
-        ``{canonical_channel_name: np.ndarray}`` — the deserialized channel
+        ``{canonical_channel_name: np.ndarray}`` -- the deserialized channel
         map from ``app_state.deserialize_channel_map()``.
     well_name : str
         Well identifier.
@@ -486,7 +475,7 @@ def ingest_channel_map(
 
     # Determine depth column
     depth_col = None
-    for candidate in ("depth_md", "dept", "md", "depth"):
+    for candidate in ("depth_md", "hole_depth", "dept", "md", "depth"):
         if candidate in df.columns:
             depth_col = candidate
             break

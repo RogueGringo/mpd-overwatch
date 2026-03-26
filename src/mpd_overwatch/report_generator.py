@@ -5,7 +5,7 @@ Provides 5 export functions consumed by the CLI and (future) dashboard buttons:
   generate_full_report        — Full well HTML report, all EngineeringResults
   generate_subsegment_report  — Depth-range filtered HTML report
   export_current_view         — Single dashboard tab HTML snapshot
-  export_channel_data         — CSV or LAS 2.0 channel dump
+  export_channel_data         — CSV channel dump
   export_audit_trail          — Wrap a .log file in styled HTML
 
 All HTML reports:
@@ -402,18 +402,18 @@ def export_channel_data(
     output_path: str,
     well_header: Optional[dict] = None,
 ) -> str:
-    """Export channel data to CSV or LAS 2.0.
+    """Export channel data to CSV.
 
     Parameters
     ----------
     channel_map:
         Dict mapping canonical channel names to numpy arrays of equal length.
     format:
-        ``"csv"`` or ``"las"``.
+        ``"csv"`` (only supported format).
     output_path:
         Destination file path.
     well_header:
-        Optional well meta-data for the LAS well-information section.
+        Optional well meta-data (reserved for future use).
 
     Returns
     -------
@@ -421,61 +421,14 @@ def export_channel_data(
         The path of the written file (*output_path*).
     """
     format = format.lower().strip()
-    if format not in ("csv", "las"):
-        raise ValueError(f"Unsupported format: {format!r}. Choose 'csv' or 'las'.")
+    if format != "csv":
+        raise ValueError(f"Unsupported format: {format!r}. Only 'csv' is supported.")
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-    if format == "csv":
-        import pandas as pd
-        df = pd.DataFrame(channel_map)
-        df.to_csv(output_path, index=False)
-
-    else:  # las
-        import lasio
-        las = lasio.LASFile()
-
-        # Well header section
-        wh = well_header or {}
-        las.well["WELL"] = lasio.HeaderItem(
-            mnemonic="WELL",
-            value=wh.get("well_name", ""),
-            descr="Well Name",
-        )
-        las.well["COMP"] = lasio.HeaderItem(
-            mnemonic="COMP",
-            value=wh.get("company", ""),
-            descr="Company",
-        )
-        las.well["DATE"] = lasio.HeaderItem(
-            mnemonic="DATE",
-            value=_timestamp(),
-            descr="Export date",
-        )
-
-        # Determine the index curve — prefer depth_md, then first channel
-        index_name = None
-        for candidate in ("depth_md", "depth_tvd", "depth"):
-            if candidate in channel_map:
-                index_name = candidate
-                break
-        if index_name is None:
-            index_name = next(iter(channel_map))
-
-        # Add curves; index curve first
-        index_data = channel_map[index_name]
-        las.append_curve_item(
-            lasio.CurveItem(index_name.upper(), data=index_data, descr=index_name, unit="")
-        )
-
-        for name, data in channel_map.items():
-            if name == index_name:
-                continue
-            las.append_curve_item(
-                lasio.CurveItem(name.upper(), data=data, descr=name, unit="")
-            )
-
-        las.write(output_path, version=2)
+    import pandas as pd
+    df = pd.DataFrame(channel_map)
+    df.to_csv(output_path, index=False)
 
     return output_path
 

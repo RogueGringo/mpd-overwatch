@@ -24,31 +24,38 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _load_mow_summary(mow_path: str) -> Optional[Dict[str, Any]]:
-    """Load a .mow archive and return summary info without heavy arrays."""
+    """Load a .mow archive and return summary info without heavy arrays.
+
+    Note: .mow archives are a legacy format from the LAS-based pipeline.
+    This function attempts to load them for backward compatibility but
+    returns None if the archive cannot be read.
+    """
     try:
-        from mpd_overwatch.data.analysis_layers import AnalysisChain
-        chain = AnalysisChain.load(mow_path)
-        layers = []
-        for layer in chain.layers:
-            layers.append({
-                "layer_id": layer.layer_id,
-                "layer_type": layer.layer_type,
-                "value_term": layer.value_term,
-                "value_description": layer.value_description,
-                "duration_ms": layer.duration_ms,
-                "depends_on": layer.depends_on,
-                "inputs": layer.inputs,
-                "outputs": layer.outputs,
-                "created_at": layer.created_at,
-            })
-        pts = chain.get_array("004_pointcloud", "points")
+        import json
+        import zipfile
+        with zipfile.ZipFile(mow_path, "r") as zf:
+            manifest = json.loads(zf.read("manifest.json"))
+        layers = manifest.get("layers", [])
+        # Check for pointcloud arrays
+        has_pc = False
+        pc_shape = None
+        try:
+            with zipfile.ZipFile(mow_path, "r") as zf:
+                if "004_pointcloud__points.npy" in zf.namelist():
+                    has_pc = True
+                    import io
+                    with zf.open("004_pointcloud__points.npy") as npy_f:
+                        pts = np.load(io.BytesIO(npy_f.read()))
+                        pc_shape = pts.shape
+        except Exception:
+            pass
         return {
-            "well_name": chain.well_name,
-            "metadata": chain.metadata,
-            "layer_count": len(chain.layers),
+            "well_name": manifest.get("well_name", ""),
+            "metadata": manifest.get("metadata", {}),
+            "layer_count": len(layers),
             "layers": layers,
-            "has_pointcloud": pts is not None,
-            "pointcloud_shape": pts.shape if pts is not None else None,
+            "has_pointcloud": has_pc,
+            "pointcloud_shape": pc_shape,
         }
     except Exception as exc:
         logger.warning("Failed to load .mow archive %s: %s", mow_path, exc)
@@ -404,7 +411,7 @@ def page_pipeline_results() -> html.Div:
                     html.P([
                         "Run the pipeline via CLI: ",
                         html.Code(
-                            "mpd-overwatch pipeline <file.las> --output-dir output/",
+                            "mpd-overwatch pipeline <file.sql> --output-dir output/",
                             style={
                                 "color": COLORS["primary"],
                                 "backgroundColor": COLORS["background"],
