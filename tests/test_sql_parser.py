@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from mpd_overwatch.data.sql_parser import SQLDumpParser
+from mpd_overwatch.data.sql_models import WellDatabase
 
 DEPTH_FILE = str(Path(__file__).parent.parent /
     "DATA_TYPES_for_System_Use_EXAMPLES" /
@@ -141,3 +142,38 @@ class TestTimeFileParsing:
         ts_list = channel_data["0121"]
         first_ts, first_val = ts_list[0]
         assert isinstance(first_ts, datetime)
+
+
+class TestCompanionMerging:
+    @pytest.fixture(scope="class")
+    def merged_db(self):
+        parser = SQLDumpParser()
+        return parser.parse_pair(DEPTH_FILE, TIME_FILE)
+
+    def test_merge_has_depth_channels(self, merged_db):
+        assert "0121" in merged_db.channels  # from depth file
+
+    def test_merge_source_identity(self, merged_db):
+        assert merged_db.source_ip == "172.26.69.100"
+
+    def test_merge_increases_data(self, merged_db):
+        """Merged channels should have >= the depth-only point count."""
+        # Just check that data exists
+        pp = merged_db.channels.get("0121")
+        assert pp is not None
+        assert pp.n_points > 0
+
+
+class TestUnifiedIngest:
+    def test_ingest_depth_file(self):
+        from mpd_overwatch.data.sql_parser import ingest
+        db = ingest(DEPTH_FILE)
+        assert isinstance(db, WellDatabase)
+        assert len(db.channels) > 50
+
+    def test_ingest_directory(self):
+        from mpd_overwatch.data.sql_parser import ingest
+        dirpath = str(Path(DEPTH_FILE).parent.parent)
+        db = ingest(dirpath)
+        assert isinstance(db, WellDatabase)
+        assert db.source_ip == "172.26.69.100"

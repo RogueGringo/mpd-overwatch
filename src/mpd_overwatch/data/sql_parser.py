@@ -268,6 +268,57 @@ class SQLDumpParser:
                     channel_data[wid] = []
                 channel_data[wid].append((ts, val))
 
+    def parse_pair(self, depth_file: str, time_file: str) -> WellDatabase:
+        """Parse depth + time companion files and merge."""
+        db = self._parse_depth_file(depth_file)
+        time_data, witsidcfg = self._parse_time_file(time_file)
+
+        for wid, ts_list in time_data.items():
+            if not ts_list:
+                continue
+            times = np.array([t for t, _ in ts_list], dtype="datetime64[s]")
+            values = np.array([v for _, v in ts_list], dtype=np.float64)
+
+            # Get depth from WITS 0108 at matching timestamps
+            depth_channel = time_data.get("0108", [])
+            depth_lookup = {t: v for t, v in depth_channel}
+            depths = np.array(
+                [depth_lookup.get(t, float("nan")) for t, _ in ts_list],
+                dtype=np.float64,
+            )
+            hides = np.zeros(len(ts_list), dtype=np.int8)
+
+            if wid in db.channels:
+                # Merge: concatenate with existing T-table data
+                existing = db.channels[wid]
+                existing.time = np.concatenate([existing.time, times])
+                existing.depth = np.concatenate([existing.depth, depths])
+                existing.value = np.concatenate([existing.value, values])
+                existing.hide = np.concatenate([existing.hide, hides])
+                # Sort by time
+                order = np.argsort(existing.time)
+                existing.time = existing.time[order]
+                existing.depth = existing.depth[order]
+                existing.value = existing.value[order]
+                existing.hide = existing.hide[order]
+            else:
+                # Time-only channel
+                cfg = witsidcfg.get(wid, {})
+                cf = ChannelFrame(
+                    wits_id=wid, db_id=0,
+                    mnemonic=str(cfg.get("description", wid) or wid),
+                    description=str(cfg.get("description", "") or ""),
+                    units="", source="TIMEONLY",
+                    bias=0.0, scale=1.0, depth_offset=0.0, log_by="time",
+                    time=times, depth=depths, value=values, hide=hides,
+                    min_y=float(cfg.get("min", 0) or 0),
+                    max_y=float(cfg.get("max", 0) or 0),
+                    line_color=str(cfg.get("lc", "0000ff") or "0000ff"),
+                )
+                db.channels[wid] = cf
+
+        return db
+
     def _build_channel_frame(
         self, wits_id: str, meta: Dict[str, Any],
         times: np.ndarray, depths: np.ndarray,
@@ -311,3 +362,102 @@ class SQLDumpParser:
             dp=_int(meta.get("dp"), 2),
             line_color=str(meta.get("linecolor", "0000ff") or "0000ff"),
         )
+
+
+def scan_for_sql_files(dirpath: str) -> List[Dict[str, Any]]:
+    """Scan directory tree for .sql dump files, group by IP."""
+    p = Path(dirpath)
+    if not p.is_dir():
+        return []
+    results = []
+    seen: set[str] = set()
+    for f in p.rglob("*.sql"):
+        resolved = str(f.resolve())
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        stat = f.stat()
+        is_time = "_timedata_" in f.name
+        results.append({
+            "path": resolved,
+            "name": f.name,
+            "size_mb": stat.st_size / (1024 * 1024),
+            "parent": str(f.parent.relative_to(p)) if f.parent != p else ".",
+            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "is_time_file": is_time,
+        })
+    return sorted(results, key=lambda r: r["path"])
+
+
+def ingest(source: str, **kwargs) -> WellDatabase:
+    """Universal entry point.
+
+    source can be:
+    - File path ending in .sql   -> SQLDumpParser.parse_file()
+    - Directory path             -> scan for .sql pairs, parse newest
+    """
+    parser = SQLDumpParser()
+    p = Path(source)
+
+    if p.is_file() and p.suffix.lower() == ".sql":
+        if parser._is_time_file(source):
+            # Time-only file — parse with limited metadata
+            time_data, cfg = parser._parse_time_file(source)
+            ip, epoch, _ = parser._detect_source(source)
+            ts = datetime.utcfromtimestamp(epoch / 1000).isoformat() + "Z"
+            db = WellDatabase(source_ip=ip, dump_epoch=epoch, dump_timestamp=ts)
+            # Build minimal ChannelFrames from time data
+            depth_channel = time_data.get("0108", [])
+            depth_lookup = {t: v for t, v in depth_channel}
+            for wid, ts_list in time_data.items():
+                if not ts_list:
+                    continue
+                times = np.array([t for t, _ in ts_list], dtype="datetime64[s]")
+                values = np.array([v for _, v in ts_list], dtype=np.float64)
+                depths = np.array(
+                    [depth_lookup.get(t, float("nan")) for t, _ in ts_list],
+                    dtype=np.float64,
+                )
+                meta = cfg.get(wid, {})
+                db.channels[wid] = ChannelFrame(
+                    wits_id=wid, db_id=0,
+                    mnemonic=str(meta.get("description", wid) or wid),
+                    description=str(meta.get("description", "") or ""),
+                    units="", source="TIMEONLY",
+                    bias=0.0, scale=1.0, depth_offset=0.0, log_by="time",
+                    time=times,
+                    depth=depths,
+                    value=values,
+                    hide=np.zeros(len(ts_list), dtype=np.int8),
+                )
+            return db
+        else:
+            return parser.parse_file(source)
+
+    if p.is_dir():
+        sql_files = scan_for_sql_files(source)
+        if not sql_files:
+            raise FileNotFoundError(f"No .sql files found in {source}")
+        # Group by IP, find depth+time pairs
+        depth_files = [f for f in sql_files if not f["is_time_file"]]
+        time_files = [f for f in sql_files if f["is_time_file"]]
+        if not depth_files:
+            # Only time files available
+            newest = max(time_files, key=lambda f: f["modified"])
+            return ingest(newest["path"])
+        # Pick newest depth file
+        newest_depth = max(depth_files, key=lambda f: f["modified"])
+        # Find matching time file by IP
+        try:
+            ip, _, _ = parser._detect_source(newest_depth["path"])
+        except ValueError:
+            return parser.parse_file(newest_depth["path"])
+        matching_time = [
+            f for f in time_files
+            if ip in f["name"]
+        ]
+        if matching_time:
+            return parser.parse_pair(newest_depth["path"], matching_time[0]["path"])
+        return parser.parse_file(newest_depth["path"])
+
+    raise ValueError(f"Cannot ingest from: {source}")
