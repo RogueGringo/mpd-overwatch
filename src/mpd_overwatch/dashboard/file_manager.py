@@ -548,13 +548,16 @@ def _recent_dropdown_options() -> List[Dict]:
 
 
 def _auto_channel_map():
-    """Serialize channel data from WellDatabase assignments for the channel-map store."""
-    from mpd_overwatch.dashboard.data_store import get_channel_map_from_assignments
-    from mpd_overwatch.dashboard.app_state import serialize_channel_map
+    """Return lightweight assignments dict for the channel-map store.
 
-    mapped = get_channel_map_from_assignments()
-    if mapped:
-        return serialize_channel_map(mapped)
+    Only the str->str mapping travels through browser storage.
+    Actual array data stays server-side in WellDatabase.
+    """
+    from mpd_overwatch.dashboard.data_store import get_well_database
+
+    db = get_well_database()
+    if db is not None and db.assignments:
+        return dict(db.assignments)
     return None
 
 
