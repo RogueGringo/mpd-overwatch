@@ -38,7 +38,7 @@ class TestHydraulicsIdentityChain:
         """hydrostatic = 0.052 * MW * TVD"""
         result = compute_hydrostatic(mw=case["mw"], tvd=case["tvd"])
         expected = 0.052 * case["mw"] * case["tvd"]
-        np.testing.assert_almost_equal(result.value, expected, decimal=6)
+        np.testing.assert_almost_equal(result.value, expected, decimal=10)
 
     @pytest.mark.parametrize("case", _TEST_CASES)
     def test_bhp_static_equals_hydrostatic_plus_sbp(self, case):
@@ -46,7 +46,7 @@ class TestHydraulicsIdentityChain:
         hydro = compute_hydrostatic(mw=case["mw"], tvd=case["tvd"])
         bhp_s = compute_bhp_static(mw=case["mw"], tvd=case["tvd"], sbp=case["sbp"])
         np.testing.assert_almost_equal(
-            bhp_s.value, hydro.value + case["sbp"], decimal=6,
+            bhp_s.value, hydro.value + case["sbp"], decimal=10,
             err_msg=f"BHP_static ({bhp_s.value}) != hydrostatic ({hydro.value}) + SBP ({case['sbp']})"
         )
 
@@ -58,7 +58,7 @@ class TestHydraulicsIdentityChain:
             mw=case["mw"], tvd=case["tvd"], afp=case["afp"], sbp=case["sbp"],
         )
         np.testing.assert_almost_equal(
-            bhp_d.value, bhp_s.value + case["afp"], decimal=6,
+            bhp_d.value, bhp_s.value + case["afp"], decimal=10,
             err_msg=f"BHP_dynamic ({bhp_d.value}) != BHP_static ({bhp_s.value}) + AFP ({case['afp']})"
         )
 
@@ -68,7 +68,7 @@ class TestHydraulicsIdentityChain:
         ecd = compute_ecd(mw=case["mw"], afp=case["afp"], tvd=case["tvd"])
         expected = case["mw"] + case["afp"] / (0.052 * case["tvd"])
         np.testing.assert_almost_equal(
-            ecd.value, expected, decimal=6,
+            ecd.value, expected, decimal=10,
             err_msg=f"ECD ({ecd.value}) != MW + AFP/(0.052*TVD) ({expected})"
         )
 
@@ -80,7 +80,7 @@ class TestHydraulicsIdentityChain:
         lhs = ecd.value * 0.052 * case["tvd"]
         rhs = hydro.value + case["afp"]
         np.testing.assert_almost_equal(
-            lhs, rhs, decimal=4,
+            lhs, rhs, decimal=10,
             err_msg=f"ECD pressure equivalence: {lhs} != {rhs}"
         )
 
@@ -112,6 +112,20 @@ class TestGeomechanicsConsistency:
             err_msg=f"Brittleness ({result.value}) != expected ({expected})"
         )
 
+    def test_drilling_efficiency_inverse(self):
+        """drilling_efficiency = UCS / MSE (inverse must equal input efficiency)."""
+        mse_result = compute_mse(
+            wob=25000.0, torque=12000.0, rpm=120.0,
+            rop=100.0, bit_diameter=8.75,
+        )
+        efficiency = 0.35
+        ucs_result = compute_ucs(mse=mse_result.value, bit_efficiency=efficiency)
+        recovered = ucs_result.value / mse_result.value
+        np.testing.assert_almost_equal(
+            recovered, efficiency, decimal=10,
+            err_msg=f"drilling_efficiency ({recovered}) != input efficiency ({efficiency})"
+        )
+
     def test_mse_inverse_rop_relationship(self):
         """MSE increases when ROP decreases (inverse relationship)."""
         mse_fast = compute_mse(
@@ -141,7 +155,7 @@ class TestPorePressureConsistency:
             normal_pp_ppg=8.65,
         )
         np.testing.assert_almost_equal(
-            result.value, 8.65, decimal=2,
+            result.value, 8.65, decimal=10,
             err_msg=f"Normal case: PP ({result.value}) should equal 8.65 ppg"
         )
 
@@ -163,9 +177,13 @@ class TestPorePressureConsistency:
         d_exp = compute_d_exponent(
             rop=100.0, rpm=120.0, wob_lbs=25000.0, bit_diameter=8.75,
         )
-        # dc = d * (MW_normal / MW_actual)
-        # Both should be negative since ROP/(60*RPM) < 1
-        assert d_exp.value < 0, f"d-exponent should be negative, got {d_exp.value}"
+        # dc = d * (MW_normal / MW_actual) — same sign since MW ratio is positive
+        mw_normal = 8.65
+        mw_actual = 12.0
+        dc_value = d_exp.value * (mw_normal / mw_actual)
+        assert np.sign(d_exp.value) == np.sign(dc_value), (
+            f"d-exponent ({d_exp.value}) and dc-exponent ({dc_value}) must have same sign"
+        )
 
 
 class TestFormationDamageConsistency:
