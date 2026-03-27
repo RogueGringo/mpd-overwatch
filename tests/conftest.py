@@ -3,6 +3,9 @@
 import pytest
 import numpy as np
 
+# Register V&V fixtures so test_vv_*.py files can use them
+pytest_plugins = ["conftest_vv"]
+
 
 @pytest.fixture
 def wolfcamp_tvd():
