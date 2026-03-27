@@ -1185,7 +1185,7 @@ class TestProvenanceChain:
         ("d_exponent", lambda: compute_d_exponent(rop=100.0, rpm=120.0, wob_lbs=25000.0, bit_diameter=8.75)),
         ("eaton_pp", lambda: compute_eaton_pp(tvd=10000.0, dc_observed=0.8, dc_normal=1.4, overburden_ppg=19.2)),
         ("skin_factor", lambda: compute_skin_factor(k=100.0, k_d=20.0, r_d=1.0, r_w=0.354)),
-        ("productivity_index", lambda: compute_productivity_index(k=100.0, h=50.0, mu=1.0, bo=1.2, re=1000.0, rw=0.354, skin=5.0)),
+        ("productivity_index", lambda: compute_productivity_index(k=100.0, h=50.0, Bo=1.2, mu=1.0, r_e=1000.0, r_w=0.354, S=5.0)),
     ]
 
     @pytest.mark.parametrize("name,factory", _ALL_WRAPPERS, ids=[w[0] for w in _ALL_WRAPPERS])
@@ -1583,38 +1583,36 @@ class TestPorePressureBenchmarks:
 class TestAggregateGrade:
     """Overall V&V benchmark score must meet commercialization threshold."""
 
-    def test_overall_grade_passes(self):
+    @pytest.fixture(scope="class")
+    def aggregate_report(self):
+        """Run all benchmarks once and share across aggregate tests."""
+        from mpd_overwatch.vv.runner import run_all_benchmarks
+        return run_all_benchmarks()
+
+    def test_overall_grade_passes(self, aggregate_report):
         """run_all_benchmarks() overall_grade must be passing."""
-        from mpd_overwatch.vv.runner import run_all_benchmarks
-        report = run_all_benchmarks()
-        assert report["overall_grade"].passing, (
-            f"Overall grade: {report['overall_grade'].value} — FAILED. "
-            f"Score: {report['overall_score']:.1f}/100"
+        assert aggregate_report["overall_grade"].passing, (
+            f"Overall grade: {aggregate_report['overall_grade'].value} — FAILED. "
+            f"Score: {aggregate_report['overall_score']:.1f}/100"
         )
 
-    def test_overall_score_above_90(self):
+    def test_overall_score_above_90(self, aggregate_report):
         """Overall score must be >= 90 for commercialization readiness."""
-        from mpd_overwatch.vv.runner import run_all_benchmarks
-        report = run_all_benchmarks()
-        assert report["overall_score"] >= 90.0, (
-            f"Overall score: {report['overall_score']:.1f} — need >= 90"
+        assert aggregate_report["overall_score"] >= 90.0, (
+            f"Overall score: {aggregate_report['overall_score']:.1f} — need >= 90"
         )
 
-    def test_total_tests_equals_23(self):
+    def test_total_tests_equals_23(self, aggregate_report):
         """Total benchmark count must be 23."""
-        from mpd_overwatch.vv.runner import run_all_benchmarks
-        report = run_all_benchmarks()
-        assert report["total_tests"] == 23, (
-            f"Expected 23 total benchmarks, got {report['total_tests']}"
+        assert aggregate_report["total_tests"] == 23, (
+            f"Expected 23 total benchmarks, got {aggregate_report['total_tests']}"
         )
 
-    def test_zero_failures(self):
+    def test_zero_failures(self, aggregate_report):
         """Zero benchmark failures."""
-        from mpd_overwatch.vv.runner import run_all_benchmarks
-        report = run_all_benchmarks()
-        assert report["total_failed"] == 0, (
-            f"{report['total_failed']} benchmarks failed out of "
-            f"{report['total_tests']}"
+        assert aggregate_report["total_failed"] == 0, (
+            f"{aggregate_report['total_failed']} benchmarks failed out of "
+            f"{aggregate_report['total_tests']}"
         )
 ```
 
@@ -1790,9 +1788,10 @@ class TestOrchestrator:
             for r in results_list:
                 if not r["passed"]:
                     all_failures.append(f"[{section_name}] {r['test_name']}: {r['details']}")
-        # Report all failures but don't hard-fail on non-critical ones
-        if all_failures:
-            pytest.warns(UserWarning, match="validation failures")
+        assert len(all_failures) == 0, (
+            f"{len(all_failures)} validation failures:\n"
+            + "\n".join(f"  {f}" for f in all_failures)
+        )
 ```
 
 - [ ] **Step 2: Run the tests**
