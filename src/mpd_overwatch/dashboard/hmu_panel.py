@@ -2,6 +2,8 @@
 
 The choke operator's real-time cockpit for monitoring and controlling
 managed pressure drilling operations.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -14,50 +16,57 @@ from mpd_overwatch.config import COLORS, DEFAULTS
 logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import compute_ecd, compute_bhp_static
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
-def page_hmu(channel_map_data: dict | None = None):
+def page_hmu(assignments_data: dict | None = None):
     """Return the HMU Operator Panel layout.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
+    from mpd_overwatch.dashboard.data_store import get_well_database
     from mpd_overwatch.dashboard.no_data import data_required_layout
 
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
-
-    if not channel_map:
+    db = get_well_database()
+    if db is None or not assignments_data:
         return data_required_layout(
             "HMU Operator Panel",
             "Real-time MPD choke management, BHP monitoring, and connection procedures",
-            ["depth_md", "spp", "mud_weight"],
-            optional=["tvd", "apwd", "flow_in", "flow_out_pct", "wob", "torque"],
+            ["hole_depth", "standpipe_pressure", "mud_weight_in"],
+            optional=["depth_tvd", "annular_pressure", "flow_in", "flow_out_pct", "wob", "torque"],
         )
 
-    def _last(key: str, default: float) -> float:
+    db.assignments = dict(assignments_data)
+
+    def _get(canonical: str) -> np.ndarray | None:
+        """Return calibrated values for a canonical channel, or None."""
+        try:
+            cf = db.assigned(canonical)
+            arr = cf.calibrated_value
+            if len(arr) > 0:
+                return arr
+        except KeyError:
+            pass
+        return None
+
+    def _last(canonical: str, default: float) -> float:
         """Return the last value of a channel, or default if not available."""
-        if channel_map and key in channel_map and len(channel_map[key]) > 0:
-            return float(channel_map[key][-1])
+        arr = _get(canonical)
+        if arr is not None and len(arr) > 0:
+            return float(arr[-1])
         return default
 
     # --- Current state values (latest data point or config defaults) ---
-    current_md = _last("depth_md", 15_200.0)
-    current_tvd = _last("tvd", 10_300.0)
-    current_bhp_psi = _last("apwd", 6_850.0)
-    current_sbp = _last("spp", 140.0)
+    current_md = _last("hole_depth", 15_200.0)
+    current_tvd = _last("depth_tvd", 10_300.0)
+    current_bhp_psi = _last("annular_pressure", 6_850.0)
+    current_sbp = _last("standpipe_pressure", 140.0)
     current_flow_in = _last("flow_in", 720.0)
     # flow_out may be stored as a percentage channel or raw gpm
-    flow_out_raw = _last("flow_out_pct", None if channel_map and "flow_out_pct" in (channel_map or {}) else 98.5)
+    flow_out_raw = _last("flow_out_pct", 98.5)
     # Treat values <= 2.0 as a fraction of flow_in; otherwise use as raw gpm
     if flow_out_raw <= 2.0:
         current_flow_out = flow_out_raw * current_flow_in
@@ -65,7 +74,7 @@ def page_hmu(channel_map_data: dict | None = None):
         current_flow_out = flow_out_raw
     current_wob = _last("wob", 28_000.0)
     current_torque = _last("torque", 14_500.0)
-    current_mud_weight = _last("mud_weight", DEFAULTS["mpd_mud_weight"])
+    current_mud_weight = _last("mud_weight_in", DEFAULTS["mpd_mud_weight"])
 
     # AFP estimation: approximate from SBP and hydrostatic context
     # When real annular friction pressure channel is not available, use a fraction of SBP
@@ -299,7 +308,7 @@ def page_hmu(channel_map_data: dict | None = None):
     # ================================================================
     # CONNECTION SEQUENCE PANEL
     # ================================================================
-    # Connection events require time-indexed operational logs, not available from LAS
+    # Connection events require time-indexed operational logs
     connection_events = [
         html.Div([
             html.Div("Connection event data requires time-indexed operational logs",

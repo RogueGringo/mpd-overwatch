@@ -74,7 +74,7 @@ def data_required_layout(
             for ch in optional
         ]
 
-    notice_text = "Load a .las file to see real well data analysis."
+    notice_text = "Load an EDR file to see real well data analysis."
     if missing:
         notice_text = (
             f"Data loaded but missing required channels: "

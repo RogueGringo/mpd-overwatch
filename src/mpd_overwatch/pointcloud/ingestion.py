@@ -454,7 +454,7 @@ def ingest_channel_map(
     ----------
     channel_map : dict
         ``{canonical_channel_name: np.ndarray}`` -- the deserialized channel
-        map from ``app_state.deserialize_channel_map()``.
+        map from ``data_store.get_channel_map_from_assignments()``.
     well_name : str
         Well identifier.
     registry : ChannelRegistry, optional

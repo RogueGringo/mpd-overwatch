@@ -2,6 +2,8 @@
 
 The consultant/supervisor's strategic overview for managed pressure
 drilling operations monitoring and decision support.
+
+Data access: pulls from server-side WellDatabase via data_store.
 """
 
 import logging
@@ -15,7 +17,6 @@ from mpd_overwatch.config import COLORS, DEFAULTS
 logger = logging.getLogger(__name__)
 from mpd_overwatch.core.engine_wrappers import compute_ecd, compute_bhp_static
 from mpd_overwatch.components.tooltip import render_engineering_value
-from mpd_overwatch.dashboard.app_state import deserialize_channel_map
 
 
 def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"):
@@ -31,45 +32,53 @@ def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"
     return html.Div(children, className="kpi-card")
 
 
-def page_supervisory(channel_map_data: dict | None = None):
+def page_supervisory(assignments_data: dict | None = None):
     """Return the RO/Supervisory Panel layout.
 
     Parameters
     ----------
-    channel_map_data : dict or None
-        Serialized channel map from dcc.Store (channel name -> list of floats).
+    assignments_data : dict or None
+        Canonical name -> WITS ID assignments from dcc.Store.
         If None or empty, shows data-required notice.
     """
+    from mpd_overwatch.dashboard.data_store import get_well_database
     from mpd_overwatch.dashboard.no_data import data_required_layout
 
-    channel_map = None
-    if channel_map_data:
-        try:
-            channel_map = deserialize_channel_map(channel_map_data)
-        except Exception:
-            logger.warning("channel map deserialization failed", exc_info=True)
-            channel_map = None
-
-    if not channel_map:
+    db = get_well_database()
+    if db is None or not assignments_data:
         return data_required_layout(
             "RO / Supervisory Panel",
             "Strategic overview for managed pressure drilling operations monitoring",
-            ["depth_md", "spp", "mud_weight"],
-            optional=["tvd", "apwd", "rop", "torque", "rpm", "wob"],
+            ["hole_depth", "standpipe_pressure", "mud_weight_in"],
+            optional=["depth_tvd", "annular_pressure", "rop", "torque", "rpm", "wob"],
         )
 
-    def _last(key: str, default: float) -> float:
+    db.assignments = dict(assignments_data)
+
+    def _get(canonical: str) -> np.ndarray | None:
+        """Return calibrated values for a canonical channel, or None."""
+        try:
+            cf = db.assigned(canonical)
+            arr = cf.calibrated_value
+            if len(arr) > 0:
+                return arr
+        except KeyError:
+            pass
+        return None
+
+    def _last(canonical: str, default: float) -> float:
         """Return the last value of a channel, or default if not available."""
-        if channel_map and key in channel_map and len(channel_map[key]) > 0:
-            return float(channel_map[key][-1])
+        arr = _get(canonical)
+        if arr is not None and len(arr) > 0:
+            return float(arr[-1])
         return default
 
     # --- Current state values (latest data point or config defaults) ---
-    current_md = _last("depth_md", 19_800.0)
-    current_tvd = _last("tvd", 10_300.0)
-    current_bhp_psi = _last("apwd", 6_850.0)
-    current_sbp = _last("spp", 140.0)
-    current_mud_weight = _last("mud_weight", DEFAULTS["mpd_mud_weight"])
+    current_md = _last("hole_depth", 19_800.0)
+    current_tvd = _last("depth_tvd", 10_300.0)
+    current_bhp_psi = _last("annular_pressure", 6_850.0)
+    current_sbp = _last("standpipe_pressure", 140.0)
+    current_mud_weight = _last("mud_weight_in", DEFAULTS["mpd_mud_weight"])
     current_rop = _last("rop", 42.0)
 
     # --- Derived values via engine wrappers ---
@@ -135,14 +144,14 @@ def page_supervisory(channel_map_data: dict | None = None):
     # ================================================================
     # PRESSURE PROFILE (DEPTH DOMAIN) — from real channel arrays
     # ================================================================
-    md_arr = np.array(channel_map.get("depth_md", []))
-    spp_arr = np.array(channel_map.get("spp", []))
-    apwd_arr = np.array(channel_map.get("apwd", []))
+    md_arr = _get("hole_depth")
+    spp_arr = _get("standpipe_pressure")
+    apwd_arr = _get("annular_pressure")
 
     pressure_fig = go.Figure()
     has_pressure_data = False
 
-    if len(md_arr) > 0 and len(spp_arr) > 0:
+    if md_arr is not None and spp_arr is not None:
         n_p = min(len(md_arr), len(spp_arr))
         pressure_fig.add_trace(go.Scatter(
             x=md_arr[:n_p], y=spp_arr[:n_p],
@@ -152,7 +161,7 @@ def page_supervisory(channel_map_data: dict | None = None):
         ))
         has_pressure_data = True
 
-    if len(md_arr) > 0 and len(apwd_arr) > 0:
+    if md_arr is not None and apwd_arr is not None:
         n_p = min(len(md_arr), len(apwd_arr))
         pressure_fig.add_trace(go.Scatter(
             x=md_arr[:n_p], y=apwd_arr[:n_p],
@@ -163,9 +172,9 @@ def page_supervisory(channel_map_data: dict | None = None):
         has_pressure_data = True
 
     # Computed hydrostatic + SBP target line across depth range
-    if len(md_arr) > 0:
-        tvd_arr = np.array(channel_map.get("tvd", []))
-        if len(tvd_arr) == 0:
+    if md_arr is not None:
+        tvd_arr = _get("depth_tvd")
+        if tvd_arr is None:
             tvd_arr = md_arr.copy()
         n_t = min(len(md_arr), len(tvd_arr))
         bhp_target_line = 0.052 * current_mud_weight * tvd_arr[:n_t] + current_sbp
@@ -201,9 +210,10 @@ def page_supervisory(channel_map_data: dict | None = None):
     # ================================================================
 
     # Build recent-depth arrays from channel map (real data only)
-    if channel_map and "depth_md" in channel_map and "rop" in channel_map:
-        depth_series = np.array(channel_map["depth_md"])
-        rop_series = np.array(channel_map["rop"])
+    depth_series = _get("hole_depth")
+    rop_series = _get("rop")
+
+    if depth_series is not None and rop_series is not None:
         n = min(len(depth_series), len(rop_series))
         depth_series = depth_series[:n]
         rop_series = rop_series[:n]
@@ -246,10 +256,11 @@ def page_supervisory(channel_map_data: dict | None = None):
     )
 
     # MSE trend (Mechanical Specific Energy)
-    if channel_map and all(k in channel_map for k in ("torque", "rpm", "wob")):
-        torque_series = np.array(channel_map["torque"])
-        rpm_series = np.array(channel_map["rpm"])
-        wob_series = np.array(channel_map["wob"])
+    torque_series = _get("torque")
+    rpm_series = _get("rpm")
+    wob_series = _get("wob")
+
+    if torque_series is not None and rpm_series is not None and wob_series is not None:
         n = min(len(md_recent), len(torque_series), len(rpm_series), len(wob_series))
         torque_r = torque_series[-n:]
         rpm_r = rpm_series[-n:]
@@ -300,7 +311,7 @@ def page_supervisory(channel_map_data: dict | None = None):
         yaxis=dict(title="MSE (kpsi)", gridcolor=COLORS["card_border"]),
     )
 
-    # Connection time analysis — requires time-indexed data not in LAS files
+    # Connection time analysis — requires time-indexed data
     conn_times = np.zeros(0)
     connection_count = 0
 

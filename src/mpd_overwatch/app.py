@@ -506,7 +506,7 @@ def create_app() -> dash.Dash:
                     return _gated_page("HMU Cockpit", COLORS)
                 try:
                     from mpd_overwatch.dashboard.hmu_panel import page_hmu
-                    return page_hmu(channel_map_data)
+                    return page_hmu(assignments_data)
                 except Exception as exc:
                     logger.warning("hmu_panel render failed: %s", exc)
                     return _placeholder_page("HMU Cockpit", COLORS)
@@ -518,7 +518,7 @@ def create_app() -> dash.Dash:
                     from mpd_overwatch.dashboard.supervisory_panel import (
                         page_supervisory,
                     )
-                    return page_supervisory(channel_map_data)
+                    return page_supervisory(assignments_data)
                 except Exception as exc:
                     logger.warning("supervisory_panel render failed: %s", exc)
                     return _placeholder_page("Operations Monitor", COLORS)
