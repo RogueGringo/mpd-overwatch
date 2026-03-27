@@ -177,8 +177,9 @@ class TestRoundTrip:
         channels_dict = {}
         expected = {}
         for name in ["ecd_computed", "mse", "fd_index"]:
-            vals = np.array([np.random.default_rng(hash(name)).random() * 100,
-                             np.random.default_rng(hash(name)).random() * 50])
+            seed = abs(hash(name)) % (2**31)
+            vals = np.array([np.random.default_rng(seed).random() * 100,
+                             np.random.default_rng(seed).random() * 50])
             cf = build_computed_channel(name, times, depths, vals)
             channels_dict[name] = cf
             expected[cf.wits_id] = vals
