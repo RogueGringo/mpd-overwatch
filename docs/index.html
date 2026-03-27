@@ -788,7 +788,31 @@ a:hover{color:var(--color-primary-hover);}
     <p class="section-label">The Platform</p>
     <h2 class="launch-title">The Wellbore Is Waiting.</h2>
     <p class="launch-sub">Load a file. The scan pipeline runs. Every dossier populates. Every engine is ready. The data speaks for itself.</p>
-    <a href="http://localhost:8050" class="launch-btn">Enter MPD Overwatch →</a>
+
+    <div style="display:flex;gap:var(--space-4);justify-content:center;flex-wrap:wrap;margin-bottom:var(--space-6);">
+      <a href="http://localhost:8050" class="launch-btn">Enter MPD Overwatch →</a>
+      <button onclick="document.getElementById('install-panel').style.display='block';this.style.display='none';" class="btn-ghost" style="font-size:var(--text-sm);padding:var(--space-3) var(--space-6);cursor:pointer;background:none;">First Time? Install →</button>
+    </div>
+
+    <!-- Install panel — hidden by default -->
+    <div id="install-panel" style="display:none;max-width:640px;margin:0 auto;">
+      <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-6);text-align:left;">
+        <p style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;margin-bottom:var(--space-4);">One Command. Full Platform.</p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4);line-height:1.6;">Open PowerShell on any Windows 10+ machine. Paste the command below. Enter the Platform Access Key provided by your administrator when prompted. Credentials are encrypted and stored locally — entered once, never again.</p>
+        <div style="background:var(--color-surface-deep);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-4);position:relative;margin-bottom:var(--space-4);">
+          <code id="install-cmd" style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-teal);word-break:break-all;display:block;line-height:1.7;">irm https://raw.githubusercontent.com/RogueGringo/mpd-overwatch/main/install.ps1 | iex</code>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('install-cmd').textContent);this.textContent='Copied'" style="position:absolute;top:var(--space-2);right:var(--space-2);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:4px 10px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-muted);cursor:pointer;">Copy</button>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);line-height:1.8;">
+          <div><span style="color:var(--color-text-muted);">Requires:</span> Python 3.10+ &middot; Git &middot; Platform Access Key</div>
+          <div><span style="color:var(--color-text-muted);">Installs to:</span> %LOCALAPPDATA%\MPD-Overwatch</div>
+          <div><span style="color:var(--color-text-muted);">Credentials:</span> Encrypted via Windows DPAPI &middot; Entered once</div>
+          <div><span style="color:var(--color-text-muted);">Creates:</span> Desktop shortcut &middot; Start Menu entry &middot; Isolated venv</div>
+          <div><span style="color:var(--color-text-muted);">Flags:</span> -GPU (CUDA) &middot; -Port 9000 &middot; -Uninstall &middot; -RevokeKey</div>
+        </div>
+      </div>
+    </div>
+
     <div class="launch-meta">
       Python 3.10+ &middot; Dash + Plotly &middot; NumPy &middot; SciPy &middot; localhost:8050
     </div>
