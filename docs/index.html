@@ -4,13 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MPD Overwatch — Managed Pressure Drilling Intelligence</title>
-<meta name="description" content="Drilling computation platform. 28 verified equations. Sheaf Laplacian coherence. Topological anomaly detection. 64 tests pass."/>
+<meta name="description" content="12 physics engines. 664 verified tests. 49 channel dossiers. Every value computed from data."/>
 <meta property="og:title" content="MPD Overwatch"/>
-<meta property="og:description" content="Managed Pressure Drilling computation and intelligence. Physics engines, ATFT analysis, role-based dashboard."/>
+<meta property="og:description" content="Managed Pressure Drilling computation and intelligence. 12 engines. 49 channel dossiers. Zero hardcoded values."/>
 <meta property="og:type" content="website"/>
 
 <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
-<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500,700&f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -23,66 +23,68 @@
   --font-display:'Zodiak',Georgia,serif;
   --font-body:'Satoshi','Helvetica Neue',sans-serif;
   --font-mono:'JetBrains Mono','Fira Code',monospace;
-  --text-xs:clamp(0.75rem,0.7rem + 0.25vw,0.875rem);
-  --text-sm:clamp(0.875rem,0.8rem + 0.35vw,1rem);
+  --text-xs:clamp(0.72rem,0.68rem + 0.2vw,0.82rem);
+  --text-sm:clamp(0.85rem,0.78rem + 0.35vw,1rem);
   --text-base:clamp(1rem,0.95rem + 0.25vw,1.125rem);
-  --text-lg:clamp(1.125rem,1rem + 0.75vw,1.5rem);
-  --text-xl:clamp(1.5rem,1.2rem + 1.25vw,2.25rem);
-  --text-2xl:clamp(2rem,1.2rem + 2.5vw,3.5rem);
-  --text-3xl:clamp(2.5rem,1rem + 4vw,5rem);
+  --text-lg:clamp(1.125rem,1rem + 0.65vw,1.45rem);
+  --text-xl:clamp(1.4rem,1.1rem + 1.2vw,2.1rem);
+  --text-2xl:clamp(1.9rem,1.1rem + 2.5vw,3.2rem);
+  --text-3xl:clamp(2.4rem,0.9rem + 4.2vw,4.8rem);
+  --text-metric:clamp(2.2rem,1.2rem + 3vw,4rem);
   --space-1:0.25rem;--space-2:0.5rem;--space-3:0.75rem;--space-4:1rem;
   --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
   --space-12:3rem;--space-16:4rem;--space-20:5rem;--space-24:6rem;--space-32:8rem;
+  --section-py:clamp(5rem,10vw,9rem);
   --color-bg:#f8f6f1;--color-surface:#faf8f4;--color-surface-2:#fdfcfa;
-  --color-surface-offset:#f1ede5;--color-surface-dynamic:#e9e4d9;
+  --color-surface-offset:#f1ede5;--color-surface-deep:#e4ded2;
   --color-divider:#ddd7cb;--color-border:#d3cfc4;
   --color-text:#201c14;--color-text-muted:#7a7364;--color-text-faint:#bab4a6;
   --color-text-inverse:#faf8f4;
   --color-primary:#a05c00;--color-primary-hover:#7d4500;
-  --color-primary-highlight:#ecdfc6;
-  --color-teal:#00848c;--color-teal-hover:#006970;--color-teal-highlight:#c8e0e2;
-  --color-success:#3d7022;
-  --color-red:#c0392b;--color-red-bg:rgba(192,57,43,0.08);
-  --color-amber-bg:rgba(208,138,40,0.08);
-  --color-green-bg:rgba(61,112,34,0.08);
+  --color-primary-muted:rgba(160,92,0,0.15);
+  --color-teal:#00848c;--color-teal-muted:rgba(0,132,140,0.12);
+  --color-success:#3d7022;--color-success-muted:rgba(61,112,34,0.12);
+  --color-red:#c0392b;--color-red-muted:rgba(192,57,43,0.1);
+  --color-purple:#6B4FA0;--color-purple-muted:rgba(107,79,160,0.12);
   --radius-sm:0.375rem;--radius-md:0.5rem;--radius-lg:0.75rem;
-  --radius-xl:1rem;--radius-full:9999px;
-  --transition-interactive:180ms cubic-bezier(0.16,1,0.3,1);
+  --radius-xl:1rem;--radius-2xl:1.5rem;--radius-full:9999px;
+  --transition-fast:120ms cubic-bezier(0.16,1,0.3,1);
+  --transition-base:220ms cubic-bezier(0.16,1,0.3,1);
+  --transition-slow:500ms cubic-bezier(0.16,1,0.3,1);
   --shadow-sm:0 1px 2px oklch(0.2 0.02 60 / 0.06);
-  --shadow-md:0 4px 12px oklch(0.2 0.02 60 / 0.08);
-  --shadow-lg:0 12px 32px oklch(0.2 0.02 60 / 0.12);
-  --content-narrow:640px;--content-default:960px;--content-wide:1200px;
+  --shadow-md:0 4px 16px oklch(0.2 0.02 60 / 0.08);
+  --shadow-lg:0 12px 40px oklch(0.2 0.02 60 / 0.12);
+  --content-narrow:640px;--content-default:960px;--content-wide:1200px;--content-full:1400px;
 }
 [data-theme="dark"]{
-  --color-bg:#0c0a06;--color-surface:#14120c;--color-surface-2:#1a1710;
-  --color-surface-offset:#171510;--color-surface-dynamic:#201d14;
-  --color-divider:#262210;--color-border:#332e1e;
-  --color-text:#d6d0be;--color-text-muted:#817a66;--color-text-faint:#544f3e;
-  --color-text-inverse:#14120c;
+  --color-bg:#080705;--color-surface:#111009;--color-surface-2:#18160e;
+  --color-surface-offset:#141209;--color-surface-deep:#0c0b07;
+  --color-divider:#1e1c14;--color-border:#2a2618;
+  --color-text:#d6d0be;--color-text-muted:#817a66;--color-text-faint:#4a4536;
+  --color-text-inverse:#111009;
   --color-primary:#d08a28;--color-primary-hover:#eda040;
-  --color-primary-highlight:#3a2d10;
-  --color-teal:#45a8b0;--color-teal-hover:#68c8d0;--color-teal-highlight:#112a2c;
-  --color-success:#6daa45;
-  --color-red:#e74c3c;--color-red-bg:rgba(231,76,60,0.1);
-  --color-amber-bg:rgba(208,138,40,0.1);
-  --color-green-bg:rgba(109,170,69,0.1);
-  --shadow-sm:0 1px 2px oklch(0 0 0 / 0.25);
-  --shadow-md:0 4px 12px oklch(0 0 0 / 0.38);
-  --shadow-lg:0 12px 32px oklch(0 0 0 / 0.52);
+  --color-primary-muted:rgba(208,138,40,0.14);
+  --color-teal:#45a8b0;--color-teal-muted:rgba(69,168,176,0.12);
+  --color-success:#6daa45;--color-success-muted:rgba(109,170,69,0.12);
+  --color-red:#e74c3c;--color-red-muted:rgba(231,76,60,0.12);
+  --color-purple:#9B7FD0;--color-purple-muted:rgba(155,127,208,0.12);
+  --shadow-sm:0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md:0 4px 16px oklch(0 0 0 / 0.4);
+  --shadow-lg:0 12px 40px oklch(0 0 0 / 0.55);
 }
 
 /* ═══════════════════════════════════════════
    RESET & BASE
    ═══════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;scroll-behavior:smooth;scroll-padding-top:var(--space-16);}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;scroll-behavior:smooth;scroll-padding-top:5rem;}
 body{min-height:100dvh;line-height:1.65;font-family:var(--font-body);font-size:var(--text-base);color:var(--color-text);background:var(--color-bg);}
 img,video,canvas,svg{display:block;max-width:100%;height:auto;}
 ul[role="list"],ol[role="list"]{list-style:none;}
 input,button,textarea,select{font:inherit;color:inherit;}
 h1,h2,h3,h4,h5,h6{text-wrap:balance;line-height:1.1;}
 p,li,figcaption{text-wrap:pretty;max-width:72ch;}
-::selection{background:oklch(from var(--color-primary) l c h / 0.22);color:var(--color-text);}
+::selection{background:oklch(from var(--color-primary) l c h / 0.22);}
 :focus-visible{outline:2px solid var(--color-primary);outline-offset:3px;border-radius:var(--radius-sm);}
 button{cursor:pointer;background:none;border:none;}
 a{color:var(--color-primary);text-decoration:none;}
@@ -94,94 +96,156 @@ a:hover{color:var(--color-primary-hover);}
    ═══════════════════════════════════════════ */
 .container{max-width:var(--content-default);margin-inline:auto;padding-inline:var(--space-6);}
 .container--wide{max-width:var(--content-wide);margin-inline:auto;padding-inline:var(--space-6);}
+.container--full{max-width:var(--content-full);margin-inline:auto;padding-inline:var(--space-6);}
 
 /* ═══════════════════════════════════════════
    HEADER
    ═══════════════════════════════════════════ */
-.site-header{position:sticky;top:0;z-index:100;background:oklch(from var(--color-bg) l c h / 0.88);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border-bottom:1px solid var(--color-divider);}
-.nav-inner{display:flex;align-items:center;justify-content:space-between;padding-block:var(--space-4);}
+.site-header{position:sticky;top:0;z-index:100;background:oklch(from var(--color-bg) l c h / 0.9);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid var(--color-divider);}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;padding-block:var(--space-3);max-width:var(--content-full);margin-inline:auto;padding-inline:var(--space-6);}
 .nav-logo{display:flex;align-items:center;gap:var(--space-3);text-decoration:none;color:var(--color-text);}
-.nav-logo-wordmark{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;letter-spacing:-0.02em;}
-.nav-links{display:flex;align-items:center;gap:var(--space-8);list-style:none;}
-.nav-links a{font-size:var(--text-sm);font-weight:500;text-decoration:none;color:var(--color-text-muted);letter-spacing:0.025em;text-transform:uppercase;}
+.nav-logo-mark{width:28px;height:28px;border:2px solid var(--color-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;}
+.nav-logo-mark::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--color-primary);animation:pulse-dot 2.8s ease-in-out infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.6)}}
+.nav-logo-text{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:500;letter-spacing:0.14em;text-transform:uppercase;}
+.nav-links{display:flex;align-items:center;gap:var(--space-6);list-style:none;}
+.nav-links a{font-size:var(--text-xs);font-weight:500;text-decoration:none;color:var(--color-text-faint);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);transition:color var(--transition-fast);}
 .nav-links a:hover{color:var(--color-text);}
 .nav-actions{display:flex;align-items:center;gap:var(--space-3);}
-.theme-toggle{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-full);color:var(--color-text-muted);transition:all var(--transition-interactive);}
+.btn-launch{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-5);border-radius:var(--radius-full);font-size:var(--text-xs);font-family:var(--font-mono);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;color:var(--color-text-inverse);background:var(--color-primary);transition:all var(--transition-fast);}
+.btn-launch:hover{background:var(--color-primary-hover);color:var(--color-text-inverse);}
+.btn-launch .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;}
+.theme-toggle{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-full);color:var(--color-text-faint);transition:all var(--transition-fast);}
 .theme-toggle:hover{background:var(--color-surface-offset);color:var(--color-text);}
-.nav-gh-btn{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-5);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:700;text-decoration:none;color:var(--color-bg);background:var(--color-primary);white-space:nowrap;}
-.nav-gh-btn:hover{background:var(--color-primary-hover);color:var(--color-bg);}
-.hamburger{display:none;width:40px;height:40px;align-items:center;justify-content:center;color:var(--color-text-muted);}
-.mobile-nav{display:none;padding:var(--space-4) 0 var(--space-6);border-top:1px solid var(--color-divider);}
+.hamburger{display:none;width:36px;height:36px;align-items:center;justify-content:center;color:var(--color-text-muted);}
+.mobile-nav{display:none;padding:var(--space-4) var(--space-6) var(--space-6);border-top:1px solid var(--color-divider);background:var(--color-bg);}
 .mobile-nav.open{display:block;}
 .mobile-nav ul{list-style:none;display:flex;flex-direction:column;gap:var(--space-1);}
-.mobile-nav a{display:block;padding:var(--space-3) 0;font-size:var(--text-base);font-weight:500;text-decoration:none;color:var(--color-text-muted);}
+.mobile-nav a{display:block;padding:var(--space-3) 0;font-size:var(--text-base);font-weight:500;text-decoration:none;color:var(--color-text-muted);font-family:var(--font-body);}
 .mobile-nav a:hover{color:var(--color-text);}
-@media(max-width:900px){.nav-links,.nav-gh-btn{display:none;}.hamburger{display:flex;}}
-@media(min-width:901px){.mobile-nav{display:none!important;}}
+@media(max-width:960px){.nav-links{display:none;}.hamburger{display:flex;}}
+@media(min-width:961px){.mobile-nav{display:none!important;}}
 
 /* ═══════════════════════════════════════════
    HERO
    ═══════════════════════════════════════════ */
-.hero{position:relative;overflow:hidden;min-height:88vh;display:flex;align-items:flex-end;padding-bottom:clamp(var(--space-12),8vw,var(--space-24));}
-.hero-bg{position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,oklch(from var(--color-bg) l c h),oklch(from var(--color-surface) l c h / 0.6)),radial-gradient(ellipse at 70% 20%,oklch(from var(--color-primary) l c h / 0.08),transparent 60%),radial-gradient(ellipse at 20% 80%,oklch(from var(--color-teal) l c h / 0.06),transparent 50%);}
-.hero-content{position:relative;z-index:1;max-width:820px;}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.14em;text-transform:uppercase;color:var(--color-primary);margin-bottom:var(--space-6);}
-.eyebrow-dot{width:6px;height:6px;border-radius:50%;background:var(--color-primary);animation:pdot 2.4s ease-in-out infinite;}
-@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.45;transform:scale(0.65)}}
-.hero-title{font-family:var(--font-display);font-size:var(--text-3xl);font-weight:400;letter-spacing:-0.035em;line-height:1.05;margin-bottom:var(--space-6);color:var(--color-text);}
+.hero{position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:flex-end;padding-bottom:clamp(var(--space-16),10vw,var(--space-32));}
+.hero-artwork{position:absolute;inset:0;z-index:0;overflow:hidden;}
+.hero-artwork img{width:100%;height:100%;object-fit:cover;opacity:0.35;}
+.hero-artwork-placeholder{width:100%;height:100%;background:
+  radial-gradient(ellipse at 65% 30%,oklch(from var(--color-primary) l c h / 0.06),transparent 55%),
+  radial-gradient(ellipse at 25% 75%,oklch(from var(--color-teal) l c h / 0.04),transparent 45%),
+  linear-gradient(180deg,var(--color-bg),var(--color-surface-deep));}
+.hero-grain{position:absolute;inset:0;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");background-size:200px;}
+.hero-content{position:relative;z-index:1;max-width:780px;padding-inline:var(--space-6);}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.14em;text-transform:uppercase;color:var(--color-primary);margin-bottom:var(--space-8);}
+.hero-eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--color-primary);animation:pulse-dot 2.8s ease-in-out infinite;}
+.hero-title{font-family:var(--font-display);font-size:var(--text-3xl);font-weight:400;letter-spacing:-0.04em;line-height:1.02;margin-bottom:var(--space-8);}
 .hero-title em{font-style:italic;color:var(--color-primary);}
-.hero-subtitle{font-size:var(--text-lg);color:var(--color-text-muted);max-width:58ch;margin-bottom:var(--space-10);line-height:1.65;}
-.hero-ctas{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center;margin-bottom:var(--space-12);}
-.btn-primary{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-8);background:var(--color-primary);color:var(--color-bg);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:700;text-decoration:none;letter-spacing:0.02em;transition:all var(--transition-interactive);}
-.btn-primary:hover{background:var(--color-primary-hover);color:var(--color-bg);}
-.btn-ghost{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-8);border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:600;text-decoration:none;transition:all var(--transition-interactive);}
+.hero-sub{font-size:var(--text-lg);color:var(--color-text-muted);max-width:54ch;margin-bottom:var(--space-12);line-height:1.7;}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:var(--space-4);margin-bottom:var(--space-16);}
+.btn-primary{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-8);background:var(--color-primary);color:var(--color-text-inverse);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:700;text-decoration:none;letter-spacing:0.02em;transition:all var(--transition-fast);}
+.btn-primary:hover{background:var(--color-primary-hover);color:var(--color-text-inverse);}
+.btn-ghost{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-8);border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:600;text-decoration:none;transition:all var(--transition-fast);}
 .btn-ghost:hover{border-color:var(--color-text-muted);color:var(--color-text);}
-.hero-stats{display:flex;flex-wrap:wrap;gap:var(--space-8);}
-.stat-item{display:flex;flex-direction:column;gap:var(--space-1);}
-.stat-value{font-family:var(--font-mono);font-size:var(--text-xl);font-weight:500;color:var(--color-primary);letter-spacing:-0.02em;}
-.stat-label{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-faint);}
+
+/* ═══════════════════════════════════════════
+   CONVICTION STRIP
+   ═══════════════════════════════════════════ */
+.conviction{border-top:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);background:var(--color-surface);padding-block:var(--space-10);}
+.conviction-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-4);text-align:center;}
+.conviction-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-1);}
+.conviction-value{font-family:var(--font-mono);font-size:var(--text-metric);font-weight:400;color:var(--color-primary);letter-spacing:-0.03em;line-height:1;}
+.conviction-label{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-faint);margin-top:var(--space-2);}
+@media(max-width:768px){.conviction-grid{grid-template-columns:repeat(3,1fr);gap:var(--space-6);}.conviction-item:nth-child(n+4){grid-column:span 1;}}
+@media(max-width:480px){.conviction-grid{grid-template-columns:repeat(2,1fr);}}
 
 /* ═══════════════════════════════════════════
    SECTIONS
    ═══════════════════════════════════════════ */
-.section{padding-block:clamp(var(--space-12),8vw,var(--space-24));}
+.section{padding-block:var(--section-py);}
 .section-label{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.12em;text-transform:uppercase;color:var(--color-primary);display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);}
-.section-label::after{content:'';flex:1;max-width:3rem;height:1px;background:var(--color-primary);opacity:0.4;}
+.section-label::after{content:'';flex:1;max-width:3rem;height:1px;background:var(--color-primary);opacity:0.35;}
 .section-title{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:500;letter-spacing:-0.03em;line-height:1.08;}
-.section-desc{font-size:var(--text-base);color:var(--color-text-muted);margin-top:var(--space-4);max-width:58ch;line-height:1.75;}
+.section-desc{font-size:var(--text-base);color:var(--color-text-muted);margin-top:var(--space-4);max-width:58ch;line-height:1.8;}
 .section-header{margin-bottom:var(--space-12);}
 .divider{height:1px;background:var(--color-divider);}
 
 /* ═══════════════════════════════════════════
-   PROJECT FEATURE
+   ARTWORK CONTAINERS
    ═══════════════════════════════════════════ */
-.project-feature{display:grid;grid-template-columns:1fr 1fr;gap:clamp(var(--space-8),5vw,var(--space-16));align-items:center;margin-bottom:var(--space-16);}
-.project-feature:last-of-type{margin-bottom:0;}
-.project-feature--rev{direction:rtl;}
-.project-feature--rev>*{direction:ltr;}
-.project-visual{border-radius:var(--radius-xl);overflow:hidden;position:relative;aspect-ratio:4/3;box-shadow:var(--shadow-lg);}
-.project-visual-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);letter-spacing:0.08em;text-transform:uppercase;}
-.pv-atft{background:linear-gradient(135deg,#0c1a1c,#1a2d30,#0f1a1e);color:var(--color-teal);}
-.pv-atft .pv-eq{font-size:clamp(0.7rem,0.6rem + 0.4vw,0.9rem);line-height:2.2;padding:var(--space-6);white-space:pre-wrap;word-break:break-all;}
-.pv-pointcloud{background:linear-gradient(135deg,#1a150c,#2d2510,#1e1a0f);color:var(--color-primary);}
-.pv-pointcloud .pv-eq{font-size:clamp(0.7rem,0.6rem + 0.4vw,0.9rem);line-height:2.2;padding:var(--space-6);white-space:pre-wrap;}
-.project-badge{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-3);border-radius:var(--radius-full);font-size:var(--text-xs);font-family:var(--font-mono);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-4);background:var(--color-primary-highlight);color:var(--color-primary);}
-.badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
-.project-title{font-family:var(--font-display);font-size:var(--text-xl);font-weight:500;letter-spacing:-0.025em;margin-bottom:var(--space-4);line-height:1.18;}
-.project-desc{font-size:var(--text-base);color:var(--color-text-muted);line-height:1.8;margin-bottom:var(--space-6);}
-.tags{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4);}
-.tag{padding:var(--space-1) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-muted);letter-spacing:0.04em;cursor:default;transition:all var(--transition-interactive);}
-.tag:hover{border-color:var(--color-primary);color:var(--color-primary);}
-.pill{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-5);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:var(--text-sm);font-weight:600;text-decoration:none;color:var(--color-text-muted);transition:all var(--transition-interactive);}
-.pill:hover{border-color:var(--color-primary);color:var(--color-primary);}
-.pill-primary{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-bg);}
-.pill-primary:hover{background:var(--color-primary-hover);border-color:var(--color-primary-hover);color:var(--color-bg);}
-.proj-links{display:flex;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-6);}
+.artwork{border-radius:var(--radius-xl);overflow:hidden;position:relative;background:var(--color-surface);border:1px solid var(--color-border);}
+.artwork img{width:100%;height:100%;object-fit:cover;display:block;}
+.artwork-placeholder{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);letter-spacing:0.08em;text-transform:uppercase;padding:var(--space-8);}
+.artwork--hero{aspect-ratio:16/9;}
+.artwork--section{aspect-ratio:3/2;}
+.artwork--card{aspect-ratio:4/3;}
+.artwork--wide{aspect-ratio:21/9;}
 
 /* ═══════════════════════════════════════════
-   V&V TABLE + DATA TABLES
+   TWO-COL LAYOUT
    ═══════════════════════════════════════════ */
-.data-table-wrap{overflow-x:auto;margin-bottom:var(--space-4);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:clamp(var(--space-8),5vw,var(--space-16));align-items:center;}
+.two-col--rev{direction:rtl;}
+.two-col--rev>*{direction:ltr;}
+@media(max-width:768px){.two-col,.two-col--rev{grid-template-columns:1fr;direction:ltr;}}
+
+/* ═══════════════════════════════════════════
+   NARRATIVE CARDS
+   ═══════════════════════════════════════════ */
+.narrative-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:var(--space-4);}
+.narrative-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-6) var(--space-8);transition:border-color var(--transition-base);}
+.narrative-card:hover{border-color:var(--color-primary);}
+.narrative-num{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-faint);margin-bottom:var(--space-4);}
+.narrative-title{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;letter-spacing:-0.015em;margin-bottom:var(--space-4);line-height:1.2;}
+.narrative-text{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.8;}
+
+/* ═══════════════════════════════════════════
+   PIPELINE (6-stage)
+   ═══════════════════════════════════════════ */
+.pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--space-3);margin-top:var(--space-10);}
+.pipeline-stage{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-5);text-align:center;position:relative;transition:all var(--transition-base);}
+.pipeline-stage:hover{border-color:var(--color-primary);transform:translateY(-2px);}
+.pipeline-num{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-primary);letter-spacing:0.1em;margin-bottom:var(--space-2);}
+.pipeline-name{font-family:var(--font-display);font-size:var(--text-sm);font-weight:600;letter-spacing:-0.01em;margin-bottom:var(--space-2);}
+.pipeline-detail{font-size:0.75rem;color:var(--color-text-faint);line-height:1.5;}
+.pipeline-arrow{display:none;}
+@media(max-width:960px){.pipeline{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:560px){.pipeline{grid-template-columns:repeat(2,1fr);}}
+
+/* ═══════════════════════════════════════════
+   ENGINE GRID
+   ═══════════════════════════════════════════ */
+.engine-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-3);}
+.engine-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-5);transition:all var(--transition-base);}
+.engine-card:hover{border-color:var(--color-primary);}
+.engine-badge{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-3);border-radius:var(--radius-full);font-size:0.68rem;font-family:var(--font-mono);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-3);}
+.engine-badge--classical{background:var(--color-teal-muted);color:var(--color-teal);}
+.engine-badge--novel{background:var(--color-purple-muted);color:var(--color-purple);}
+.engine-badge--knowledge{background:var(--color-primary-muted);color:var(--color-primary);}
+.engine-badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.engine-name{font-family:var(--font-display);font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-2);}
+.engine-desc{font-size:0.8rem;color:var(--color-text-faint);line-height:1.55;}
+
+/* ═══════════════════════════════════════════
+   LAYER CARDS (Three Layers)
+   ═══════════════════════════════════════════ */
+.layer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);}
+.layer-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);overflow:hidden;transition:border-color var(--transition-base);}
+.layer-card:hover{border-color:var(--color-primary);}
+.layer-artwork{aspect-ratio:16/10;background:var(--color-surface-offset);display:flex;align-items:center;justify-content:center;}
+.layer-artwork img{width:100%;height:100%;object-fit:cover;}
+.layer-artwork-placeholder{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);text-transform:uppercase;letter-spacing:0.08em;}
+.layer-body{padding:var(--space-6);}
+.layer-num{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-primary);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:var(--space-3);}
+.layer-title{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;margin-bottom:var(--space-3);}
+.layer-text{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.75;}
+@media(max-width:768px){.layer-grid{grid-template-columns:1fr;}}
+
+/* ═══════════════════════════════════════════
+   VERIFICATION TABLE
+   ═══════════════════════════════════════════ */
+.data-table-wrap{overflow-x:auto;}
 .data-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:var(--text-xs);}
 .data-table th{text-align:left;padding:var(--space-3) var(--space-4);border-bottom:2px solid var(--color-divider);color:var(--color-text-faint);letter-spacing:0.06em;text-transform:uppercase;font-weight:500;white-space:nowrap;}
 .data-table td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-divider);color:var(--color-text-muted);white-space:nowrap;}
@@ -189,94 +253,61 @@ a:hover{color:var(--color-primary-hover);}
 .data-table .pass{color:var(--color-success);font-weight:600;}
 
 /* ═══════════════════════════════════════════
-   CARD GRID
-   ═══════════════════════════════════════════ */
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:var(--space-4);}
-.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-5) var(--space-6);}
-.card-label{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-faint);margin-bottom:var(--space-2);}
-.card-title{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;letter-spacing:-0.015em;margin-bottom:var(--space-3);}
-.card-text{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.72;}
-
-/* ═══════════════════════════════════════════
-   TWO COL + PROSE
-   ═══════════════════════════════════════════ */
-.two-col{display:grid;grid-template-columns:1.2fr 1fr;gap:clamp(var(--space-8),5vw,var(--space-16));align-items:start;}
-.prose{display:flex;flex-direction:column;gap:var(--space-5);}
-.prose p{font-size:var(--text-base);color:var(--color-text-muted);line-height:1.82;max-width:65ch;}
-.prose p strong{color:var(--color-text);font-weight:600;}
-.prose p em{color:var(--color-teal);font-style:italic;}
-
-/* ═══════════════════════════════════════════
-   FILE TREE
-   ═══════════════════════════════════════════ */
-.file-tree{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-5) var(--space-6);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.9;color:var(--color-text-muted);white-space:pre;overflow-x:auto;}
-.file-tree .dir{color:var(--color-teal);font-weight:500;}
-.file-tree .arrow{color:var(--color-primary);}
-.file-tree .desc{color:var(--color-text-faint);}
-
-/* ═══════════════════════════════════════════
    MATH BLOCK
    ═══════════════════════════════════════════ */
-.math-block{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-10);font-family:var(--font-mono);overflow-x:auto;margin-top:var(--space-12);}
-.math-block-label{font-size:var(--text-xs);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-faint);margin-bottom:var(--space-6);}
-.math-body{font-size:clamp(0.85rem,0.75rem + 0.5vw,1.05rem);color:var(--color-text);line-height:2.4;}
-.kw{color:var(--color-teal);}
-.num{color:var(--color-primary);}
+.math-block{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;margin-top:var(--space-8);}
+.math-block-label{padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--color-divider);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);letter-spacing:0.08em;text-transform:uppercase;}
+.math-body{padding:var(--space-5);font-family:var(--font-mono);font-size:var(--text-xs);line-height:2.2;white-space:pre-wrap;color:var(--color-text-muted);}
+.math-body .kw{color:var(--color-primary);font-weight:500;}
+.math-body .num{color:var(--color-teal);}
 
 /* ═══════════════════════════════════════════
    STATUS GRID
    ═══════════════════════════════════════════ */
-.status-grid{display:flex;flex-direction:column;gap:var(--space-3);}
-.status-card{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4) var(--space-5);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);}
-.status-indicator{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.status-indicator.green{background:var(--color-success);}
-.status-indicator.amber{background:var(--color-primary);}
-.status-card .status-phase{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:500;color:var(--color-text);}
-.status-card .status-detail{font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1);}
+.status-grid{display:grid;gap:var(--space-3);margin-top:var(--space-6);}
+.status-card{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-4) var(--space-5);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);}
+.status-indicator{width:8px;height:8px;border-radius:50%;margin-top:var(--space-2);flex-shrink:0;}
+.status-indicator.green{background:var(--color-success);box-shadow:0 0 8px var(--color-success-muted);}
+.status-phase{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:500;letter-spacing:0.04em;margin-bottom:var(--space-1);}
+.status-detail{font-size:var(--text-xs);color:var(--color-text-faint);line-height:1.5;}
 
 /* ═══════════════════════════════════════════
-   NARRATIVE CARDS
+   TEAM
    ═══════════════════════════════════════════ */
-.narrative-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:var(--space-6);}
-.narrative-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-8);}
-.narrative-num{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-primary);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:var(--space-4);}
-.narrative-title{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;letter-spacing:-0.015em;margin-bottom:var(--space-4);}
-.narrative-text{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.75;}
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);}
+@media(max-width:768px){.team-grid{grid-template-columns:1fr;}}
 
 /* ═══════════════════════════════════════════
-   ABOUT
+   LAUNCH CTA
    ═══════════════════════════════════════════ */
-.about-grid{display:grid;grid-template-columns:280px 1fr;gap:clamp(var(--space-8),5vw,var(--space-16));align-items:start;}
-.about-aside{position:sticky;top:calc(var(--space-16) + 60px);}
-.about-name{font-family:var(--font-display);font-size:var(--text-lg);font-weight:500;margin-top:var(--space-4);}
-.about-role{font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-1);}
-.about-body p{font-size:var(--text-base);color:var(--color-text-muted);line-height:1.82;margin-bottom:var(--space-5);max-width:65ch;}
-.about-body p strong{color:var(--color-text);font-weight:600;}
+.launch-section{text-align:center;padding-block:clamp(var(--space-16),12vw,var(--space-32));position:relative;}
+.launch-section .section-label{justify-content:center;}
+.launch-section .section-label::after{display:none;}
+.launch-title{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:500;letter-spacing:-0.03em;margin-bottom:var(--space-6);}
+.launch-sub{font-size:var(--text-base);color:var(--color-text-muted);max-width:48ch;margin-inline:auto;margin-bottom:var(--space-10);line-height:1.75;}
+.launch-btn{display:inline-flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-12);background:var(--color-primary);color:var(--color-text-inverse);border-radius:var(--radius-full);font-family:var(--font-mono);font-size:var(--text-sm);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;transition:all var(--transition-base);box-shadow:0 4px 24px oklch(from var(--color-primary) l c h / 0.3);}
+.launch-btn:hover{background:var(--color-primary-hover);color:var(--color-text-inverse);transform:translateY(-2px);box-shadow:0 8px 32px oklch(from var(--color-primary) l c h / 0.4);}
+.launch-meta{margin-top:var(--space-8);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-faint);letter-spacing:0.04em;}
 
 /* ═══════════════════════════════════════════
    FOOTER
    ═══════════════════════════════════════════ */
-.site-footer{padding:var(--space-12) 0 var(--space-8);border-top:1px solid var(--color-divider);}
-.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-sm);color:var(--color-text-faint);}
+.site-footer{border-top:1px solid var(--color-divider);padding-block:var(--space-8);}
+.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-xs);color:var(--color-text-faint);}
+.footer-inner a{color:var(--color-text-muted);}
+
+/* ═══════════════════════════════════════════
+   TAGS
+   ═══════════════════════════════════════════ */
+.tags{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4);}
+.tag{padding:var(--space-1) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:var(--text-xs);font-family:var(--font-mono);color:var(--color-text-muted);letter-spacing:0.04em;cursor:default;transition:all var(--transition-fast);}
+.tag:hover{border-color:var(--color-primary);color:var(--color-primary);}
 
 /* ═══════════════════════════════════════════
    SCROLL REVEAL
    ═══════════════════════════════════════════ */
-.reveal{opacity:0;transform:translateY(24px);transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1),transform 0.7s cubic-bezier(0.16,1,0.3,1);}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity 0.7s ease,transform 0.7s ease;}
 .reveal.visible{opacity:1;transform:translateY(0);}
-
-/* ═══════════════════════════════════════════
-   RESPONSIVE
-   ═══════════════════════════════════════════ */
-@media(max-width:768px){
-  .project-feature,.project-feature--rev{grid-template-columns:1fr;direction:ltr;}
-  .project-feature--rev>*{direction:ltr;}
-  .two-col{grid-template-columns:1fr;}
-  .about-grid{grid-template-columns:1fr;}
-  .about-aside{position:static;}
-  .hero{min-height:auto;padding-top:var(--space-16);padding-bottom:var(--space-12);}
-  .hero-stats{gap:var(--space-6);}
-}
 </style>
 </head>
 <body>
@@ -285,70 +316,125 @@ a:hover{color:var(--color-primary-hover);}
      HEADER
      ═══════════════════════════════════════════ -->
 <header class="site-header">
-  <div class="container--wide">
-    <nav class="nav-inner">
-      <a href="#" class="nav-logo">
-        <span class="nav-logo-wordmark">MPD Overwatch</span>
-      </a>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-mark"></div>
+      <span class="nav-logo-text">MPD Overwatch</span>
+    </a>
+    <nav>
       <ul class="nav-links" role="list">
-        <li><a href="#platform">Platform</a></li>
+        <li><a href="#wellbore">The Wellbore</a></li>
+        <li><a href="#intelligence">Intelligence</a></li>
         <li><a href="#engines">Engines</a></li>
-        <li><a href="#verification">V&amp;V</a></li>
-        <li><a href="#thesis">Thesis</a></li>
+        <li><a href="#layers">Layers</a></li>
+        <li><a href="#verification">Verification</a></li>
         <li><a href="#team">Team</a></li>
       </ul>
-      <div class="nav-actions">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
-        <a href="https://github.com/RogueGringo/mpd-overwatch" class="nav-gh-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub
-        </a>
-      </div>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"></button>
+      <a href="http://localhost:8050" class="btn-launch"><span class="dot"></span> Launch Platform</a>
       <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Menu" aria-expanded="false">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
-    </nav>
-    <nav class="mobile-nav" id="mobileNav">
-      <ul role="list">
-        <li><a href="#platform">Platform</a></li>
-        <li><a href="#engines">Engines</a></li>
-        <li><a href="#verification">V&amp;V</a></li>
-        <li><a href="#thesis">Thesis</a></li>
-        <li><a href="#team">Team</a></li>
-      </ul>
-    </nav>
+    </div>
+  </div>
+  <div class="mobile-nav" id="mobileNav">
+    <ul role="list">
+      <li><a href="#wellbore">The Wellbore</a></li>
+      <li><a href="#intelligence">Intelligence</a></li>
+      <li><a href="#engines">Engines</a></li>
+      <li><a href="#layers">Layers</a></li>
+      <li><a href="#verification">Verification</a></li>
+      <li><a href="#team">Team</a></li>
+      <li><a href="http://localhost:8050" style="color:var(--color-primary);">Launch Platform →</a></li>
+    </ul>
   </div>
 </header>
 
 <!-- ═══════════════════════════════════════════
-     HERO
+     HERO — The Thesis
      ═══════════════════════════════════════════ -->
-<section class="hero" id="hero">
-  <div class="hero-bg"></div>
-  <div class="container hero-content">
-    <div class="hero-eyebrow"><span class="eyebrow-dot"></span> Managed Pressure Drilling</div>
-    <h1 class="hero-title">Drilling intelligence<br>through <em>topology</em></h1>
-    <p class="hero-subtitle">MPD Overwatch computes the value of managed pressure drilling through verified physics equations, sheaf Laplacian coherence analysis, and topological anomaly detection. Every number traces to an equation. Every equation traces to a source.</p>
-    <div class="hero-ctas">
-      <a href="https://codespaces.new/RogueGringo/mpd-overwatch" class="btn-primary">Launch Dashboard</a>
-      <a href="https://github.com/RogueGringo/mpd-overwatch" class="btn-ghost">View Source</a>
+<section class="hero">
+  <div class="hero-artwork">
+    <!-- ARTWORK: hero-bg — see asset-scripts.md -->
+    <div class="hero-artwork-placeholder"></div>
+    <div class="hero-grain"></div>
+  </div>
+  <div class="hero-content container--full">
+    <div class="hero-eyebrow reveal"><span class="dot"></span> Managed Pressure Drilling Intelligence</div>
+    <h1 class="hero-title reveal">The Wellbore <em>Speaks.</em></h1>
+    <p class="hero-sub reveal">12 physics engines. 49 channel dossiers. 664 verified tests. A computation platform that reads drilling data the way an experienced hand reads a rig floor &mdash; understanding what every pressure spike, torque response, and flow deviation means operationally.</p>
+    <div class="hero-ctas reveal">
+      <a href="http://localhost:8050" class="btn-primary">Enter the Platform →</a>
+      <a href="https://github.com/RogueGringo/mpd-overwatch" class="btn-ghost">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Source Code
+      </a>
     </div>
-    <div class="hero-stats">
-      <div class="stat-item">
-        <div class="stat-value" data-count="64">0</div>
-        <div class="stat-label">Tests Pass</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     CONVICTION STRIP — Proof Metrics
+     ═══════════════════════════════════════════ -->
+<div class="conviction">
+  <div class="container--full">
+    <div class="conviction-grid">
+      <div class="conviction-item">
+        <div class="conviction-value" data-count="49">0</div>
+        <div class="conviction-label">Channels Profiled</div>
       </div>
-      <div class="stat-item">
-        <div class="stat-value" data-count="138">0</div>
-        <div class="stat-label">Functions</div>
+      <div class="conviction-item">
+        <div class="conviction-value" data-count="10">0</div>
+        <div class="conviction-label">Rig States Detected</div>
       </div>
-      <div class="stat-item">
-        <div class="stat-value" data-count="11">0</div>
-        <div class="stat-label">Dashboard Pages</div>
+      <div class="conviction-item">
+        <div class="conviction-value" data-count="12">0</div>
+        <div class="conviction-label">Physics Engines</div>
       </div>
-      <div class="stat-item">
-        <div class="stat-value" data-count="28" data-suffix="/28 A+">0</div>
-        <div class="stat-label">V&amp;V Equations</div>
+      <div class="conviction-item">
+        <div class="conviction-value" data-count="664">0</div>
+        <div class="conviction-label">Tests Passing</div>
+      </div>
+      <div class="conviction-item">
+        <div class="conviction-value" data-count="0" data-suffix=" hardcoded">0</div>
+        <div class="conviction-label">Numeric Values</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     THE WELLBORE — Foundation
+     ═══════════════════════════════════════════ -->
+<section class="section" id="wellbore" aria-labelledby="wellbore-h">
+  <div class="container--wide">
+    <div class="two-col">
+      <div>
+        <div class="section-header reveal">
+          <p class="section-label">The Wellbore</p>
+          <h2 class="section-title" id="wellbore-h">Built From the<br>Bottomhole Up</h2>
+          <p class="section-desc">The drilling industry treats MPD data as numbers on a screen. This platform treats it as physics with a story &mdash; where every pressure spike has a cause, every correlation has a mechanism, and every artifact has an explanation that experienced operators already know but no software has encoded.</p>
+        </div>
+        <div class="narrative-grid reveal" style="grid-template-columns:1fr;">
+          <div class="narrative-card">
+            <div class="narrative-num">01 &mdash; The Craft</div>
+            <h3 class="narrative-title">30 Years of MPD Operations, Computed</h3>
+            <p class="narrative-text">The rental model: ship equipment, send technician, collect invoice. The craft model: study offsets, design pressure programs, adapt from MWD data in real-time, calibrate against production. This platform encodes Allen Hensley's 30-year methodology into repeatable mathematics. Every equation has a published source. Every value has a derivation.</p>
+          </div>
+          <div class="narrative-card">
+            <div class="narrative-num">02 &mdash; The Standard</div>
+            <h3 class="narrative-title">Real Data. Zero Synthetic Fallbacks.</h3>
+            <p class="narrative-text">The platform ingests SQL EDR dumps, LAS files, and CSV feeds. It parses 189 vendor mnemonic aliases across Sperry, Halliburton, Schlumberger, Pason, and TOTCO. What it displays is what the sensors measured. No synthetic generation. No placeholder data. No demo mode.</p>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <!-- ARTWORK: wellbore-cross-section — see asset-scripts.md -->
+        <div class="artwork artwork--section">
+          <div class="artwork-placeholder">ARTWORK: wellbore-cross-section</div>
+        </div>
       </div>
     </div>
   </div>
@@ -357,120 +443,206 @@ a:hover{color:var(--color-primary-hover);}
 <div class="divider"></div>
 
 <!-- ═══════════════════════════════════════════
-     PLATFORM ENGINES
+     DOMAIN INTELLIGENCE — Knowledge Layer
      ═══════════════════════════════════════════ -->
-<section class="section" id="platform" aria-labelledby="platform-h">
-  <div class="container">
+<section class="section" id="intelligence" aria-labelledby="intel-h">
+  <div class="container--wide">
     <div class="section-header reveal">
-      <p class="section-label">Computation Platform</p>
-      <h2 class="section-title" id="platform-h">Two Analysis Engines.<br>One Data Standard.</h2>
-      <p class="section-desc">The physics engines compute pressures, formation damage, production impact, and geomechanics from verified equations. The ATFT engine detects multi-sensor anomalies through sheaf Laplacian spectral coherence.</p>
+      <p class="section-label">Domain Intelligence</p>
+      <h2 class="section-title" id="intel-h">Every Channel Has a Dossier</h2>
+      <p class="section-desc">For each of 49 drilling channels: what it measures physically, how it behaves in each rig state, what artifacts contaminate it at state transitions, and how it correlates with every other channel. All semantics encoded from domain knowledge. All statistics computed from the data in front of you.</p>
     </div>
 
-    <!-- ATFT Engine Feature -->
-    <div class="project-feature reveal" id="engines">
-      <div class="project-visual">
-        <div class="project-visual-bg pv-atft">
-          <div class="pv-eq">L[i,i] += U<sup>T</sup> @ U
-L[j,j] += I<sub>K</sub>
-L[i,j] += -U<sup>T</sup>
-L[j,i] += -U
-
-coherence = exp(-alpha * mean(eigenvalues))
-
-ASCEND  | gini_slope > +0.01
-REPROBE | gini_slope < -0.01
-HOLD    | |gini_slope| <= 0.01
-SPLIT   | waypoints > 3</div>
+    <div class="two-col reveal">
+      <div>
+        <!-- ARTWORK: dossier-architecture — see asset-scripts.md -->
+        <div class="artwork artwork--section">
+          <div class="artwork-placeholder">ARTWORK: dossier-architecture</div>
         </div>
       </div>
       <div>
-        <div class="project-badge" style="background:var(--color-teal-highlight);color:var(--color-teal);"><span class="badge-dot" style="background:var(--color-teal);"></span> ATFT Engine</div>
-        <h3 class="project-title">Sheaf Laplacian Coherence Analysis</h3>
-        <p class="project-desc">Ports the Adaptive Topological Field Theory (Jones, 2026) to drilling. The sheaf Laplacian measures whether drilling physics holds across the wellbore. When physics breaks down (kick, loss, formation change), eigenvalues lift and localize the breakdown by depth and transport type.</p>
-        <div class="data-table-wrap" style="margin-bottom:var(--space-4);">
-          <table class="data-table">
-            <thead><tr><th>Transport Violated</th><th>Classification</th><th>Meaning</th></tr></thead>
-            <tbody>
-              <tr><td>flow_conservation</td><td class="hl">KICK / LOSS</td><td>flow_out != flow_in</td></tr>
-              <tr><td>hydraulics</td><td class="hl">LOSS</td><td>APWD diverges from hydrostatic</td></tr>
-              <tr><td>rop_mse</td><td class="hl">FORMATION_CHANGE</td><td>MSE/ROP relationship breaks</td></tr>
-              <tr><td>gamma_rop</td><td class="hl">FORMATION_CHANGE</td><td>gamma/ROP correlation breaks</td></tr>
-              <tr><td>smoothness</td><td class="hl">EQUIPMENT</td><td>sudden jump in all channels</td></tr>
-            </tbody>
-          </table>
+        <h3 style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:500;letter-spacing:-0.02em;margin-bottom:var(--space-6);">Two Sources of Knowledge</h3>
+        <div class="narrative-card" style="margin-bottom:var(--space-4);">
+          <div class="narrative-num">Encoded</div>
+          <h3 class="narrative-title">Domain Vocabulary</h3>
+          <p class="narrative-text">What standpipe pressure physically measures. Why ROP spikes after connections are pipe-squat artifacts, not real drilling. Which channels bridge time and depth indices. 49 entries of operational semantics. No numeric values &mdash; only what the channel means.</p>
         </div>
-        <div class="tags">
-          <span class="tag">11 tests</span><span class="tag">Gini routing</span>
-          <span class="tag">Anomaly classification</span><span class="tag">Zone flagging</span>
-          <span class="tag">Well fingerprint</span><span class="tag">Cross-well comparison</span>
+        <div class="narrative-card">
+          <div class="narrative-num">Discovered</div>
+          <h3 class="narrative-title">Computed From Your Data</h3>
+          <p class="narrative-text">Range, distribution, variance, trend per channel per rig state. Pairwise correlations. Artifact settle curves. Every number computed from the file you loaded. Change the data, every statistic recomputes. Nothing is assumed. Nothing is cached from another well.</p>
         </div>
       </div>
     </div>
 
-    <!-- 4D Pointcloud Feature -->
-    <div class="project-feature project-feature--rev reveal">
-      <div class="project-visual">
-        <div class="project-visual-bg pv-pointcloud">
-          <div class="pv-eq">P_i = (t, z, c, v)
-
-t = time       [0, 1]
-z = depth      [0, 1]
-c = channel    (int)
-v = value      [0, 1]
-
-ingest("well.las")     -> PointCloud4D
-ingest(dataframe)      -> PointCloud4D
-ingest(drilling_data)  -> PointCloud4D</div>
-        </div>
-      </div>
-      <div>
-        <div class="project-badge"><span class="badge-dot"></span> Data Standard</div>
-        <h3 class="project-title">4D Pointcloud Universal Ingestion</h3>
-        <p class="project-desc">Every drilling measurement becomes a point in 4-dimensional space. 18 canonical channels. 62 vendor mnemonic aliases (Schlumberger, Pason, H&amp;P, TOTCO, Baker Hughes). One <code>ingest()</code> call accepts LAS files, CSV, DataFrames, or DrillingData objects. Raw values preserved for lossless reconstruction.</p>
-        <div class="tags">
-          <span class="tag">26 tests</span><span class="tag">V&amp;V round-trip exact</span>
-          <span class="tag">Triangle inequality</span><span class="tag">Sheaf PSD verified</span>
-          <span class="tag">LAS 2.0 / 3.0</span><span class="tag">CSV</span>
-        </div>
-        <div class="proj-links">
-          <a href="https://github.com/RogueGringo/mpd-overwatch" class="pill pill-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            pip install
-          </a>
-          <a href="https://codespaces.new/RogueGringo/mpd-overwatch" class="pill">Codespace</a>
-        </div>
-      </div>
+    <!-- Pipeline -->
+    <div class="reveal" style="margin-top:var(--space-16);">
+      <p class="section-label">The Scan Pipeline</p>
+      <h3 style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:500;letter-spacing:-0.02em;margin-bottom:var(--space-2);">Six Stages. Under Ten Seconds.</h3>
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-6);max-width:52ch;">Triggered automatically on file load. Runs once. Populates every channel dossier.</p>
     </div>
 
-    <!-- Package Structure + Compute Table -->
-    <div class="two-col reveal" style="margin-top:var(--space-12);">
-      <div>
-        <p class="section-label" style="margin-bottom:var(--space-4);">Package Structure</p>
-        <div class="file-tree"><span class="dir">src/mpd_overwatch/</span>
-├── <span class="dir">core/</span>          <span class="arrow">&#8594;</span> <span class="desc">hydraulics, formation damage, production, geomechanics, pore pressure</span>
-├── <span class="dir">pointcloud/</span>    <span class="arrow">&#8594;</span> <span class="desc">4D pointcloud, topology, sheaf analysis, ATFT engine</span>
-├── <span class="dir">data/</span>          <span class="arrow">&#8594;</span> <span class="desc">LAS/CSV parsers, data models, demo generator</span>
-├── <span class="dir">dashboard/</span>     <span class="arrow">&#8594;</span> <span class="desc">11 pages: ATFT, controls, topology, HMU, supervisory</span>
-├── <span class="dir">vv/</span>            <span class="arrow">&#8594;</span> <span class="desc">V&amp;V benchmarks, grading, runners</span>
-├── app.py          <span class="arrow">&#8594;</span> <span class="desc">Dash application factory</span>
-└── cli.py          <span class="arrow">&#8594;</span> <span class="desc">mpd-overwatch serve|vv|report|analyze|info</span></div>
+    <div class="pipeline reveal">
+      <div class="pipeline-stage">
+        <div class="pipeline-num">01</div>
+        <div class="pipeline-name">Census</div>
+        <div class="pipeline-detail">Inventory channels. Match to vocabulary.</div>
       </div>
-      <div>
-        <p class="section-label" style="margin-bottom:var(--space-4);">Dashboard Pages</p>
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Page</th><th>Path</th><th>Role</th></tr></thead>
-            <tbody>
-              <tr><td>Command Center</td><td>/</td><td>All</td></tr>
-              <tr><td>ATFT Analysis</td><td class="hl">/atft</td><td>Supervisor+</td></tr>
-              <tr><td>Calibration</td><td class="hl">/controls</td><td>Consultant</td></tr>
-              <tr><td>HMU Operator</td><td>/hmu</td><td>HMU</td></tr>
-              <tr><td>Supervisory</td><td>/supervisory</td><td>Supervisor+</td></tr>
-              <tr><td>Topology</td><td>/topology</td><td>Supervisor+</td></tr>
-              <tr><td>Geomechanics</td><td>/geomechanics</td><td>Supervisor+</td></tr>
-            </tbody>
-          </table>
+      <div class="pipeline-stage">
+        <div class="pipeline-num">02</div>
+        <div class="pipeline-name">State Detection</div>
+        <div class="pipeline-detail">Observe rig state from bimodal distributions.</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-num">03</div>
+        <div class="pipeline-name">Profiling</div>
+        <div class="pipeline-detail">Compute statistics per channel per state.</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-num">04</div>
+        <div class="pipeline-name">Relationships</div>
+        <div class="pipeline-detail">Pairwise correlation. Type classification.</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-num">05</div>
+        <div class="pipeline-name">Artifacts</div>
+        <div class="pipeline-detail">Transition response curves. Settle measurement.</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-num">06</div>
+        <div class="pipeline-name">Assembly</div>
+        <div class="pipeline-detail">Build the complete wellbore portrait.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════
+     THE ENGINES — Capabilities
+     ═══════════════════════════════════════════ -->
+<section class="section" id="engines" aria-labelledby="engines-h">
+  <div class="container--wide">
+    <div class="section-header reveal">
+      <p class="section-label">The Engines</p>
+      <h2 class="section-title" id="engines-h">Twelve Engines.<br>One Data Standard.</h2>
+      <p class="section-desc">Classical physics engines compute pressures, damage, and geomechanics from published equations. Novel engines detect multi-sensor anomalies through algebraic topology. Domain knowledge engines read what the data already knows.</p>
+    </div>
+
+    <div class="engine-grid reveal">
+      <!-- Classical -->
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
+        <div class="engine-name">Hydraulics</div>
+        <div class="engine-desc">ECD, BHP, hydrostatic, annular pressure loss. IADC Manual 2011.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
+        <div class="engine-name">Geomechanics</div>
+        <div class="engine-desc">Teale MSE, UCS, Mohr-Coulomb failure, brittleness index.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
+        <div class="engine-name">Pore Pressure</div>
+        <div class="engine-desc">D-exponent, Eaton method, normal compaction trend.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
+        <div class="engine-name">Formation Damage</div>
+        <div class="engine-desc">Hawkins skin, radial invasion, Darcy PI, permeability ratio.</div>
+      </div>
+      <!-- Novel -->
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
+        <div class="engine-name">ATFT Analysis</div>
+        <div class="engine-desc">Sheaf Laplacian coherence. Gini routing. Anomaly classification by transport type.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
+        <div class="engine-name">Persistent Homology</div>
+        <div class="engine-desc">Vietoris-Rips filtration. Persistence barcodes. Betti curve analysis.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
+        <div class="engine-name">Topology</div>
+        <div class="engine-desc">Channel agreement scoring. Spectral gap measurement. Coherence logging.</div>
+      </div>
+      <!-- Domain Knowledge -->
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Knowledge</div>
+        <div class="engine-name">Rig State Machine</div>
+        <div class="engine-desc">10 states from bimodal thresholds. Hysteresis. Debounce. Fallback chain.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Knowledge</div>
+        <div class="engine-name">Relationship Discovery</div>
+        <div class="engine-desc">Pairwise Pearson per state. Lag detection. Threshold pattern classification.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Knowledge</div>
+        <div class="engine-name">Artifact Profiling</div>
+        <div class="engine-desc">Transition response curves. Settle shape classification. Minimum 5 transitions.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Knowledge</div>
+        <div class="engine-name">Channel Scanner</div>
+        <div class="engine-desc">6-stage pipeline. Channel census. State detection. Per-state profiling.</div>
+      </div>
+      <div class="engine-card">
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Knowledge</div>
+        <div class="engine-name">Alert Engine</div>
+        <div class="engine-desc">Transition anomaly. Relationship break. State inconsistency detection.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════
+     THREE LAYERS — Consumption
+     ═══════════════════════════════════════════ -->
+<section class="section" id="layers" aria-labelledby="layers-h">
+  <div class="container--wide">
+    <div class="section-header reveal">
+      <p class="section-label">Three Layers</p>
+      <h2 class="section-title" id="layers-h">See. Alert. Investigate.</h2>
+      <p class="section-desc">Domain knowledge surfaces through three consumption layers on all 10 analysis pages. Same data, different depths of engagement. A rig hand sees state bands. A drilling engineer investigates channel relationships across a 1,000-foot interval.</p>
+    </div>
+
+    <div class="layer-grid reveal">
+      <div class="layer-card">
+        <div class="layer-artwork">
+          <!-- ARTWORK: layer-1-passive — see asset-scripts.md -->
+          <div class="layer-artwork-placeholder">ARTWORK: layer-1-passive</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-num">Layer 1 &mdash; Passive</div>
+          <h3 class="layer-title">Annotations</h3>
+          <p class="layer-text">State bands colored by rig activity. Validity shading dims non-informative data. Artifact markers at state transitions. Health indicators compare current values against computed profiles. Present on every plot. No interaction required.</p>
+        </div>
+      </div>
+      <div class="layer-card">
+        <div class="layer-artwork">
+          <!-- ARTWORK: layer-2-active — see asset-scripts.md -->
+          <div class="layer-artwork-placeholder">ARTWORK: layer-2-active</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-num">Layer 2 &mdash; Active</div>
+          <h3 class="layer-title">Alerting</h3>
+          <p class="layer-text">Transition anomaly: settle time exceeds 2x the computed average. Relationship break: a correlation that held in DRILLING inverts or drops. State inconsistency: channel values contradict the detected rig state for more than 30 seconds.</p>
+        </div>
+      </div>
+      <div class="layer-card">
+        <div class="layer-artwork">
+          <!-- ARTWORK: layer-3-interactive — see asset-scripts.md -->
+          <div class="layer-artwork-placeholder">ARTWORK: layer-3-interactive</div>
+        </div>
+        <div class="layer-body">
+          <div class="layer-num">Layer 3 &mdash; Interactive</div>
+          <h3 class="layer-title">Investigation</h3>
+          <p class="layer-text">Point query: what is happening at this depth? Channel query: tell me everything about this channel. Interval query: summarize this 500-foot section. Structured responses with optional LLM narrative synthesis via local model.</p>
         </div>
       </div>
     </div>
@@ -480,14 +652,14 @@ ingest(drilling_data)  -> PointCloud4D</div>
 <div class="divider"></div>
 
 <!-- ═══════════════════════════════════════════
-     V&V VERIFICATION
+     VERIFICATION — Proof
      ═══════════════════════════════════════════ -->
 <section class="section" id="verification" aria-labelledby="vv-h">
   <div class="container">
     <div class="section-header reveal">
       <p class="section-label">Verification &amp; Validation</p>
-      <h2 class="section-title" id="vv-h">28 equations. 28 match.<br>0.000% error on analytics.</h2>
-      <p class="section-desc">Every calculation is tested against hand-computed expected values from published sources. The V&amp;V pipeline grades each equation: A+ (&lt;0.1% error), A (&lt;1%), B (&lt;5%), C (&lt;10%), F (&gt;10%).</p>
+      <h2 class="section-title" id="vv-h">Every Equation Has a Source.<br>Every Test Has a Proof.</h2>
+      <p class="section-desc">28 physics equations tested against hand-computed expected values from published literature. V&amp;V pipeline grades each: A+ (&lt;0.1% error), A (&lt;1%), B (&lt;5%). 664 tests total. Zero assumptions.</p>
     </div>
 
     <div class="data-table-wrap reveal">
@@ -496,29 +668,25 @@ ingest(drilling_data)  -> PointCloud4D</div>
           <tr><th>Engine</th><th>Equations</th><th>Tests</th><th>Grade</th><th>Source</th></tr>
         </thead>
         <tbody>
-          <tr><td>Hydraulics</td><td>P=0.052*MW*TVD; ECD; BHP; AFP; kill weight; annular velocity</td><td class="pass">7/7</td><td class="pass">A+</td><td>IADC Manual 2011</td></tr>
-          <tr><td>Formation Damage</td><td>Hawkins skin; radial invasion; Darcy PI; permeability ratio</td><td class="pass">6/6</td><td class="pass">A+</td><td>Bennion 1998, SPE</td></tr>
-          <tr><td>Production</td><td>Arps decline (exp+hyp); EUR; NPV; cluster efficiency</td><td class="pass">5/5</td><td class="pass">A+</td><td>Arps 1945</td></tr>
-          <tr><td>Geomechanics</td><td>Teale MSE; UCS; Mohr-Coulomb; brittleness</td><td class="pass">5/5</td><td class="pass">A+</td><td>Teale 1965</td></tr>
-          <tr><td>Pore Pressure</td><td>d-exponent; Eaton method; normal trend</td><td class="pass">5/5</td><td class="pass">A+</td><td>Eaton 1975</td></tr>
-          <tr><td class="hl">4D Pointcloud</td><td>VR complex; persistent homology; distance metrics; sheaf Laplacian</td><td class="pass">26</td><td class="pass">Structural</td><td>TDA literature</td></tr>
-          <tr><td class="hl">ATFT Engine</td><td>Gini routing; anomaly classification; zone flagging; fingerprint</td><td class="pass">11</td><td class="pass">Structural</td><td>Jones 2026</td></tr>
+          <tr><td>Hydraulics</td><td>P=0.052·MW·TVD, ECD, BHP, AFP, kill weight, annular velocity</td><td class="pass">7/7</td><td class="pass">A+</td><td>IADC Manual 2011</td></tr>
+          <tr><td>Formation Damage</td><td>Hawkins skin, radial invasion, Darcy PI, permeability ratio</td><td class="pass">6/6</td><td class="pass">A+</td><td>Bennion 1998</td></tr>
+          <tr><td>Geomechanics</td><td>Teale MSE, UCS, Mohr-Coulomb, brittleness index</td><td class="pass">5/5</td><td class="pass">A+</td><td>Teale 1965</td></tr>
+          <tr><td>Pore Pressure</td><td>d-exponent, Eaton method, normal compaction trend</td><td class="pass">5/5</td><td class="pass">A+</td><td>Eaton 1975</td></tr>
+          <tr><td class="hl">ATFT Engine</td><td>Sheaf Laplacian, Gini routing, anomaly classification, zone flagging</td><td class="pass">11</td><td class="pass">Structural</td><td>Jones 2026</td></tr>
+          <tr><td class="hl">4D Pointcloud</td><td>VR complex, persistent homology, distance metrics, sheaf PSD</td><td class="pass">26</td><td class="pass">Structural</td><td>TDA literature</td></tr>
+          <tr><td class="hl">Domain Knowledge</td><td>State machine, vocabulary, scan pipeline, relationships, artifacts</td><td class="pass">151</td><td class="pass">Computed</td><td>Data-derived</td></tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Math Block -->
     <div class="math-block reveal">
-      <div class="math-block-label">Core Equations (Semantic Prime)</div>
-      <div class="math-body">
-<span class="kw">P_hydrostatic</span> = <span class="num">0.052</span> * MW(ppg) * TVD(ft)  <span style="color:var(--color-text-faint)"># psi</span>
-<span class="kw">ECD</span> = MW + AFP / (<span class="num">0.052</span> * TVD)              <span style="color:var(--color-text-faint)"># ppg</span>
-<span class="kw">BHP_dynamic</span> = P_h + AFP + SBP                  <span style="color:var(--color-text-faint)"># psi</span>
-<span class="kw">Skin</span> = (k/k_d - <span class="num">1</span>) * ln(r_d/r_w)             <span style="color:var(--color-text-faint)"># dimensionless</span>
-<span class="kw">MSE</span> = <span class="num">480</span>*T*N/(D^2*R) + <span class="num">4</span>*W/(pi*D^2)        <span style="color:var(--color-text-faint)"># psi</span>
-<span class="kw">EUR</span> = sum(q_i * e^(-D*t)) dt                   <span style="color:var(--color-text-faint)"># BOE</span>
-<span class="kw">coherence</span> = exp(-alpha * mean(eigenvalues[<span class="num">1</span>:])) <span style="color:var(--color-text-faint)"># [0,1]</span>
-      </div>
+      <div class="math-block-label">Core Equations</div>
+      <div class="math-body"><span class="kw">P_hydrostatic</span> = <span class="num">0.052</span> × MW(ppg) × TVD(ft)         <span style="color:var(--color-text-faint)"># psi</span>
+<span class="kw">ECD</span>           = MW + AFP / (<span class="num">0.052</span> × TVD)             <span style="color:var(--color-text-faint)"># ppg</span>
+<span class="kw">BHP_dynamic</span>   = P_hydrostatic + AFP + SBP               <span style="color:var(--color-text-faint)"># psi</span>
+<span class="kw">Skin</span>          = (k/k_d − <span class="num">1</span>) × ln(r_d/r_w)              <span style="color:var(--color-text-faint)"># dimensionless</span>
+<span class="kw">MSE</span>           = <span class="num">480</span>×T×N/(D²×R) + <span class="num">4</span>×W/(π×D²)        <span style="color:var(--color-text-faint)"># psi</span>
+<span class="kw">coherence</span>     = exp(−α × mean(eigenvalues[<span class="num">1</span>:]))       <span style="color:var(--color-text-faint)"># [0,1]</span></div>
     </div>
   </div>
 </section>
@@ -526,65 +694,55 @@ ingest(drilling_data)  -> PointCloud4D</div>
 <div class="divider"></div>
 
 <!-- ═══════════════════════════════════════════
-     THESIS — CRAFT / MARKET / FUTURE
+     TRAJECTORY — Platform Development
      ═══════════════════════════════════════════ -->
-<section class="section" id="thesis" aria-labelledby="thesis-h">
+<section class="section" id="trajectory" aria-labelledby="traj-h">
   <div class="container">
     <div class="section-header reveal">
-      <p class="section-label">Thesis</p>
-      <h2 class="section-title" id="thesis-h">MPD is a craft technical<br>operation, not equipment rental</h2>
-      <p class="section-desc">The industry treats managed pressure drilling as commodity rental: ship equipment, send a technician, collect an invoice. This platform proves MPD is engineering. The results of the technology matter more than the price of the service.</p>
+      <p class="section-label">Deployment Trajectory</p>
+      <h2 class="section-title" id="traj-h">Completed. Tested. Operational.</h2>
     </div>
-
-    <div class="narrative-grid reveal">
-      <div class="narrative-card">
-        <div class="narrative-num">01 &mdash; The Craft</div>
-        <h3 class="narrative-title">30 Years of Judgment, Computed</h3>
-        <p class="narrative-text">The rental model: ship equipment, send technician, collect invoice. The craft model: study offsets, design pressure program, adapt in real-time from MWD data, inform completions, calibrate against post-production. This platform encodes Allen Hensley's 30-year MPD methodology into repeatable mathematics. Every equation has a source. Every recommendation has a derivation.</p>
-      </div>
-      <div class="narrative-card">
-        <div class="narrative-num">02 &mdash; The Market</div>
-        <h3 class="narrative-title">4,000 Wells/Year. $39B Value.</h3>
-        <p class="narrative-text">4,000 wells/year in the Permian Basin. Most drill with 13+ ppg mud into 11.5 ppg pore pressure: 800+ psi overbalance. Arithmetic: 140,000 BOE uplift per well at $70/bbl = $9.8M additional revenue. Service cost: $150,000. Ratio: 65:1. Total addressable: $600M/year service revenue against $39.2B/year production value created. MPD service cost = 0.4% of value created.</p>
-      </div>
-      <div class="narrative-card">
-        <div class="narrative-num">03 &mdash; The Future</div>
-        <h3 class="narrative-title">Compounding Data Advantage</h3>
-        <p class="narrative-text">Well 1: published literature, wide uncertainty. Well 5: basin-calibrated transport maps, tighter predictions. Well 20: statistical confidence from field-specific data. Well 100: proprietary behavior models that no competitor can replicate. The system learns from every deployment. The competition stays static. 30 years of Hensley knowledge scales beyond one phone call.</p>
-      </div>
-    </div>
-
-    <!-- Status Dashboard -->
-    <div class="reveal" style="margin-top:var(--space-12);">
-      <p class="section-label">Platform Status</p>
-      <div class="status-grid">
-        <div class="status-card">
-          <div class="status-indicator green"></div>
-          <div>
-            <div class="status-phase">Sub-project 1 &mdash; 4D Pointcloud Data Standard</div>
-            <div class="status-detail">Complete. Unified ingest(). 26 tests. V&amp;V round-trip exact.</div>
-          </div>
+    <div class="status-grid reveal">
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">4D Pointcloud Data Standard</div>
+          <div class="status-detail">Unified ingest(). 26 structural tests. V&V round-trip exact. LAS 2.0/3.0, CSV, SQL EDR.</div>
         </div>
-        <div class="status-card">
-          <div class="status-indicator green"></div>
-          <div>
-            <div class="status-phase">Sub-project 2 &mdash; ATFT Analysis Engine</div>
-            <div class="status-detail">Complete. Sheaf coherence. Gini routing. Anomaly classification. 11 tests.</div>
-          </div>
+      </div>
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">ATFT Analysis Engine</div>
+          <div class="status-detail">Sheaf Laplacian coherence. Gini routing. Anomaly classification. 11 tests.</div>
         </div>
-        <div class="status-card">
-          <div class="status-indicator green"></div>
-          <div>
-            <div class="status-phase">Sub-project 3 &mdash; UX Redesign</div>
-            <div class="status-detail">Complete. ATFT dashboard. Semantic prime. Role-based navigation.</div>
-          </div>
+      </div>
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">5 Classical Physics Engines</div>
+          <div class="status-detail">Hydraulics, geomechanics, pore pressure, formation damage. 28/28 equations A+ grade.</div>
         </div>
-        <div class="status-card">
-          <div class="status-indicator green"></div>
-          <div>
-            <div class="status-phase">Sub-project 4 &mdash; GUI Calibration Controls</div>
-            <div class="status-detail">Complete. Parameter sliders. Transport weights. Hardware detection.</div>
-          </div>
+      </div>
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">Domain Knowledge Layer</div>
+          <div class="status-detail">49 channel dossiers. Rig state machine. Relationship discovery. Artifact profiling. 151 tests.</div>
+        </div>
+      </div>
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">10 Analysis Pages with Layer 1 Annotations</div>
+          <div class="status-detail">State bands, validity shading, artifact markers integrated on all depth-indexed pages.</div>
+        </div>
+      </div>
+      <div class="status-card">
+        <div class="status-indicator green"></div>
+        <div>
+          <div class="status-phase">Platform Dashboard</div>
+          <div class="status-detail">18 routes. Role-based navigation. File manager. Channel selector. 189 vendor mnemonics.</div>
         </div>
       </div>
     </div>
@@ -594,31 +752,48 @@ ingest(drilling_data)  -> PointCloud4D</div>
 <div class="divider"></div>
 
 <!-- ═══════════════════════════════════════════
-     TEAM
+     TEAM — Personnel
      ═══════════════════════════════════════════ -->
 <section class="section" id="team" aria-labelledby="team-h">
   <div class="container">
     <div class="section-header reveal">
       <p class="section-label">Team</p>
-      <h2 class="section-title" id="team-h">Built by operators.<br>For operators.</h2>
+      <h2 class="section-title" id="team-h">Assembled for This.</h2>
     </div>
 
-    <div class="narrative-grid reveal">
+    <div class="team-grid reveal">
       <div class="narrative-card">
         <div class="narrative-num">Operations</div>
         <h3 class="narrative-title">Allen Hensley</h3>
-        <p class="narrative-text">Marine Corps veteran. Noble Offshore's #1 worldwide MPD consultant. 30 years of managed pressure drilling operations across every major basin. Founding the MPD operating company that breaks MPD out of commodity rental into craft technical operations.</p>
+        <p class="narrative-text">Marine Corps veteran. Noble Offshore's #1 worldwide MPD consultant. 30 years of managed pressure drilling across every major basin. The methodology encoded in this platform is his. Every pressure calculation, every operational threshold, every correction strategy traces to hands that have run the equipment.</p>
       </div>
       <div class="narrative-card">
         <div class="narrative-num">Platform</div>
         <h3 class="narrative-title">Blake Jones</h3>
-        <p class="narrative-text">MWD operator at Valor Energy Partners. WMI 122 (93rd percentile). Builds AI-assisted drilling optimization tools combining sovereign-lib topological ML framework with MPD/MWD domain expertise. 1,160+ tests across prior projects. Delaware Basin operations.</p>
+        <p class="narrative-text">MWD operator. Valor Energy Partners. Builds the computation platform: topological ML framework, 12 physics engines, domain knowledge layer, dashboard. 1,160+ tests across prior projects. Delaware Basin operations. Army veteran. The technology QRF.</p>
       </div>
       <div class="narrative-card">
         <div class="narrative-num">Strategy</div>
         <h3 class="narrative-title">Gregory Hood</h3>
-        <p class="narrative-text">Valor Energy Partners executive. Co-author of MPD production enhancement research for Delaware Basin operations. Connects operational capability to market positioning and client engagement.</p>
+        <p class="narrative-text">Valor Energy Partners. Co-author of MPD production enhancement research for Delaware Basin operations. Connects operational capability to market positioning and client engagement. 28 years in drilling operations.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════
+     LAUNCH — Platform Entry
+     ═══════════════════════════════════════════ -->
+<section class="launch-section" id="launch">
+  <div class="container reveal">
+    <p class="section-label">The Platform</p>
+    <h2 class="launch-title">The Wellbore Is Waiting.</h2>
+    <p class="launch-sub">Load a file. The scan pipeline runs. Every dossier populates. Every engine is ready. The data speaks for itself.</p>
+    <a href="http://localhost:8050" class="launch-btn">Enter MPD Overwatch →</a>
+    <div class="launch-meta">
+      Python 3.10+ &middot; Dash + Plotly &middot; NumPy &middot; SciPy &middot; localhost:8050
     </div>
   </div>
 </section>
@@ -627,16 +802,16 @@ ingest(drilling_data)  -> PointCloud4D</div>
      FOOTER
      ═══════════════════════════════════════════ -->
 <footer class="site-footer">
-  <div class="container">
+  <div class="container--wide">
     <div class="footer-inner">
       <div>MPD Overwatch &mdash; Managed Pressure Drilling Intelligence</div>
-      <div style="font-family:var(--font-mono);font-size:var(--text-xs);">64 tests &middot; 138 functions &middot; 61 classes &middot; 28/28 V&amp;V A+</div>
+      <div style="font-family:var(--font-mono);font-size:var(--text-xs);">664 tests &middot; 12 engines &middot; 49 dossiers &middot; 28/28 V&V A+</div>
     </div>
   </div>
 </footer>
 
 <!-- ═══════════════════════════════════════════
-     APP.JS — inline
+     SCRIPTS
      ═══════════════════════════════════════════ -->
 <script>
 (function(){
@@ -648,8 +823,8 @@ ingest(drilling_data)  -> PointCloud4D</div>
   var theme=root.getAttribute('data-theme')||'dark';
   root.setAttribute('data-theme',theme);
 
-  var sunSVG='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
-  var moonSVG='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var sunSVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+  var moonSVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
   function updateIcon(){if(!toggle)return;toggle.innerHTML=theme==='dark'?sunSVG:moonSVG;toggle.setAttribute('aria-label','Switch to '+(theme==='dark'?'light':'dark')+' mode');}
   updateIcon();
@@ -667,7 +842,7 @@ ingest(drilling_data)  -> PointCloud4D</div>
   function animateCounter(el){
     var target=parseInt(el.getAttribute('data-count'),10);
     var suffix=el.getAttribute('data-suffix')||'';
-    var dur=1800,start=performance.now();
+    var dur=2000,start=performance.now();
     function ease(t){return t===1?1:1-Math.pow(2,-10*t);}
     function step(now){
       var p=Math.min((now-start)/dur,1);
@@ -676,26 +851,26 @@ ingest(drilling_data)  -> PointCloud4D</div>
     }
     requestAnimationFrame(step);
   }
-  var statValues=document.querySelectorAll('.stat-value[data-count]');
+  var convictionValues=document.querySelectorAll('.conviction-value[data-count]');
   var countersRun=false;
-  if(statValues.length>0&&'IntersectionObserver' in window){
-    var cObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting&&!countersRun){countersRun=true;statValues.forEach(animateCounter);cObs.disconnect();}});},{threshold:0.3});
-    statValues.forEach(function(el){cObs.observe(el);});
+  if(convictionValues.length>0&&'IntersectionObserver' in window){
+    var cObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting&&!countersRun){countersRun=true;convictionValues.forEach(animateCounter);cObs.disconnect();}});},{threshold:0.3});
+    convictionValues.forEach(function(el){cObs.observe(el);});
   }
 
   /* Scroll Reveals */
   var reveals=document.querySelectorAll('.reveal');
   if(reveals.length>0&&'IntersectionObserver' in window){
-    var rObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');rObs.unobserve(e.target);}});},{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
+    var rObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');rObs.unobserve(e.target);}});},{threshold:0.06,rootMargin:'0px 0px -30px 0px'});
     reveals.forEach(function(el){rObs.observe(el);});
   }else{reveals.forEach(function(el){el.classList.add('visible');});}
 
-  /* Active Nav */
+  /* Active Nav Highlighting */
   var navLinks=document.querySelectorAll('.nav-links a');
   var sections=[];
   navLinks.forEach(function(l){var h=l.getAttribute('href');if(h&&h.startsWith('#')){var s=document.getElementById(h.slice(1));if(s)sections.push({link:l,section:s});}});
   if(sections.length>0&&'IntersectionObserver' in window){
-    var nObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){navLinks.forEach(function(l){l.style.color='';});sections.forEach(function(s){if(s.section.id===e.target.id)s.link.style.color='var(--color-text)';});}});},{threshold:0.15,rootMargin:'-80px 0px -50% 0px'});
+    var nObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){navLinks.forEach(function(l){l.style.color='';});sections.forEach(function(s){if(s.section.id===e.target.id)s.link.style.color='var(--color-text)';});}});},{threshold:0.12,rootMargin:'-80px 0px -50% 0px'});
     sections.forEach(function(s){nObs.observe(s.section);});
   }
 })();
