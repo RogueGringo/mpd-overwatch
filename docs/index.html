@@ -153,12 +153,13 @@ a:hover{color:var(--color-primary-hover);}
    CONVICTION STRIP
    ═══════════════════════════════════════════ */
 .conviction{border-top:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);background:var(--color-surface);padding-block:var(--space-10);}
-.conviction-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-4);text-align:center;}
-.conviction-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-1);}
-.conviction-value{font-family:var(--font-mono);font-size:var(--text-metric);font-weight:400;color:var(--color-primary);letter-spacing:-0.03em;line-height:1;}
-.conviction-label{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-faint);margin-top:var(--space-2);}
-@media(max-width:768px){.conviction-grid{grid-template-columns:repeat(3,1fr);gap:var(--space-6);}.conviction-item:nth-child(n+4){grid-column:span 1;}}
-@media(max-width:480px){.conviction-grid{grid-template-columns:repeat(2,1fr);}}
+.conviction-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6);text-align:left;}
+.conviction-item{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-4);border-left:2px solid var(--color-primary);transition:border-color var(--transition-base);}
+.conviction-item:hover{border-left-color:var(--color-teal);}
+.conviction-label{font-family:var(--font-display);font-size:var(--text-sm);letter-spacing:0.04em;color:var(--color-text);font-weight:500;line-height:1.2;}
+.conviction-desc{font-family:var(--font-body);font-size:var(--text-xs);color:var(--color-text-muted);line-height:1.55;}
+@media(max-width:768px){.conviction-grid{grid-template-columns:repeat(2,1fr);gap:var(--space-4);}}
+@media(max-width:480px){.conviction-grid{grid-template-columns:1fr;}}
 
 /* ═══════════════════════════════════════════
    SECTIONS
@@ -357,14 +358,14 @@ a:hover{color:var(--color-primary-hover);}
      ═══════════════════════════════════════════ -->
 <section class="hero">
   <div class="hero-artwork">
-    <!-- ARTWORK: hero-bg — see asset-scripts.md -->
-    <div class="hero-artwork-placeholder"></div>
+    <!-- ARTWORK: hero-bg — approved Charger MPD asset -->
+    <img src="mpd_arthouse_hero_background.png" alt="MPD operations — managed pressure drilling equipment">
     <div class="hero-grain"></div>
   </div>
   <div class="hero-content container--full">
     <div class="hero-eyebrow reveal"><span class="dot"></span> Managed Pressure Drilling Intelligence</div>
     <h1 class="hero-title reveal">The Wellbore <em>Speaks.</em></h1>
-    <p class="hero-sub reveal">12 physics engines. 49 channel dossiers. 664 verified tests. A computation platform that reads drilling data the way an experienced hand reads a rig floor &mdash; understanding what every pressure spike, torque response, and flow deviation means operationally.</p>
+    <p class="hero-sub reveal">The pressure window is narrow. The data is contaminated by connection artifacts, pipe-squat transients, and flow regime changes. Correlations that held at 8,000 feet break at 12,000. This platform separates physics from noise &mdash; distinguishing a genuine ECD excursion from a post-connection pressure recovery, tracking when channel relationships deviate from what the formation and fluid column predict.</p>
     <div class="hero-ctas reveal">
       <a href="http://localhost:8050" class="btn-primary">Enter the Platform →</a>
       <a href="https://github.com/RogueGringo/mpd-overwatch" class="btn-ghost">
@@ -376,30 +377,26 @@ a:hover{color:var(--color-primary-hover);}
 </section>
 
 <!-- ═══════════════════════════════════════════
-     CONVICTION STRIP — Proof Metrics
+     CONVICTION STRIP — Operational Dimensions
      ═══════════════════════════════════════════ -->
 <div class="conviction">
   <div class="container--full">
     <div class="conviction-grid">
       <div class="conviction-item">
-        <div class="conviction-value" data-count="49">0</div>
-        <div class="conviction-label">Channels Profiled</div>
+        <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Artifact Discrimination</div>
+        <div class="conviction-desc">Connection transients identified and isolated from operational signal. Settle time measured per channel per transition type.</div>
       </div>
       <div class="conviction-item">
-        <div class="conviction-value" data-count="10">0</div>
-        <div class="conviction-label">Rig States Detected</div>
+        <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Deviation Detection</div>
+        <div class="conviction-desc">Channel behavior compared against computed profiles per rig state. Alerts fire when correlations break or values contradict the detected state.</div>
       </div>
       <div class="conviction-item">
-        <div class="conviction-value" data-count="12">0</div>
-        <div class="conviction-label">Physics Engines</div>
+        <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Relationship Tracking</div>
+        <div class="conviction-desc">Pairwise channel correlations computed within each operational state. When WOB-torque decouples from its drilling profile, the system reports what changed.</div>
       </div>
       <div class="conviction-item">
-        <div class="conviction-value" data-count="664">0</div>
-        <div class="conviction-label">Tests Passing</div>
-      </div>
-      <div class="conviction-item">
-        <div class="conviction-value" data-count="0" data-suffix=" hardcoded">0</div>
-        <div class="conviction-label">Numeric Values</div>
+        <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">State-Aware Computation</div>
+        <div class="conviction-desc">Every statistic is conditioned on rig state. A channel's range during DRILLING is a different number than during CONNECTION. The system knows which one applies.</div>
       </div>
     </div>
   </div>
@@ -431,9 +428,9 @@ a:hover{color:var(--color-primary-hover);}
         </div>
       </div>
       <div class="reveal">
-        <!-- ARTWORK: wellbore-cross-section — see asset-scripts.md -->
+        <!-- ARTWORK: wellbore — approved Charger MPD asset -->
         <div class="artwork artwork--section">
-          <div class="artwork-placeholder">ARTWORK: wellbore-cross-section</div>
+          <img src="mpd_rotating_control_device_detailed.png" alt="Rotating control device — the surface seal that enables managed pressure drilling">
         </div>
       </div>
     </div>
@@ -455,9 +452,9 @@ a:hover{color:var(--color-primary-hover);}
 
     <div class="two-col reveal">
       <div>
-        <!-- ARTWORK: dossier-architecture — see asset-scripts.md -->
+        <!-- ARTWORK: dossier-architecture — approved Charger MPD asset -->
         <div class="artwork artwork--section">
-          <div class="artwork-placeholder">ARTWORK: dossier-architecture</div>
+          <img src="mpd_pressure_control_diagram.png" alt="Pressure control system — the physical infrastructure each channel dossier models">
         </div>
       </div>
       <div>
@@ -614,8 +611,8 @@ a:hover{color:var(--color-primary-hover);}
     <div class="layer-grid reveal">
       <div class="layer-card">
         <div class="layer-artwork">
-          <!-- ARTWORK: layer-1-passive — see asset-scripts.md -->
-          <div class="layer-artwork-placeholder">ARTWORK: layer-1-passive</div>
+          <!-- ARTWORK: layer-1-passive — approved Charger MPD asset -->
+          <img src="arthouse_mpd_choke_manifold.png" alt="Choke manifold — the hardware Layer 1 annotations contextualize">
         </div>
         <div class="layer-body">
           <div class="layer-num">Layer 1 &mdash; Passive</div>
@@ -625,8 +622,8 @@ a:hover{color:var(--color-primary-hover);}
       </div>
       <div class="layer-card">
         <div class="layer-artwork">
-          <!-- ARTWORK: layer-2-active — see asset-scripts.md -->
-          <div class="layer-artwork-placeholder">ARTWORK: layer-2-active</div>
+          <!-- ARTWORK: layer-2-active — approved Charger MPD asset -->
+          <img src="arthouse_pressure_gauge.png" alt="Pressure gauge — the measurement Layer 2 alerting monitors for deviation">
         </div>
         <div class="layer-body">
           <div class="layer-num">Layer 2 &mdash; Active</div>
@@ -636,8 +633,8 @@ a:hover{color:var(--color-primary-hover);}
       </div>
       <div class="layer-card">
         <div class="layer-artwork">
-          <!-- ARTWORK: layer-3-interactive — see asset-scripts.md -->
-          <div class="layer-artwork-placeholder">ARTWORK: layer-3-interactive</div>
+          <!-- ARTWORK: layer-3-interactive — approved Charger MPD asset -->
+          <img src="mpd_control_cabin_interior.png" alt="Control cabin — where Layer 3 investigation queries originate">
         </div>
         <div class="layer-body">
           <div class="layer-num">Layer 3 &mdash; Interactive</div>
@@ -805,7 +802,7 @@ a:hover{color:var(--color-primary-hover);}
   <div class="container--wide">
     <div class="footer-inner">
       <div>MPD Overwatch &mdash; Managed Pressure Drilling Intelligence</div>
-      <div style="font-family:var(--font-mono);font-size:var(--text-xs);">664 tests &middot; 12 engines &middot; 49 dossiers &middot; 28/28 V&V A+</div>
+      <div style="font-family:var(--font-mono);font-size:var(--text-xs);">Charger Energy Services &middot; MPD Division &middot; Midland, Texas</div>
     </div>
   </div>
 </footer>
@@ -836,26 +833,6 @@ a:hover{color:var(--color-primary-hover);}
   if(hamburger&&mobileNav){
     hamburger.addEventListener('click',function(){mobileNav.classList.toggle('open');hamburger.setAttribute('aria-expanded',mobileNav.classList.contains('open'));});
     mobileNav.querySelectorAll('a').forEach(function(l){l.addEventListener('click',function(){mobileNav.classList.remove('open');hamburger.setAttribute('aria-expanded','false');});});
-  }
-
-  /* Animated Counters */
-  function animateCounter(el){
-    var target=parseInt(el.getAttribute('data-count'),10);
-    var suffix=el.getAttribute('data-suffix')||'';
-    var dur=2000,start=performance.now();
-    function ease(t){return t===1?1:1-Math.pow(2,-10*t);}
-    function step(now){
-      var p=Math.min((now-start)/dur,1);
-      el.textContent=Math.round(ease(p)*target).toLocaleString()+suffix;
-      if(p<1)requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-  var convictionValues=document.querySelectorAll('.conviction-value[data-count]');
-  var countersRun=false;
-  if(convictionValues.length>0&&'IntersectionObserver' in window){
-    var cObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting&&!countersRun){countersRun=true;convictionValues.forEach(animateCounter);cObs.disconnect();}});},{threshold:0.3});
-    convictionValues.forEach(function(el){cObs.observe(el);});
   }
 
   /* Scroll Reveals */

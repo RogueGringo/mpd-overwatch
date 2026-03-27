@@ -2,6 +2,23 @@
 
 Generation guide for nanobannana. Each asset described by what it depicts, where it sits in the site, and what it must communicate. No adjectives outside the operational domain. No claims — only depiction of what exists.
 
+## Current State — Allen-Approved Assets Wired In
+
+The prior Charger MPD artwork (`charger_mpd_Webpage_v2/`) is Allen-approved content that establishes the visual identity and material path forward. These assets are now live in the site:
+
+| Slot | Current Asset | Source |
+|------|--------------|--------|
+| `hero-bg` | `mpd_arthouse_hero_background.png` | Charger hero |
+| Wellbore section | `mpd_rotating_control_device_detailed.png` | Charger images |
+| Dossier section | `mpd_pressure_control_diagram.png` | Charger images |
+| Layer 1 card | `arthouse_mpd_choke_manifold.png` | Charger hero |
+| Layer 2 card | `arthouse_pressure_gauge.png` | Charger hero |
+| Layer 3 card | `mpd_control_cabin_interior.png` | Charger images |
+
+**Future generation:** The scripts below describe purpose-built assets that would replace these with imagery specific to the platform's computational capabilities — annotated data traces, dossier architecture diagrams, investigation interfaces. These are the next-generation targets. The current assets serve as the approved baseline, carrying Allen's message and Charger's visual identity into the platform front door.
+
+**Schema forward:** Any new artwork must be cohesive with the existing body — same industrial register, same desaturated palette, same depiction of real equipment. The evolution is from "the hardware" to "what the hardware's data looks like when a system understands it."
+
 ---
 
 ## Overarching Visual Language
