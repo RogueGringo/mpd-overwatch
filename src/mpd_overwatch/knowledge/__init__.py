@@ -8,6 +8,7 @@ from mpd_overwatch.knowledge.dossier import (
     ArtifactSignature,
     ChannelRelationship,
 )
+from mpd_overwatch.knowledge.well_dossier_set import WellDossierSet
 
 __all__ = [
     "PhysicsDomain",
@@ -16,4 +17,5 @@ __all__ = [
     "StateProfile",
     "ArtifactSignature",
     "ChannelRelationship",
+    "WellDossierSet",
 ]

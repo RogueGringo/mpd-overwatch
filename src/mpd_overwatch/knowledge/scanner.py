@@ -7,8 +7,7 @@ Tasks 6-7 and called from run_scan() when available.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy import stats as scipy_stats
@@ -28,18 +27,7 @@ from mpd_overwatch.knowledge.rig_state import (
     find_bimodal_threshold,
 )
 from mpd_overwatch.knowledge.vocabulary import get_vocabulary_entry, has_vocabulary
-
-
-# ── Placeholder for WellDossierSet (Task 8) ──────────────────────────
-
-
-@dataclass
-class WellDossierSet:
-    """Minimal placeholder — full implementation in Task 8."""
-
-    dossiers: Dict[str, ChannelDossier] = field(default_factory=dict)
-    states: Optional[Any] = None
-    transitions: List[StateTransition] = field(default_factory=list)
+from mpd_overwatch.knowledge.well_dossier_set import WellDossierSet
 
 
 # ── Stage 1: Channel Census ──────────────────────────────────────────

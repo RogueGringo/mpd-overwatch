@@ -39,6 +39,7 @@ _MAX_RECENT = 20
 
 _well_database: Optional[WellDatabase] = None
 _file_path: Optional[str] = None
+_well_dossier_set = None  # Optional[WellDossierSet] — set after scan
 
 
 # ---- public API -----------------------------------------------------------
@@ -53,7 +54,7 @@ def load_file(filepath: str) -> Dict[str, Any]:
     Returns a header dict summarizing the loaded data.
     Raises ValueError if the file cannot be parsed.
     """
-    global _well_database, _file_path
+    global _well_database, _file_path, _well_dossier_set
 
     filepath = str(Path(filepath).resolve())
     logger.info("Loading file: %s", filepath)
@@ -72,6 +73,15 @@ def load_file(filepath: str) -> Dict[str, Any]:
     # Cache the result
     _well_database = db
     _file_path = filepath
+
+    # Run domain knowledge scan
+    try:
+        from mpd_overwatch.knowledge.scanner import run_scan
+        _well_dossier_set = run_scan(db)
+        logger.info("Domain knowledge scan: %d dossiers", len(_well_dossier_set.dossiers))
+    except Exception:
+        logger.exception("Domain knowledge scan failed — continuing without dossiers")
+        _well_dossier_set = None
 
     # Build header dict
     time_range = db.time_range()
@@ -123,9 +133,15 @@ def get_file_path() -> Optional[str]:
 
 def clear():
     """Clear all cached data."""
-    global _well_database, _file_path
+    global _well_database, _file_path, _well_dossier_set
     _well_database = None
     _file_path = None
+    _well_dossier_set = None
+
+
+def get_well_dossier_set():
+    """Return the domain knowledge dossier set, or None if not scanned."""
+    return _well_dossier_set
 
 
 # ---- backward-compat bridge -----------------------------------------------
