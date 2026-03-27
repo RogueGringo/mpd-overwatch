@@ -173,17 +173,17 @@ class TestPorePressureConsistency:
         )
 
     def test_d_exponent_sign(self):
-        """d-exponent and dc-exponent must have same sign."""
+        """d-exponent and dc-exponent must both be negative for ROP/(60*RPM) < 1."""
         d_exp = compute_d_exponent(
             rop=100.0, rpm=120.0, wob_lbs=25000.0, bit_diameter=8.75,
         )
-        # dc = d * (MW_normal / MW_actual) — same sign since MW ratio is positive
+        # dc = d * (MW_normal / MW_actual)
         mw_normal = 8.65
         mw_actual = 12.0
         dc_value = d_exp.value * (mw_normal / mw_actual)
-        assert np.sign(d_exp.value) == np.sign(dc_value), (
-            f"d-exponent ({d_exp.value}) and dc-exponent ({dc_value}) must have same sign"
-        )
+        # Both must be negative: ROP/(60*RPM) = 100/7200 < 1 → log < 0
+        assert d_exp.value < 0, f"d-exponent should be negative, got {d_exp.value}"
+        assert dc_value < 0, f"dc-exponent should be negative, got {dc_value}"
 
 
 class TestFormationDamageConsistency:
