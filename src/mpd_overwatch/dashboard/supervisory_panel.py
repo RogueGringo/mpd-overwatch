@@ -205,6 +205,16 @@ def page_supervisory(assignments_data: dict | None = None):
                     range=[0, 500]),
     )
 
+    # --- Domain knowledge annotations (Layer 1) ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.annotations import add_state_bands
+        _dossier_set = get_well_dossier_set()
+        if _dossier_set is not None and _dossier_set.states is not None and md_arr is not None:
+            add_state_bands(pressure_fig, _dossier_set.states, md_arr)
+    except Exception:
+        pass  # Annotations are enrichment, never blocking
+
     # ================================================================
     # DRILLING PERFORMANCE PANEL
     # ================================================================

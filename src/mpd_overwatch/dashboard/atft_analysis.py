@@ -330,6 +330,17 @@ def page_atft_analysis(assignments_data: dict | None = None):
             height=500,
             margin=dict(l=60, r=20, t=40, b=40),
         )
+
+        # --- Domain knowledge annotations (Layer 1) ---
+        try:
+            from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+            from mpd_overwatch.dashboard.annotations import add_state_bands
+            _dossier_set = get_well_dossier_set()
+            if _dossier_set is not None and _dossier_set.states is not None and len(log_depths) > 0:
+                add_state_bands(fig_coh, _dossier_set.states, log_depths)
+        except Exception:
+            pass  # Annotations are enrichment, never blocking
+
         children.append(dcc.Graph(figure=fig_coh))
 
     # ------------------------------------------------------------------ #
