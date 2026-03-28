@@ -335,6 +335,16 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 [data-theme="light"] .conviction-item{background:rgba(250,248,244,0.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
 [data-theme="dark"] .layer-card{background:rgba(17,16,9,0.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
 [data-theme="light"] .layer-card{background:rgba(250,248,244,0.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+/* Hero parallax */
+.hero-artwork img{will-change:transform;}
+/* HUD readouts */
+.hud-readout{position:absolute;z-index:2;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-teal);letter-spacing:0.12em;padding:var(--space-2) var(--space-3);border:1px solid rgba(69,168,176,0.3);border-radius:var(--radius-sm);animation:hud-flicker 3s ease-in-out infinite;text-transform:uppercase;}
+.hud-readout--tl{top:var(--space-6);left:var(--space-6);}
+.hud-readout--tr{top:var(--space-6);right:var(--space-6);}
+.hud-readout--bl{bottom:calc(var(--space-32) + var(--space-6));left:var(--space-6);}
+.hud-readout--br{bottom:calc(var(--space-32) + var(--space-6));right:var(--space-6);}
+@keyframes hud-flicker{0%,100%{opacity:0.9}50%{opacity:0.5}}
+@media(max-width:768px){.hud-readout{display:none;}}
 </style>
 </head>
 <body>
@@ -388,6 +398,11 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
     <img src="mpd_arthouse_hero_background.png" alt="MPD operations — managed pressure drilling equipment">
     <div class="hero-grain"></div>
   </div>
+  <!-- HUD Readouts — decorative instrumentation language -->
+  <div class="hud-readout hud-readout--tl" aria-hidden="true">DEPTH ---- ft</div>
+  <div class="hud-readout hud-readout--tr" aria-hidden="true">BHP ---- psi</div>
+  <div class="hud-readout hud-readout--bl" aria-hidden="true">STATE: DRILLING</div>
+  <div class="hud-readout hud-readout--br" aria-hidden="true">ECD -- ppg</div>
   <div class="hero-content container--full">
     <div class="hero-eyebrow reveal"><span class="dot"></span> Managed Pressure Drilling Intelligence</div>
     <h1 class="hero-title reveal">The Wellbore <em>Speaks.</em></h1>
@@ -899,6 +914,16 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
   if(sections.length>0&&'IntersectionObserver' in window){
     var nObs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){navLinks.forEach(function(l){l.style.color='';});sections.forEach(function(s){if(s.section.id===e.target.id)s.link.style.color='var(--color-text)';});}});},{threshold:0.12,rootMargin:'-80px 0px -50% 0px'});
     sections.forEach(function(s){nObs.observe(s.section);});
+  }
+  /* Hero Parallax */
+  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var heroImg=document.querySelector('.hero-artwork img');
+    if(heroImg){
+      var ticking=false;
+      window.addEventListener('scroll',function(){
+        if(!ticking){window.requestAnimationFrame(function(){heroImg.style.transform='translateY('+window.scrollY*0.4+'px)';ticking=false;});ticking=true;}
+      });
+    }
   }
 })();
 </script>
