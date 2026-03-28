@@ -106,7 +106,7 @@ a:hover{color:var(--color-primary-hover);}
 .nav-logo{display:flex;align-items:center;gap:var(--space-3);text-decoration:none;color:var(--color-text);}
 .nav-logo-mark{width:28px;height:28px;border:2px solid var(--color-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;}
 .nav-logo-mark::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--color-primary);animation:pulse-dot 2.8s ease-in-out infinite;}
-@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.6)}}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 12px var(--color-primary),0 0 4px var(--color-primary);}50%{opacity:0.4;transform:scale(0.6);box-shadow:0 0 4px var(--color-primary),0 0 1px var(--color-primary);}}
 .nav-logo-text{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:500;letter-spacing:0.14em;text-transform:uppercase;}
 .nav-links{display:flex;align-items:center;gap:var(--space-6);list-style:none;}
 .nav-links a{font-size:var(--text-xs);font-weight:500;text-decoration:none;color:var(--color-text-faint);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);transition:color var(--transition-fast);}
@@ -310,6 +310,11 @@ a:hover{color:var(--color-primary-hover);}
    ═══════════════════════════════════════════ */
 .reveal{opacity:0;transform:translateY(20px);transition:opacity 0.7s ease,transform 0.7s ease;}
 .reveal.visible{opacity:1;transform:translateY(0);}
+/* ═══════════════════════════════════════════
+   MISSION CONTROL — Atmosphere
+   ═══════════════════════════════════════════ */
+body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");background-size:200px;animation:grain-shift 2s steps(10) infinite;}
+@keyframes grain-shift{0%{background-position:0 0}10%{background-position:-20px -15px}20%{background-position:15px -30px}30%{background-position:-30px 10px}40%{background-position:25px 25px}50%{background-position:-10px -20px}60%{background-position:30px -5px}70%{background-position:-25px 30px}80%{background-position:10px -25px}90%{background-position:-15px 15px}100%{background-position:0 0}}
 </style>
 </head>
 <body>
