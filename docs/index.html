@@ -348,6 +348,15 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 /* Conviction hover reveals */
 .conviction-reveal{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.3s ease;font-family:var(--font-body);font-size:var(--text-xs);color:var(--color-text-faint);line-height:1.6;margin-top:0;}
 .conviction-item:hover .conviction-reveal,.conviction-item:focus-within .conviction-reveal{max-height:120px;opacity:1;margin-top:var(--space-2);}
+
+/* Engine card shimmer */
+.engine-card{position:relative;overflow:hidden;}
+.engine-card::before{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,0.04) 50%,transparent 75%);background-size:250% 100%;animation:shimmer-sweep 3s ease-in-out infinite;pointer-events:none;}
+@keyframes shimmer-sweep{0%{background-position:100% 0}100%{background-position:-50% 0}}
+
+/* Engine equation reveal */
+.engine-equation{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.25s ease;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-teal);margin-top:0;white-space:nowrap;}
+.engine-card:hover .engine-equation,.engine-card:focus-within .engine-equation{max-height:60px;opacity:1;margin-top:var(--space-2);}
 </style>
 </head>
 <body>
@@ -577,67 +586,79 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 
     <div class="engine-grid reveal">
       <!-- Classical -->
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
         <div class="engine-name">Hydraulics</div>
         <div class="engine-desc">ECD, BHP, hydrostatic, annular pressure loss. IADC Manual 2011.</div>
+        <div class="engine-equation">P = 0.052 &times; MW &times; TVD</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
         <div class="engine-name">Geomechanics</div>
         <div class="engine-desc">Teale MSE, UCS, Mohr-Coulomb failure, brittleness index.</div>
+        <div class="engine-equation">MSE = 480TN/D&sup2;R + 4W/&pi;D&sup2;</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
         <div class="engine-name">Pore Pressure</div>
         <div class="engine-desc">D-exponent, Eaton method, normal compaction trend.</div>
+        <div class="engine-equation">d_exp = log(R) / log(12N)</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--classical"><span class="dot"></span> Classical</div>
         <div class="engine-name">Formation Damage</div>
         <div class="engine-desc">Hawkins skin, radial invasion, Darcy PI, permeability ratio.</div>
+        <div class="engine-equation">S = (k/k_d &minus; 1) ln(r_d/r_w)</div>
       </div>
       <!-- Novel -->
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
         <div class="engine-name">ATFT Analysis</div>
         <div class="engine-desc">Sheaf Laplacian coherence. Gini routing. Anomaly classification by transport type.</div>
+        <div class="engine-equation">L_F = &delta;&sup1; B&sup1; W B &delta;</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
         <div class="engine-name">Persistent Homology</div>
         <div class="engine-desc">Vietoris-Rips filtration. Persistence barcodes. Betti curve analysis.</div>
+        <div class="engine-equation">H_n(K) = ker(d_n) / im(d_{n+1})</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
         <div class="engine-name">Topology</div>
         <div class="engine-desc">Channel agreement scoring. Spectral gap measurement. Coherence logging.</div>
+        <div class="engine-equation">coh = exp(&minus;&alpha; &times; mean(&lambda;[1:]))</div>
       </div>
       <!-- Domain Knowledge -->
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
         <div class="engine-name">Rig State Machine</div>
         <div class="engine-desc">10 states from bimodal thresholds. Hysteresis. Debounce. Fallback chain.</div>
+        <div class="engine-equation">state = argmax P(s | channels, hysteresis)</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
         <div class="engine-name">Relationship Discovery</div>
         <div class="engine-desc">Pairwise Pearson per state. Lag detection. Threshold pattern classification.</div>
+        <div class="engine-equation">&rho; = cov(X,Y) / (&sigma;_X &sigma;_Y)</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
         <div class="engine-name">Artifact Profiling</div>
         <div class="engine-desc">Transition response curves. Settle shape classification. Minimum 5 transitions.</div>
+        <div class="engine-equation">y(t) = A exp(&minus;t/&tau;) + baseline</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
         <div class="engine-name">Channel Scanner</div>
         <div class="engine-desc">6-stage pipeline. Channel census. State detection. Per-state profiling.</div>
+        <div class="engine-equation">dossier = census + detect + profile</div>
       </div>
-      <div class="engine-card">
+      <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
         <div class="engine-name">Alert Engine</div>
         <div class="engine-desc">Transition anomaly. Relationship break. State inconsistency detection.</div>
+        <div class="engine-equation">alert IF |x &minus; &mu;_state| &gt; k&sigma;_state</div>
       </div>
     </div>
   </div>
