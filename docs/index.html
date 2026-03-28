@@ -370,6 +370,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .vv-detail-row{display:none;}
 .vv-detail-row.open{display:table-row;}
 .vv-detail-row td{padding:var(--space-4) var(--space-5);background:var(--color-surface);color:var(--color-teal);font-size:var(--text-xs);line-height:1.8;white-space:normal;border-bottom:1px solid var(--color-divider);}
+/* Layer card hover examples */
+.layer-example{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.3s ease;background:var(--color-surface-deep);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-teal);line-height:1.7;white-space:pre-line;margin-top:0;}
+.layer-card:hover .layer-example,.layer-card:focus-within .layer-example{max-height:150px;opacity:1;padding:var(--space-3);margin-top:var(--space-3);}
 </style>
 </head>
 <body>
@@ -691,7 +694,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
     </div>
 
     <div class="layer-grid reveal">
-      <div class="layer-card">
+      <div class="layer-card" tabindex="0">
         <div class="layer-artwork">
           <!-- ARTWORK: layer-1-passive — approved Charger MPD asset -->
           <img src="arthouse_mpd_choke_manifold.png" alt="Choke manifold — the hardware Layer 1 annotations contextualize">
@@ -700,9 +703,11 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
           <div class="layer-num">Layer 1 &mdash; Passive</div>
           <h3 class="layer-title">Annotations</h3>
           <p class="layer-text">State bands colored by rig activity. Validity shading dims non-informative data. Artifact markers at state transitions. Health indicators compare current values against computed profiles. Passive by design &mdash; no interaction required.</p>
+          <div class="layer-example">SPP state band: DRILLING=teal, CONNECTION=amber
+Validity: pumps_off &rarr; dim SPP, ROP, torque</div>
         </div>
       </div>
-      <div class="layer-card">
+      <div class="layer-card" tabindex="0">
         <div class="layer-artwork">
           <!-- ARTWORK: layer-2-active — approved Charger MPD asset -->
           <img src="arthouse_pressure_gauge.png" alt="Pressure gauge — the measurement Layer 2 alerting monitors for deviation">
@@ -711,9 +716,11 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
           <div class="layer-num">Layer 2 &mdash; Active</div>
           <h3 class="layer-title">Alerting</h3>
           <p class="layer-text">Transition anomaly: settle time exceeds 2x the computed average. Relationship break: a correlation that held in DRILLING inverts or drops. State inconsistency: channel values contradict the detected rig state for more than 30 seconds.</p>
+          <div class="layer-example">ALERT: WOB-TORQ correlation 0.91&rarr;0.12 at 9,400 ft
+Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         </div>
       </div>
-      <div class="layer-card">
+      <div class="layer-card" tabindex="0">
         <div class="layer-artwork">
           <!-- ARTWORK: layer-3-interactive — approved Charger MPD asset -->
           <img src="mpd_control_cabin_interior.png" alt="Control cabin — where Layer 3 investigation queries originate">
@@ -722,6 +729,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
           <div class="layer-num">Layer 3 &mdash; Interactive</div>
           <h3 class="layer-title">Investigation</h3>
           <p class="layer-text">Point query: what is happening at this depth? Channel query: tell me everything about this channel. Interval query: summarize this 500-foot section. Structured responses with optional LLM narrative synthesis via local model.</p>
+          <div class="layer-example">QUERY: &ldquo;What happened at 8,247 ft?&rdquo;
+&rarr; TORQ out_of_range for DRILLING state
+&rarr; All other channels normal</div>
         </div>
       </div>
     </div>
