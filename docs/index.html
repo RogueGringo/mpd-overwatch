@@ -347,7 +347,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 @media(max-width:768px){.hud-readout{display:none;}}
 /* Conviction hover reveals */
 .conviction-reveal{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.3s ease;font-family:var(--font-body);font-size:var(--text-xs);color:var(--color-text-faint);line-height:1.6;margin-top:0;}
-.conviction-item:hover .conviction-reveal,.conviction-item:focus-within .conviction-reveal{max-height:120px;opacity:1;margin-top:var(--space-2);}
+.conviction-item:hover .conviction-reveal,.conviction-item:focus-within .conviction-reveal{max-height:200px;opacity:1;margin-top:var(--space-2);}
 
 /* Engine card shimmer */
 .engine-card{position:relative;overflow:hidden;}
@@ -369,7 +369,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .vv-toggle{display:inline-block;width:1.2em;text-align:center;color:var(--color-text-faint);margin-right:var(--space-2);font-weight:400;}
 .vv-detail-row{display:none;}
 .vv-detail-row.open{display:table-row;}
-.vv-detail-row td{padding:var(--space-4) var(--space-5);background:var(--color-surface);color:var(--color-teal);font-size:var(--text-xs);line-height:1.8;white-space:normal;border-bottom:1px solid var(--color-divider);}
+.vv-detail-row td{padding:var(--space-4) var(--space-5);background:var(--color-surface);color:var(--color-teal);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.8;white-space:normal;border-bottom:1px solid var(--color-divider);}
 /* Layer card hover examples */
 .layer-example{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.3s ease;background:var(--color-surface-deep);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-teal);line-height:1.7;white-space:pre-line;margin-top:0;}
 .layer-card:hover .layer-example,.layer-card:focus-within .layer-example{max-height:150px;opacity:1;padding:var(--space-3);margin-top:var(--space-3);}
@@ -631,7 +631,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
         <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
         <div class="engine-name">ATFT Analysis</div>
         <div class="engine-desc">Sheaf Laplacian coherence. Gini routing. Anomaly classification by transport type.</div>
-        <div class="engine-equation">L_F = &delta;&sup1; B&sup1; W B &delta;</div>
+        <div class="engine-equation">L_F = &delta;<sup>T</sup> B<sup>T</sup> W B &delta;</div>
       </div>
       <div class="engine-card" tabindex="0">
         <div class="engine-badge engine-badge--novel"><span class="dot"></span> Novel</div>
