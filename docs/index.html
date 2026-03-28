@@ -345,6 +345,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .hud-readout--br{bottom:calc(var(--space-32) + var(--space-6));right:var(--space-6);}
 @keyframes hud-flicker{0%,100%{opacity:0.9}50%{opacity:0.5}}
 @media(max-width:768px){.hud-readout{display:none;}}
+/* Conviction hover reveals */
+.conviction-reveal{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.3s ease,opacity 0.3s ease;font-family:var(--font-body);font-size:var(--text-xs);color:var(--color-text-faint);line-height:1.6;margin-top:0;}
+.conviction-item:hover .conviction-reveal,.conviction-item:focus-within .conviction-reveal{max-height:120px;opacity:1;margin-top:var(--space-2);}
 </style>
 </head>
 <body>
@@ -422,22 +425,26 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
      ═══════════════════════════════════════════ -->
 <div class="conviction">
   <div class="container--full">
-    <div class="conviction-grid">
-      <div class="conviction-item">
+    <div class="conviction-grid reveal">
+      <div class="conviction-item" tabindex="0">
         <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Artifact Discrimination</div>
         <div class="conviction-desc">The architecture identifies connection transients and isolates them from operational signal. Settle time measured per channel per transition type.</div>
+        <div class="conviction-reveal">Post-connection ROP spikes are pipe-squat artifacts &mdash; the drillstring compresses under resumed WOB. The settle time varies by BHA configuration, not by depth.</div>
       </div>
-      <div class="conviction-item">
+      <div class="conviction-item" tabindex="0">
         <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Deviation Detection</div>
         <div class="conviction-desc">Channel behavior compared against computed profiles per rig state. The system flags when correlations break or values contradict the detected state.</div>
+        <div class="conviction-reveal">When SPP rises 15% above its DRILLING profile while ROP drops, the system doesn't flag either channel alone &mdash; it flags the divergence between them.</div>
       </div>
-      <div class="conviction-item">
+      <div class="conviction-item" tabindex="0">
         <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">Relationship Tracking</div>
         <div class="conviction-desc">Pairwise channel correlations computed within each operational state. When WOB-torque decouples from its drilling profile, the architecture reports what changed.</div>
+        <div class="conviction-reveal">WOB-torque correlation of 0.91 during normal drilling. When it drops to 0.12 at the same depth interval, either the formation changed or the bit is failing. The data knows which.</div>
       </div>
-      <div class="conviction-item">
+      <div class="conviction-item" tabindex="0">
         <div class="conviction-label" style="font-size:var(--text-sm);letter-spacing:0.04em;">State-Aware Computation</div>
         <div class="conviction-desc">Every statistic conditioned on rig state. A channel's range during DRILLING is a different number than during CONNECTION. The system distinguishes which one applies.</div>
+        <div class="conviction-reveal">SPP during DRILLING: 2,400&ndash;2,900 psi. SPP during CONNECTION: 0&ndash;50 psi. A &ldquo;normal&rdquo; pressure depends entirely on what the rig is doing. The system always knows.</div>
       </div>
     </div>
   </div>
