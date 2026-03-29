@@ -59,7 +59,7 @@ Merge the fully-implemented `feature/domain-knowledge-layer` branch into main. T
 cd .worktrees/domain-knowledge && python -m pytest --tb=short -q
 ```
 
-Expected: 525+ passed, 0 failed.
+Expected: 664+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 2: Merge into main**
 
@@ -74,7 +74,7 @@ git merge feature/domain-knowledge-layer --no-ff -m "merge: domain knowledge lay
 python -m pytest --tb=short -q
 ```
 
-Expected: 525+ passed, 0 failed.
+Expected: 664+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 4: Clean up worktree**
 
@@ -217,7 +217,7 @@ Fix any descriptions that don't match.
 python -m pytest --tb=short -q
 ```
 
-Expected: 525+ passed, 0 failed.
+Expected: 664+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 10: Commit**
 
@@ -230,7 +230,7 @@ git commit -m "fix(website): align all claims with verified codebase numbers"
 
 ### Task 2: Layer 1 Annotations — Remaining 4 Analysis Pages
 
-Add state band annotations to the 4 analysis pages NOT already covered by the domain knowledge branch. After the Task 0 merge, 6 pages already have Layer 1 (hydraulics, supervisory_panel, geomechanics, pore_pressure, atft_analysis, topology). This task covers the remaining 4.
+Add state band annotations to the 4 analysis pages NOT already covered by the domain knowledge branch. After the Task 0 merge, 6 pages already have Layer 1 (hydraulics, supervisory_panel, geomechanics, pore_pressure, atft_analysis, topology). This task covers the remaining 4. Note: `controls.py` is excluded — it provides parameter sliders, not data visualizations, so Layer 1/2/3 annotations are not applicable.
 
 **Files:**
 - Modify: `src/mpd_overwatch/dashboard/formation_damage.py`
@@ -335,7 +335,7 @@ Add `_state_badge` to the page layout after the well header.
 python -m pytest --tb=short -q
 ```
 
-Expected: 525+ passed, 0 failed. The annotation blocks are wrapped in try/except, so they cannot break existing tests.
+Expected: 664+ passed, 12 skipped, 1 xfailed, 0 failed. The annotation blocks are wrapped in try/except, so they cannot break existing tests.
 
 - [ ] **Step 6: Commit**
 
@@ -538,7 +538,7 @@ Expected: 3 passed.
 python -m pytest --tb=short -q
 ```
 
-Expected: 528+ passed, 0 failed.
+Expected: 667+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 6: Commit**
 
@@ -611,7 +611,7 @@ Apply the pattern to each page. The `_alert_panel` html.Div goes into the return
 python -m pytest --tb=short -q
 ```
 
-Expected: 528+ passed, 0 failed.
+Expected: 667+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 3: Commit**
 
@@ -951,7 +951,7 @@ Expected: 4 passed.
 python -m pytest --tb=short -q
 ```
 
-Expected: 532+ passed, 0 failed.
+Expected: 671+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 5: Commit**
 
@@ -1012,7 +1012,7 @@ Insert `_inv_panel` as the last element in the page's returned layout (before th
 python -m pytest --tb=short -q
 ```
 
-Expected: 532+ passed, 0 failed.
+Expected: 671+ passed, 12 skipped, 1 xfailed, 0 failed.
 
 - [ ] **Step 3: Commit**
 
