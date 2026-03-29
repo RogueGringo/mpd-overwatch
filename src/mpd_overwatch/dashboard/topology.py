@@ -385,6 +385,14 @@ def page_topology(assignments_data: dict | None = None):
                    "fontStyle": "italic", "marginBottom": "12px"},
         )
 
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _alert_panel = render_alert_panel(get_alerts(None))
+    except Exception:
+        _alert_panel = html.Div()
+
     return html.Div([
         html.Div([
             html.H1("Point Cloud Topology"),
@@ -393,6 +401,8 @@ def page_topology(assignments_data: dict | None = None):
                 style={"color": COLORS["text_muted"], "fontSize": "13px"},
             ),
         ], className="page-header"),
+
+        _alert_panel,
 
         data_notice,
 

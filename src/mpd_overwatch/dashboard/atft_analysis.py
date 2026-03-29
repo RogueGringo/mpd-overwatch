@@ -176,6 +176,14 @@ def page_atft_analysis(assignments_data: dict | None = None):
                    "fontStyle": "italic", "marginBottom": "12px"},
         )
 
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _alert_panel = render_alert_panel(get_alerts(None))
+    except Exception:
+        _alert_panel = html.Div()
+
     children = [
         html.H2("ATFT Topological Analysis", style={"marginBottom": "8px"}),
         html.P(
@@ -185,6 +193,7 @@ def page_atft_analysis(assignments_data: dict | None = None):
             f"Depth: {depth_range[0]:,.0f} -- {depth_range[1]:,.0f} ft MD.",
             style={"color": "#7b8ba3", "marginBottom": "12px"},
         ),
+        _alert_panel,
         data_notice,
     ]
 

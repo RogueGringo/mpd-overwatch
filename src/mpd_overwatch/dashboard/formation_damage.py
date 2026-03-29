@@ -184,6 +184,15 @@ def page_formation_damage(assignments_data: dict | None = None):
                               "fontStyle": "italic"})
     )
 
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _page_channels = ["flow_in", "standpipe_pressure", "mud_weight_in"]
+        _alert_panel = render_alert_panel(get_alerts(_page_channels))
+    except Exception:
+        _alert_panel = html.Div()
+
     return html.Div([
         html.Div([
             html.H1("Formation Damage Analysis"),
@@ -194,6 +203,8 @@ def page_formation_damage(assignments_data: dict | None = None):
                 data_status,
             ]),
         ], className="page-header"),
+
+        _alert_panel,
 
         # KPI row
         html.Div("COMPUTED VALUES", className="card-header",

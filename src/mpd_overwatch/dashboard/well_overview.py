@@ -266,6 +266,14 @@ def page_well_overview(
     # ------------------------------------------------------------------ #
     # Assemble layout                                                      #
     # ------------------------------------------------------------------ #
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _alert_panel = render_alert_panel(get_alerts(None))
+    except Exception:
+        _alert_panel = html.Div()
+
     return html.Div([
         # Page header
         html.Div([
@@ -273,6 +281,8 @@ def page_well_overview(
             html.P(f"{well_name} \u2014 channel inventory and data quality summary",
                    className="description"),
         ], className="page-header"),
+
+        _alert_panel,
 
         # Layer 1 rig state badge
         _state_badge,

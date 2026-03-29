@@ -380,9 +380,29 @@ def page_hmu(assignments_data: dict | None = None):
     except Exception:
         _state_badge = html.Div()
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+            channel="annular_pressure",
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # ================================================================
     # ASSEMBLE LAYOUT
     # ================================================================
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _page_channels = ["standpipe_pressure", "mud_weight_in", "annular_pressure", "flow_in", "flow_out_pct", "wob", "torque"]
+        _alert_panel_layer2 = render_alert_panel(get_alerts(_page_channels))
+    except Exception:
+        _alert_panel_layer2 = html.Div()
+
     return html.Div([
         # Page Header
         html.Div([
@@ -393,6 +413,8 @@ def page_hmu(assignments_data: dict | None = None):
                 data_status,
             ]),
         ], className="page-header"),
+
+        _alert_panel_layer2,
 
         # Layer 1 rig state badge
         _state_badge,
@@ -509,4 +531,7 @@ def page_hmu(assignments_data: dict | None = None):
                 ], className="card", style={"height": "100%"}),
             ], style={"flex": "1", "minWidth": "280px"}),
         ], style={"display": "flex", "gap": "16px", "flexWrap": "wrap"}),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])

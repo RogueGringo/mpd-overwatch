@@ -354,6 +354,14 @@ def page_persistent_homology(assignments_data: dict | None = None):
     # ------------------------------------------------------------------ #
     # 7. Assemble page layout                                             #
     # ------------------------------------------------------------------ #
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _alert_panel = render_alert_panel(get_alerts(None))
+    except Exception:
+        _alert_panel = html.Div()
+
     return html.Div([
         # Header
         html.Div([
@@ -379,6 +387,8 @@ def page_persistent_homology(assignments_data: dict | None = None):
                 },
             ),
         ], className="page-header"),
+
+        _alert_panel,
 
         # KPI row
         html.Div("TOPOLOGICAL SUMMARY", className="card-header",

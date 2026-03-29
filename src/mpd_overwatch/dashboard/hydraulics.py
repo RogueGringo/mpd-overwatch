@@ -237,11 +237,31 @@ def page_hydraulics(assignments_data: dict | None = None) -> html.Div:
     except Exception:
         pass  # Annotations are enrichment, never blocking
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+            channel="standpipe_pressure",
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # --- Data-loaded indicator ---
     data_status = html.Span(
         "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
                             "fontWeight": "700", "fontFamily": "Consolas, monospace"},
     )
+
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _page_channels = ["standpipe_pressure", "mud_weight_in", "hole_depth", "depth_tvd", "annular_pressure", "flow_in"]
+        _alert_panel = render_alert_panel(get_alerts(_page_channels))
+    except Exception:
+        _alert_panel = html.Div()
 
     return html.Div([
         html.Div([
@@ -253,6 +273,8 @@ def page_hydraulics(assignments_data: dict | None = None) -> html.Div:
                 data_status,
             ]),
         ], className="page-header"),
+
+        _alert_panel,
 
         # KPI row — ECD, Hydrostatic, BHP Static, BHP Dynamic wrapped in render_engineering_value()
         html.Div("COMPUTED VALUES", className="card-header",
@@ -351,6 +373,9 @@ def page_hydraulics(assignments_data: dict | None = None) -> html.Div:
                 ], style={"fontSize": "13px"}),
             ], style={"listStyle": "none", "padding": 0}),
         ], className="card"),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])
 
 

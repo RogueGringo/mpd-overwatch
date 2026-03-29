@@ -452,9 +452,29 @@ def page_supervisory(assignments_data: dict | None = None):
         damage_color = COLORS["danger"]
         damage_desc = "Significant invasion risk; consider reducing MW or SBP"
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+            channel="rop",
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # ================================================================
     # ASSEMBLE LAYOUT
     # ================================================================
+    # --- Layer 2: Alert panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_alerts
+        from mpd_overwatch.dashboard.alert_panel import render_alert_panel
+        _page_channels = ["standpipe_pressure", "mud_weight_in", "hole_depth", "rop", "torque", "rpm", "wob"]
+        _alert_panel = render_alert_panel(get_alerts(_page_channels))
+    except Exception:
+        _alert_panel = html.Div()
+
     return html.Div([
         # Page Header
         html.Div([
@@ -462,6 +482,8 @@ def page_supervisory(assignments_data: dict | None = None):
             html.P("RO/Consultant strategic overview | Operations monitoring and decision support",
                    className="description"),
         ], className="page-header"),
+
+        _alert_panel,
 
         # Engineering KPI Row (pure engineering — no financial content)
         html.Div("OPERATIONS SUMMARY", className="card-header",
@@ -680,4 +702,7 @@ def page_supervisory(assignments_data: dict | None = None):
                 ], style={"display": "flex", "gap": "12px"}),
             ]),
         ], className="card", style={"marginTop": "16px"}),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])
