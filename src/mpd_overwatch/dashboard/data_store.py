@@ -40,6 +40,7 @@ _MAX_RECENT = 20
 _well_database: Optional[WellDatabase] = None
 _file_path: Optional[str] = None
 _well_dossier_set = None  # Optional[WellDossierSet] — set after scan
+_alerts: list = []
 
 
 # ---- public API -----------------------------------------------------------
@@ -82,6 +83,20 @@ def load_file(filepath: str) -> Dict[str, Any]:
     except Exception:
         logger.exception("Domain knowledge scan failed — continuing without dossiers")
         _well_dossier_set = None
+
+    # --- Layer 2: Compute alerts ---
+    global _alerts
+    try:
+        from mpd_overwatch.dashboard.alerts import run_alert_scan
+        if _well_dossier_set is not None:
+            _alerts = run_alert_scan(_well_dossier_set, _well_database,
+                                      _well_dossier_set.states)
+            logger.info("Alert scan: %d alerts generated", len(_alerts))
+        else:
+            _alerts = []
+    except Exception:
+        logger.exception("Alert scan failed — continuing without alerts")
+        _alerts = []
 
     # Build header dict
     time_range = db.time_range()
@@ -133,15 +148,23 @@ def get_file_path() -> Optional[str]:
 
 def clear():
     """Clear all cached data."""
-    global _well_database, _file_path, _well_dossier_set
+    global _well_database, _file_path, _well_dossier_set, _alerts
     _well_database = None
     _file_path = None
     _well_dossier_set = None
+    _alerts = []
 
 
 def get_well_dossier_set():
     """Return the domain knowledge dossier set, or None if not scanned."""
     return _well_dossier_set
+
+
+def get_alerts(channel_filter: list | None = None) -> list:
+    """Return cached alerts, optionally filtered by channel names."""
+    if channel_filter is None:
+        return list(_alerts)
+    return [a for a in _alerts if a.channel in channel_filter]
 
 
 # ---- backward-compat bridge -----------------------------------------------
