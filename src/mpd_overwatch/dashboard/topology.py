@@ -209,6 +209,16 @@ def page_topology(assignments_data: dict | None = None):
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
     fig.update_xaxes(title="Measured Depth (ft)", row=n_rows, col=1)
 
+    # --- Domain knowledge annotations (Layer 1) ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.annotations import add_state_bands
+        _dossier_set = get_well_dossier_set()
+        if _dossier_set is not None and _dossier_set.states is not None and len(md_arr) > 0:
+            add_state_bands(fig, _dossier_set.states, md_arr)
+    except Exception:
+        pass  # Annotations are enrichment, never blocking
+
     # ------------------------------------------------------------------ #
     # KPI row --- plain-language names with [?] tooltips                    #
     # ------------------------------------------------------------------ #

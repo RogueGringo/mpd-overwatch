@@ -227,6 +227,16 @@ def page_hydraulics(assignments_data: dict | None = None) -> html.Div:
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
     fig.update_xaxes(title="Measured Depth (ft)", row=4, col=1)
 
+    # --- Domain knowledge annotations (Layer 1) ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.annotations import add_state_bands
+        _dossier_set = get_well_dossier_set()
+        if _dossier_set is not None and _dossier_set.states is not None:
+            add_state_bands(fig, _dossier_set.states, md)
+    except Exception:
+        pass  # Annotations are enrichment, never blocking
+
     # --- Data-loaded indicator ---
     data_status = html.Span(
         "LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
