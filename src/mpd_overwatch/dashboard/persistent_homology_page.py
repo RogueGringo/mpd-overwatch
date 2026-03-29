@@ -343,6 +343,16 @@ def page_persistent_homology(assignments_data: dict | None = None):
     ], style={"width": "100%", "borderCollapse": "collapse",
               "fontSize": "12px"})
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # ------------------------------------------------------------------ #
     # 6. Data-loaded indicator                                            #
     # ------------------------------------------------------------------ #
@@ -474,4 +484,7 @@ def page_persistent_homology(assignments_data: dict | None = None):
                 ], style={"fontSize": "13px"}),
             ], style={"listStyle": "none", "padding": 0}),
         ], className="card", style={"marginTop": "16px"}),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])

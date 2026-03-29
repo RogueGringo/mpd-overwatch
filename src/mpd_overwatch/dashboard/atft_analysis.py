@@ -160,6 +160,16 @@ def page_atft_analysis(assignments_data: dict | None = None):
         except Exception:
             logger.warning("ATFT analysis failed", exc_info=True)
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # ------------------------------------------------------------------ #
     # Build layout                                                         #
     # ------------------------------------------------------------------ #
@@ -202,6 +212,7 @@ def page_atft_analysis(assignments_data: dict | None = None):
             "ATFT analysis did not produce results for this dataset.",
             style={"color": "#ff3d5a"},
         ))
+        children.append(_inv_panel)
         return html.Div(children, className="page-content")
 
     # ------------------------------------------------------------------ #
@@ -454,6 +465,8 @@ def page_atft_analysis(assignments_data: dict | None = None):
                 value_color="#00ff88" if gini_slope > 0 else "#ff3d5a",
             ),
         ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap"}))
+
+    children.append(_inv_panel)
 
     return html.Div(children, className="page-content")
 

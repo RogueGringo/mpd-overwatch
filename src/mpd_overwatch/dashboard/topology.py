@@ -374,6 +374,16 @@ def page_topology(assignments_data: dict | None = None):
                                 "minWidth": "200px"}),
             )
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # ------------------------------------------------------------------ #
     # Data-required notice                                                  #
     # ------------------------------------------------------------------ #
@@ -463,6 +473,9 @@ def page_topology(assignments_data: dict | None = None):
                 ]),
             ], className="comparison-table"),
         ], className="card") if has_sheaf else html.Div(),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])
 
 

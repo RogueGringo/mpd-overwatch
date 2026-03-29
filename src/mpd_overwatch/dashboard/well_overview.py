@@ -249,6 +249,17 @@ def page_well_overview(
         ),
     ], className="card", style={"marginTop": "16px"})
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set as _get_dossier
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), _get_dossier(),
+            channel="hole_depth",
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # --- Domain knowledge annotations (Layer 1) ---
     try:
         from mpd_overwatch.dashboard.data_store import get_well_dossier_set
@@ -314,6 +325,9 @@ def page_well_overview(
 
         # Trajectory placeholder
         trajectory_card,
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])
 
 

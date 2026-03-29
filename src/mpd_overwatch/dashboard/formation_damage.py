@@ -174,6 +174,17 @@ def page_formation_damage(assignments_data: dict | None = None):
     # Note: formation_damage figures are parameter sweeps, not depth-indexed.
     # State bands not applicable — Layer 1 annotations via alert panel only.
 
+    # --- Layer 3: Investigation panel ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        from mpd_overwatch.dashboard.investigation_panel import render_investigation_panel
+        _inv_panel = render_investigation_panel(
+            get_well_database(), get_well_dossier_set(),
+            channel="mud_weight_in",
+        )
+    except Exception:
+        _inv_panel = html.Div()
+
     # --- Data status indicator ---
     data_status = (
         html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",
@@ -299,6 +310,9 @@ def page_formation_damage(assignments_data: dict | None = None):
                 ], style={"fontSize": "13px"}),
             ], style={"listStyle": "none", "padding": 0}),
         ], className="card"),
+
+        # --- Layer 3: Investigation panel ---
+        _inv_panel,
     ])
 
 
