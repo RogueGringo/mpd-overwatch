@@ -171,6 +171,9 @@ def page_formation_damage(assignments_data: dict | None = None):
         fig.update_xaxes(gridcolor=COLORS["card_border"], row=i, col=1)
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
 
+    # Note: formation_damage figures are parameter sweeps, not depth-indexed.
+    # State bands not applicable — Layer 1 annotations via alert panel only.
+
     # --- Data status indicator ---
     data_status = (
         html.Span("LIVE DATA", style={"color": COLORS["success"], "fontSize": "11px",

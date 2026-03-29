@@ -249,6 +249,20 @@ def page_well_overview(
         ),
     ], className="card", style={"marginTop": "16px"})
 
+    # --- Domain knowledge annotations (Layer 1) ---
+    try:
+        from mpd_overwatch.dashboard.data_store import get_well_dossier_set
+        _dossier_set = get_well_dossier_set()
+        if _dossier_set is not None and _dossier_set.states is not None:
+            _current_state = _dossier_set.states[-1].value if _dossier_set.states else "unknown"
+            _state_badge = html.Div(f"RIG STATE: {_current_state.upper()}",
+                style={"fontFamily": "var(--font-mono, monospace)", "fontSize": "0.75rem",
+                       "color": "#45a8b0", "letterSpacing": "0.1em", "marginBottom": "0.5rem"})
+        else:
+            _state_badge = html.Div()
+    except Exception:
+        _state_badge = html.Div()
+
     # ------------------------------------------------------------------ #
     # Assemble layout                                                      #
     # ------------------------------------------------------------------ #
@@ -259,6 +273,9 @@ def page_well_overview(
             html.P(f"{well_name} \u2014 channel inventory and data quality summary",
                    className="description"),
         ], className="page-header"),
+
+        # Layer 1 rig state badge
+        _state_badge,
 
         # Two-column row: header info + quality summary
         html.Div([

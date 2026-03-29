@@ -290,6 +290,10 @@ def page_persistent_homology(assignments_data: dict | None = None):
         fig.update_xaxes(gridcolor=COLORS["card_border"], row=i, col=1)
         fig.update_yaxes(gridcolor=COLORS["card_border"], row=i, col=1)
 
+    # Note: persistent homology figures use filtration scale (epsilon) axes,
+    # not depth-indexed. State bands not applicable — Layer 1 annotations
+    # via drilling feature table interpretation only.
+
     # ------------------------------------------------------------------ #
     # 5. Build drilling features table                                    #
     # ------------------------------------------------------------------ #
