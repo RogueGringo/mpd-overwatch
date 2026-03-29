@@ -131,9 +131,9 @@ Complete the domain knowledge layer's UI integration. The backend is built (Task
 
 **Prerequisite:** The scan pipeline (`knowledge/scanner.py`) must successfully process the demo SQL files and produce a `WellDossierSet` with populated state profiles, relationships, and artifact signatures.
 
-### 2a. Layer 1 — Passive Annotations on Remaining 9 Pages
+### 2a. Layer 1 — Passive Annotations on Remaining 10 Pages
 
-**Reference implementation:** `dashboard/hydraulics.py` already has Layer 1 integrated.
+**Reference implementation:** `dashboard/hydraulics.py` already has Layer 1 integrated (1 of 11 total analysis pages).
 
 **Pattern per page:**
 1. Import annotation helpers from `dashboard/annotations.py`
@@ -143,12 +143,13 @@ Complete the domain knowledge layer's UI integration. The backend is built (Task
 5. Add artifact markers at state transitions via `get_artifact_markers(dossier_set, channel_name)`
 6. Add channel health indicator badge
 
-**Pages to integrate (9):**
+**Pages to integrate (10 remaining, 11 total with hydraulics):**
 
 | Page | File | Primary Channels | Notes |
 |---|---|---|---|
 | Well Overview | `dashboard/well_overview.py` | All channels (inventory view) | State bands on depth/time overview plot |
 | Supervisory | `dashboard/supervisory_panel.py` | BHP, ECD, ROP, MD | State bands + validity on KPI trends |
+| HMU Panel | `dashboard/hmu_panel.py` | BHP, ECD, choke position, flow | State bands on real-time pressure monitoring |
 | Geomechanics | `dashboard/geomechanics.py` | WOB, RPM, ROP, torque, MSE | State bands critical — MSE only valid during DRILLING |
 | Pore Pressure | `dashboard/pore_pressure.py` | ROP, RPM, WOB, d-exponent | Validity shading on d-exp (meaningless during connections) |
 | Formation Damage | `dashboard/formation_damage.py` | Flow, pressure, mud weight | State bands on invasion model inputs |
@@ -291,7 +292,7 @@ Open `docs/index.html` alongside the running platform:
 - Verification: diff review against codebase
 
 **Phase 2 (Platform Layer Completion):**
-- 9 dashboard page files modified (Layer 1 annotations)
+- 10 dashboard page files modified (Layer 1 annotations)
 - 1 file completed: `dashboard/alerts.py` (Layer 2)
 - 1 file completed: `dashboard/investigation.py` (Layer 3)
 - Pattern is proven on hydraulics — apply same pattern to remaining pages
@@ -309,7 +310,7 @@ Open `docs/index.html` alongside the running platform:
 1. Every number on the website matches `pytest` output and codebase inventory
 2. Every conviction hover-reveal is technically accurate
 3. Every V&V expandable row matches benchmark code
-4. All 10 analysis pages render with Layer 1 annotations when dossier is available
+4. All 11 analysis pages render with Layer 1 annotations when dossier is available
 5. Layer 2 alerts fire correctly when data warrants
 6. Layer 3 queries return structured results on every page
 7. The demo SQL files load, map, scan, and display without errors
