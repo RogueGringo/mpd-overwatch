@@ -4,37 +4,84 @@
 
 **Goal:** Bring every website claim into exact alignment with codebase reality, complete Layer 1/2/3 UI integration on all analysis pages, and verify end-to-end demo capability on the actual demo SQL files.
 
-**Architecture:** Phase 1 surgically fixes website numbers. Phase 2 wires the already-built backend (annotations.py, alerts.py, investigation.py) into the dashboard with reusable Dash components — an alert banner in the app shell and an investigation panel accessible from any page. Phase 3 verifies everything against real demo data.
+**Architecture:** Task 0 merges the fully-built domain knowledge feature branch into main. Phase 1 surgically fixes website numbers. Phase 2 wires the already-built backend (annotations.py, alerts.py, investigation.py — already on `feature/domain-knowledge-layer`) into the remaining dashboard pages with reusable Dash components — an alert banner and an investigation panel accessible from any page. Phase 3 verifies everything against real demo data.
 
 **Tech Stack:** Python 3.11, Dash/Plotly, HTML5/CSS3/JS (inline in docs/index.html). No new dependencies.
 
 **Spec:** `docs/superpowers/specs/2026-03-29-demo-readiness-design.md`
 
+**Prerequisite:** The `feature/domain-knowledge-layer` branch (worktree at `.worktrees/domain-knowledge`) contains the fully-implemented domain knowledge layer: `knowledge/` package (vocabulary, rig_state, dossier, scanner, artifacts, relationships, well_dossier_set), `dashboard/annotations.py`, `dashboard/alerts.py`, `dashboard/investigation.py`, plus Layer 1 state bands already integrated on 6 pages (hydraulics, supervisory_panel, geomechanics, pore_pressure, atft_analysis, topology). This branch must be merged to main before Phase 2 tasks.
+
 ---
 
 ## File Map
+
+**Task 0 (Merge Prerequisite):**
+- Merge: `feature/domain-knowledge-layer` → `main` (brings in knowledge/ package + Layer 1 on 6 pages)
 
 **Phase 1 (Website Truth Alignment):**
 - Modify: `docs/index.html` — fix numbers, descriptions, V&V table content
 
 **Phase 2 (Platform Layer Completion):**
-- Modify: `src/mpd_overwatch/dashboard/supervisory_panel.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/hmu_panel.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/geomechanics.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/pore_pressure.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/formation_damage.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/topology.py` — Layer 1 annotations
-- Modify: `src/mpd_overwatch/dashboard/atft_analysis.py` — Layer 1 state bands enhancement
-- Modify: `src/mpd_overwatch/dashboard/persistent_homology_page.py` — Layer 1 state bands enhancement
+- Modify: `src/mpd_overwatch/dashboard/formation_damage.py` — Layer 1 annotations (remaining)
+- Modify: `src/mpd_overwatch/dashboard/persistent_homology_page.py` — Layer 1 state bands (remaining)
+- Modify: `src/mpd_overwatch/dashboard/hmu_panel.py` — Layer 1 state badge (remaining)
+- Modify: `src/mpd_overwatch/dashboard/well_overview.py` — Layer 1 state badge (remaining)
 - Modify: `src/mpd_overwatch/dashboard/data_store.py` — alert computation on file load
 - Create: `src/mpd_overwatch/dashboard/alert_panel.py` — reusable alert banner component
 - Create: `src/mpd_overwatch/dashboard/investigation_panel.py` — reusable investigation panel component
-- Modify: `src/mpd_overwatch/app.py` — wire alert banner + investigation panel into app shell
 - Create: `tests/test_alert_panel.py` — alert panel rendering tests
 - Create: `tests/test_investigation_panel.py` — investigation panel rendering tests
 
 **Phase 3 (Demo Verification):**
 - No new files — verification only, fixes as needed
+
+---
+
+### Task 0: Merge Domain Knowledge Feature Branch
+
+Merge the fully-implemented `feature/domain-knowledge-layer` branch into main. This brings in the knowledge/ package, dashboard annotations/alerts/investigation backends, and Layer 1 state bands already integrated on 6 analysis pages.
+
+**Files:**
+- Merge: `feature/domain-knowledge-layer` → `main`
+
+**Context:** The domain knowledge layer was built in a worktree at `.worktrees/domain-knowledge` with 13 commits. It includes:
+- `src/mpd_overwatch/knowledge/` (7 modules: vocabulary, rig_state, dossier, scanner, artifacts, relationships, well_dossier_set)
+- `src/mpd_overwatch/dashboard/annotations.py` (state bands, validity shading, artifact markers, health indicators)
+- `src/mpd_overwatch/dashboard/alerts.py` (transition anomaly, relationship break, state inconsistency detection)
+- `src/mpd_overwatch/dashboard/investigation.py` (point, channel, interval queries + LLM narrative)
+- Layer 1 state bands already on: hydraulics.py, supervisory_panel.py, geomechanics.py, pore_pressure.py, atft_analysis.py, topology.py
+- 12 test files (`tests/test_dk_*.py`)
+
+- [ ] **Step 1: Verify feature branch tests pass**
+
+```bash
+cd .worktrees/domain-knowledge && python -m pytest --tb=short -q
+```
+
+Expected: 525+ passed, 0 failed.
+
+- [ ] **Step 2: Merge into main**
+
+```bash
+cd /c/Claude/mpd-overwatch
+git merge feature/domain-knowledge-layer --no-ff -m "merge: domain knowledge layer — vocabulary, rig state, scan pipeline, Layer 1/2/3 backends"
+```
+
+- [ ] **Step 3: Verify tests on main after merge**
+
+```bash
+python -m pytest --tb=short -q
+```
+
+Expected: 525+ passed, 0 failed.
+
+- [ ] **Step 4: Clean up worktree**
+
+```bash
+git worktree remove .worktrees/domain-knowledge
+git branch -d feature/domain-knowledge-layer
+```
 
 ---
 
@@ -75,7 +122,9 @@ python -m pytest tests/test_dk_*.py -v --co -q 2>/dev/null | tail -1
 python -m pytest --co -q 2>/dev/null | tail -1
 ```
 
-- [ ] **Step 2: Count benchmark functions per engine**
+- [ ] **Step 2: Count benchmark test cases per engine**
+
+Some engines use `def bench_` functions, others use `run_benchmarks()` with inline test cases (numbered `Tests 1-N`). Count both patterns:
 
 ```bash
 # Hydraulics benchmarks
@@ -84,12 +133,14 @@ grep -c "def bench_" src/mpd_overwatch/vv/benchmarks/hydraulics_benchmarks.py
 # Formation damage benchmarks
 grep -c "def bench_" src/mpd_overwatch/vv/benchmarks/damage_benchmarks.py
 
-# Geomechanics benchmarks — check the pattern used (may be bench_ or test_ or Benchmark class)
-grep -cE "def (bench_|test_)" src/mpd_overwatch/vv/benchmarks/geomechanics_benchmarks.py
+# Geomechanics benchmarks — uses run_benchmarks() with inline tests, count "Test N:" lines
+grep -cE "Test [0-9]" src/mpd_overwatch/vv/benchmarks/geomechanics_benchmarks.py
 
-# Pore pressure benchmarks
-grep -cE "def (bench_|test_)" src/mpd_overwatch/vv/benchmarks/pore_pressure_benchmarks.py
+# Pore pressure benchmarks — same inline pattern
+grep -cE "Test [0-9]" src/mpd_overwatch/vv/benchmarks/pore_pressure_benchmarks.py
 ```
+
+If `grep -c "def bench_"` returns 0, the engine uses a different pattern. Read the file to count actual benchmark cases.
 
 Sum the benchmark counts: this is the actual "verified equations" number.
 
@@ -140,15 +191,35 @@ Read each of the 4 `.conviction-reveal` divs. For each:
 - The illustrative numbers (0.91, 0.12, 2400-2900 psi, 0-50 psi) are pedagogical examples, not measured values — this is acceptable
 - Verify nothing contradicts how the system actually works by checking `knowledge/artifacts.py`, `knowledge/relationships.py`, `knowledge/rig_state.py`, `dashboard/alerts.py`
 
-- [ ] **Step 7: Run full test suite to confirm nothing is broken**
+- [ ] **Step 7: Verify pipeline stage descriptions match scan pipeline**
+
+Read `src/mpd_overwatch/knowledge/scanner.py` and check the pipeline stages described on the website (the "pipeline connectors" section). The stages should match what `run_scan()` actually does:
+1. Channel census
+2. State detection (bimodal thresholds)
+3. Per-state profiling
+4. Relationship discovery
+5. Artifact profiling
+
+Fix any descriptions that don't match.
+
+- [ ] **Step 8: Verify three-layer hover examples are accurate**
+
+Read the three-layer section on the website (Layer 1/2/3 hover examples). Cross-check:
+- Layer 1 example matches what `annotations.py` actually does (state bands, validity shading, artifact markers)
+- Layer 2 example matches what `alerts.py` detects (transition anomaly, relationship break, state inconsistency)
+- Layer 3 example matches what `investigation.py` provides (point query, channel query, interval query)
+
+Fix any descriptions that don't match.
+
+- [ ] **Step 9: Run full test suite to confirm nothing is broken**
 
 ```bash
 python -m pytest --tb=short -q
 ```
 
-Expected: 513+ passed, 0 failed.
+Expected: 525+ passed, 0 failed.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add docs/index.html
@@ -157,21 +228,17 @@ git commit -m "fix(website): align all claims with verified codebase numbers"
 
 ---
 
-### Task 2: Layer 1 Annotations — All Remaining Analysis Pages
+### Task 2: Layer 1 Annotations — Remaining 4 Analysis Pages
 
-Add state band annotations to every analysis page that has Plotly figures. Follow the exact pattern from `dashboard/hydraulics.py` lines 230-238.
+Add state band annotations to the 4 analysis pages NOT already covered by the domain knowledge branch. After the Task 0 merge, 6 pages already have Layer 1 (hydraulics, supervisory_panel, geomechanics, pore_pressure, atft_analysis, topology). This task covers the remaining 4.
 
 **Files:**
-- Modify: `src/mpd_overwatch/dashboard/supervisory_panel.py`
-- Modify: `src/mpd_overwatch/dashboard/hmu_panel.py`
-- Modify: `src/mpd_overwatch/dashboard/geomechanics.py`
-- Modify: `src/mpd_overwatch/dashboard/pore_pressure.py`
 - Modify: `src/mpd_overwatch/dashboard/formation_damage.py`
-- Modify: `src/mpd_overwatch/dashboard/topology.py`
-- Modify: `src/mpd_overwatch/dashboard/atft_analysis.py`
 - Modify: `src/mpd_overwatch/dashboard/persistent_homology_page.py`
+- Modify: `src/mpd_overwatch/dashboard/hmu_panel.py`
+- Modify: `src/mpd_overwatch/dashboard/well_overview.py`
 
-**Context:** The reference implementation in `dashboard/hydraulics.py` (lines 230-238) shows the exact pattern:
+**Context:** The reference implementation in `dashboard/hydraulics.py` (lines 232-236, after merge) shows the exact pattern:
 
 ```python
 # --- Domain knowledge annotations (Layer 1) ---
@@ -193,13 +260,18 @@ Where `fig` is the Plotly figure and `md` is the measured depth array. This bloc
 - Check `_dossier_set is not None and _dossier_set.states is not None` before calling
 - The depth array must be the same x-axis array used in the figure's traces
 
-- [ ] **Step 1: Add Layer 1 to supervisory_panel.py**
+- [ ] **Step 1: Add Layer 1 to formation_damage.py**
 
-Read `src/mpd_overwatch/dashboard/supervisory_panel.py`. Find each Plotly figure variable (`pressure_fig`, `rop_fig`, `mse_fig`). After each figure is fully built (all `add_trace` calls complete), insert the annotation block.
+Read `src/mpd_overwatch/dashboard/formation_damage.py`. This page may use default reservoir parameters rather than well data channels. If there's a depth-indexed figure, add state bands. If figures are parameter sweeps (not depth-indexed), state bands don't apply — skip. Add a comment explaining why:
 
-The depth array in this file is `md` (from `hole_depth` channel via `db.assigned('hole_depth').calibrated_value`).
+```python
+# Note: formation_damage figures are parameter sweeps, not depth-indexed.
+# State bands not applicable — Layer 1 annotations via alert panel only.
+```
 
-Insert after each figure's last `add_trace` or `update_layout` call:
+- [ ] **Step 2: Add Layer 1 to persistent_homology_page.py**
+
+Read `src/mpd_overwatch/dashboard/persistent_homology_page.py`. Find the main figure, add state bands if the x-axis is depth-indexed:
 
 ```python
 # --- Domain knowledge annotations (Layer 1) ---
@@ -208,31 +280,18 @@ try:
     from mpd_overwatch.dashboard.annotations import add_state_bands
     _dossier_set = get_well_dossier_set()
     if _dossier_set is not None and _dossier_set.states is not None:
-        add_state_bands(pressure_fig, _dossier_set.states, md)
+        add_state_bands(fig, _dossier_set.states, depths)
 except Exception:
     pass
 ```
 
-Repeat for `rop_fig` and `mse_fig` (use the same `md` array, same `_dossier_set`). For efficiency, do the import and dossier fetch once, then apply to all figures:
+Use whatever depth array the figure uses for its x-axis.
 
-```python
-# --- Domain knowledge annotations (Layer 1) ---
-try:
-    from mpd_overwatch.dashboard.data_store import get_well_dossier_set
-    from mpd_overwatch.dashboard.annotations import add_state_bands
-    _dossier_set = get_well_dossier_set()
-    if _dossier_set is not None and _dossier_set.states is not None:
-        for _fig in [pressure_fig, rop_fig, mse_fig]:
-            add_state_bands(_fig, _dossier_set.states, md)
-except Exception:
-    pass
-```
-
-- [ ] **Step 2: Add Layer 1 to hmu_panel.py**
+- [ ] **Step 3: Add Layer 1 to hmu_panel.py**
 
 Read `src/mpd_overwatch/dashboard/hmu_panel.py`. This page uses gauge figures (Plotly `go.Indicator`), not scatter/line charts. Gauge figures don't have x-axes, so `add_state_bands()` doesn't apply to gauges.
 
-However, if there are any trend/line figures in the HMU panel, add state bands to those. If all figures are gauges, skip state bands but add a state indicator badge instead:
+Skip state bands but add a state indicator badge instead:
 
 ```python
 # --- Domain knowledge annotations (Layer 1) ---
@@ -250,74 +309,39 @@ except Exception:
 
 Add `_state_badge` to the page layout before the gauge grid.
 
-- [ ] **Step 3: Add Layer 1 to geomechanics.py**
+- [ ] **Step 4: Add Layer 1 to well_overview.py**
 
-Read `src/mpd_overwatch/dashboard/geomechanics.py`. Find the main `fig` variable (multi-panel subplot). The depth array is `md` from `hole_depth`. Insert annotation block after the figure is built:
-
-```python
-# --- Domain knowledge annotations (Layer 1) ---
-try:
-    from mpd_overwatch.dashboard.data_store import get_well_dossier_set
-    from mpd_overwatch.dashboard.annotations import add_state_bands
-    _dossier_set = get_well_dossier_set()
-    if _dossier_set is not None and _dossier_set.states is not None:
-        add_state_bands(fig, _dossier_set.states, md)
-except Exception:
-    pass
-```
-
-- [ ] **Step 4: Add Layer 1 to pore_pressure.py**
-
-Same pattern as Step 3. Read `src/mpd_overwatch/dashboard/pore_pressure.py`. Find `fig` and the depth array (`md` or `tvd`). Insert annotation block.
-
-- [ ] **Step 5: Add Layer 1 to formation_damage.py**
-
-Read `src/mpd_overwatch/dashboard/formation_damage.py`. This page may use default reservoir parameters rather than well data channels. If there's a depth-indexed figure, add state bands. If figures are parameter sweeps (not depth-indexed), state bands don't apply — skip. Add a comment explaining why:
-
-```python
-# Note: formation_damage figures are parameter sweeps, not depth-indexed.
-# State bands not applicable — Layer 1 annotations via alert panel only.
-```
-
-- [ ] **Step 6: Add Layer 1 to topology.py**
-
-Read `src/mpd_overwatch/dashboard/topology.py`. Find the main figure. The depth array may come from the PointCloud4D or from channel data. Insert annotation block using whatever depth array the figure's x-axis uses.
-
-- [ ] **Step 7: Enhance Layer 1 on atft_analysis.py**
-
-Read `src/mpd_overwatch/dashboard/atft_analysis.py`. This page already has anomaly classification and zone tables. Add state bands to the coherence figure (`fig_coh`) if not already present:
+Read `src/mpd_overwatch/dashboard/well_overview.py`. This page uses HTML tables, not Plotly figures. State bands don't apply. Add a state indicator badge (same pattern as hmu_panel):
 
 ```python
 # --- Domain knowledge annotations (Layer 1) ---
 try:
     from mpd_overwatch.dashboard.data_store import get_well_dossier_set
-    from mpd_overwatch.dashboard.annotations import add_state_bands
     _dossier_set = get_well_dossier_set()
     if _dossier_set is not None and _dossier_set.states is not None:
-        add_state_bands(fig_coh, _dossier_set.states, depths)
+        _current_state = _dossier_set.states[-1].value if _dossier_set.states else "unknown"
+        _state_badge = html.Div(f"CURRENT RIG STATE: {_current_state.upper()}",
+            style={"fontFamily": "var(--font-mono, monospace)", "fontSize": "0.75rem",
+                   "color": "#45a8b0", "letterSpacing": "0.1em", "marginBottom": "0.5rem"})
 except Exception:
-    pass
+    _state_badge = html.Div()
 ```
 
-Use whatever depth array the coherence figure uses for its x-axis.
+Add `_state_badge` to the page layout after the well header.
 
-- [ ] **Step 8: Enhance Layer 1 on persistent_homology_page.py**
-
-Same as Step 7. Read the file, find the main figure, add state bands if the x-axis is depth-indexed.
-
-- [ ] **Step 9: Run full test suite**
+- [ ] **Step 5: Run full test suite**
 
 ```bash
 python -m pytest --tb=short -q
 ```
 
-Expected: 513+ passed, 0 failed. The annotation blocks are wrapped in try/except, so they cannot break existing tests.
+Expected: 525+ passed, 0 failed. The annotation blocks are wrapped in try/except, so they cannot break existing tests.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/mpd_overwatch/dashboard/supervisory_panel.py src/mpd_overwatch/dashboard/hmu_panel.py src/mpd_overwatch/dashboard/geomechanics.py src/mpd_overwatch/dashboard/pore_pressure.py src/mpd_overwatch/dashboard/formation_damage.py src/mpd_overwatch/dashboard/topology.py src/mpd_overwatch/dashboard/atft_analysis.py src/mpd_overwatch/dashboard/persistent_homology_page.py
-git commit -m "feat: Layer 1 state band annotations on all analysis pages"
+git add src/mpd_overwatch/dashboard/formation_damage.py src/mpd_overwatch/dashboard/persistent_homology_page.py src/mpd_overwatch/dashboard/hmu_panel.py src/mpd_overwatch/dashboard/well_overview.py
+git commit -m "feat: Layer 1 annotations on remaining 4 analysis pages"
 ```
 
 ---
@@ -514,7 +538,7 @@ Expected: 3 passed.
 python -m pytest --tb=short -q
 ```
 
-Expected: 516+ passed, 0 failed.
+Expected: 528+ passed, 0 failed.
 
 - [ ] **Step 6: Commit**
 
@@ -587,7 +611,7 @@ Apply the pattern to each page. The `_alert_panel` html.Div goes into the return
 python -m pytest --tb=short -q
 ```
 
-Expected: 516+ passed, 0 failed.
+Expected: 528+ passed, 0 failed.
 
 - [ ] **Step 3: Commit**
 
@@ -927,7 +951,7 @@ Expected: 4 passed.
 python -m pytest --tb=short -q
 ```
 
-Expected: 520+ passed, 0 failed.
+Expected: 532+ passed, 0 failed.
 
 - [ ] **Step 5: Commit**
 
@@ -988,7 +1012,7 @@ Insert `_inv_panel` as the last element in the page's returned layout (before th
 python -m pytest --tb=short -q
 ```
 
-Expected: 520+ passed, 0 failed.
+Expected: 532+ passed, 0 failed.
 
 - [ ] **Step 3: Commit**
 
@@ -1072,7 +1096,7 @@ End-to-end verification using the actual demo SQL files. No code changes unless 
 - [ ] **Step 1: Start the platform and load demo data**
 
 ```bash
-cd src/mpd_overwatch && python -m mpd_overwatch.cli serve
+python -m mpd_overwatch.cli serve
 ```
 
 Open browser to the platform URL. Navigate to File Manager (`/files`). Load the depth SQL file.
@@ -1147,8 +1171,10 @@ Expected: All tests pass. Record final count.
 
 - [ ] **Step 9: Commit fixes (if any)**
 
+Stage only the specific files that were fixed during verification:
+
 ```bash
-git add -A
+git add <list specific fixed files>
 git commit -m "fix: demo walkthrough verification fixes"
 ```
 
