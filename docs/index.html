@@ -496,7 +496,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
           <div class="narrative-card">
             <div class="narrative-num">02 &mdash; The Standard</div>
             <h3 class="narrative-title">Real Data. Zero Synthetic Fallbacks.</h3>
-            <p class="narrative-text">The platform ingests SQL EDR dumps and CSV feeds. It parses 82 vendor mnemonic aliases across Sperry, Halliburton, Schlumberger, Pason, and TOTCO. What it displays is what the sensors measured. No synthetic generation. No placeholder data. No demo mode.</p>
+            <p class="narrative-text">The platform ingests SQL EDR dumps and CSV feeds. It parses 177 vendor mnemonic aliases across Sperry, Halliburton, Schlumberger, Pason, and TOTCO. What it displays is what the sensors measured. No synthetic generation. No placeholder data. No demo mode.</p>
           </div>
         </div>
       </div>
@@ -761,13 +761,13 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
           <tr class="vv-detail-row" id="vv-detail-0"><td colspan="5">Input: MW=12 ppg, TVD=10,000 ft &rarr; Expected: 6,240 psi &rarr; Actual: 6,240.0 psi &rarr; Error: 0.000%</td></tr>
 
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-1"><td><span class="vv-toggle" aria-hidden="true">+</span>Formation Damage</td><td>Hawkins skin, radial invasion, Darcy PI, permeability ratio</td><td class="pass">6/6</td><td class="pass">A+</td><td>Bennion 1998</td></tr>
-          <tr class="vv-detail-row" id="vv-detail-1"><td colspan="5">Input: k=100md, k_d=10md, r_d=2ft, r_w=0.354ft &rarr; Expected: 15.69 &rarr; Actual: 15.69 &rarr; Error: 0.000%</td></tr>
+          <tr class="vv-detail-row" id="vv-detail-1"><td colspan="5">Input: k=100md, k_d=20md, r_d=1.0ft, r_w=0.354ft &rarr; Expected: 4.154 &rarr; Actual: 4.154 &rarr; Error: 0.000%</td></tr>
 
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-2"><td><span class="vv-toggle" aria-hidden="true">+</span>Geomechanics</td><td>Teale MSE, UCS, Mohr-Coulomb, brittleness index</td><td class="pass">5/5</td><td class="pass">A+</td><td>Teale 1965</td></tr>
-          <tr class="vv-detail-row" id="vv-detail-2"><td colspan="5">Input: T=8,000 ft-lb, N=120 rpm, D=8.5 in, R=60 ft/hr, W=25 klb &rarr; Expected: 34,847 psi &rarr; Actual: 34,847 psi</td></tr>
+          <tr class="vv-detail-row" id="vv-detail-2"><td colspan="5">Input: WOB=25 klb, T=12 kft-lb, RPM=120, ROP=100 ft/hr, D=8.75 in &rarr; Expected: 90,695 psi &rarr; Actual: 90,695 psi &rarr; Error: 0.000%</td></tr>
 
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-3"><td><span class="vv-toggle" aria-hidden="true">+</span>Pore Pressure</td><td>d-exponent, Eaton method, normal compaction trend</td><td class="pass">5/5</td><td class="pass">A+</td><td>Eaton 1975</td></tr>
-          <tr class="vv-detail-row" id="vv-detail-3"><td colspan="5">Input: R=30 ft/hr, N=120 rpm &rarr; Expected d_exp: 0.708 &rarr; Actual: 0.708 &rarr; Error: 0.000%</td></tr>
+          <tr class="vv-detail-row" id="vv-detail-3"><td colspan="5">Input: ROP=100, RPM=120, WOB=25k, D=8.75 &rarr; Expected d_exp: &minus;1.210 &rarr; Actual: &minus;1.210 &rarr; Error: 0.000%</td></tr>
 
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-4"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>ATFT Engine</td><td>Sheaf Laplacian, Gini routing, anomaly classification, zone flagging</td><td class="pass">11</td><td class="pass">Structural</td><td>Jones 2026</td></tr>
           <tr class="vv-detail-row" id="vv-detail-4"><td colspan="5">Structural: Sheaf construction, Laplacian eigenvalues, Gini routing &mdash; 11 tests passing</td></tr>
@@ -844,7 +844,7 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         <div class="status-indicator green"></div>
         <div>
           <div class="status-phase">Platform Dashboard</div>
-          <div class="status-detail">19 routes. Role-based navigation. File manager. Channel selector. 82 vendor mnemonics.</div>
+          <div class="status-detail">19 routes. Role-based navigation. File manager. Channel selector. 177 vendor mnemonics.</div>
         </div>
       </div>
     </div>
