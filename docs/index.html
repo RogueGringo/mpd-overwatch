@@ -597,7 +597,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
     <div class="section-header reveal">
       <p class="section-label">The Engines</p>
       <h2 class="section-title" id="engines-h">Twelve Engines.<br>One Data Standard.</h2>
-      <p class="section-desc">Classical physics engines compute pressures, damage, and geomechanics from published equations. Novel engines detect multi-sensor anomalies through algebraic topology. Domain knowledge engines &mdash; in development &mdash; read what the data already knows.</p>
+      <p class="section-desc">Classical physics engines compute pressures, damage, and geomechanics from published equations. Novel engines detect multi-sensor anomalies through algebraic topology. Domain knowledge engines read what the data already knows.</p>
     </div>
 
     <div class="engine-grid reveal">
@@ -647,31 +647,31 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
       </div>
       <!-- Domain Knowledge -->
       <div class="engine-card" tabindex="0">
-        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Live</div>
         <div class="engine-name">Rig State Machine</div>
         <div class="engine-desc">10 states from bimodal thresholds. Hysteresis. Debounce. Fallback chain.</div>
         <div class="engine-equation">state = argmax P(s | channels, hysteresis)</div>
       </div>
       <div class="engine-card" tabindex="0">
-        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Live</div>
         <div class="engine-name">Relationship Discovery</div>
         <div class="engine-desc">Pairwise Pearson per state. Lag detection. Threshold pattern classification.</div>
         <div class="engine-equation">&rho; = cov(X,Y) / (&sigma;_X &sigma;_Y)</div>
       </div>
       <div class="engine-card" tabindex="0">
-        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Live</div>
         <div class="engine-name">Artifact Profiling</div>
         <div class="engine-desc">Transition response curves. Settle shape classification. Minimum 5 transitions.</div>
         <div class="engine-equation">y(t) = A exp(&minus;t/&tau;) + baseline</div>
       </div>
       <div class="engine-card" tabindex="0">
-        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Live</div>
         <div class="engine-name">Channel Scanner</div>
         <div class="engine-desc">6-stage pipeline. Channel census. State detection. Per-state profiling.</div>
         <div class="engine-equation">dossier = census + detect + profile</div>
       </div>
       <div class="engine-card" tabindex="0">
-        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> In Dev</div>
+        <div class="engine-badge engine-badge--knowledge"><span class="dot"></span> Live</div>
         <div class="engine-name">Alert Engine</div>
         <div class="engine-desc">Transition anomaly. Relationship break. State inconsistency detection.</div>
         <div class="engine-equation">alert IF |x &minus; &mu;_state| &gt; k&sigma;_state</div>
@@ -775,8 +775,8 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-5"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>4D Pointcloud</td><td>VR complex, persistent homology, distance metrics, sheaf PSD</td><td class="pass">29</td><td class="pass">Structural</td><td>TDA literature</td></tr>
           <tr class="vv-detail-row" id="vv-detail-5"><td colspan="5">Structural: VR complex, persistence diagram, distance metrics &mdash; 29 tests passing</td></tr>
 
-          <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-6"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>Domain Knowledge</td><td>State machine, vocabulary, scan pipeline, relationships, artifacts</td><td style="color:var(--color-primary);">In dev</td><td style="color:var(--color-primary);">&mdash;</td><td>Data-derived</td></tr>
-          <tr class="vv-detail-row" id="vv-detail-6"><td colspan="5">In development &mdash; scan pipeline, vocabulary, state machine, relationships, artifacts</td></tr>
+          <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-6"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>Domain Knowledge</td><td>State machine, vocabulary, scan pipeline, relationships, artifacts</td><td class="pass">151</td><td class="pass">Structural</td><td>Data-derived</td></tr>
+          <tr class="vv-detail-row" id="vv-detail-6"><td colspan="5">Operational: 6-stage scan pipeline, 10-state rig state machine, 52 channel dossiers, relationship discovery, artifact profiling &mdash; 151 tests passing</td></tr>
         </tbody>
       </table>
     </div>
@@ -827,17 +827,17 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         </div>
       </div>
       <div class="status-card">
-        <div class="status-indicator amber"></div>
+        <div class="status-indicator green"></div>
         <div>
           <div class="status-phase">Domain Knowledge Layer</div>
-          <div class="status-detail">52 channel dossiers. Rig state machine. Relationship discovery. Artifact profiling. In development.</div>
+          <div class="status-detail">52 channel dossiers. Rig state machine. Relationship discovery. Artifact profiling. 151 tests. Operational.</div>
         </div>
       </div>
       <div class="status-card">
-        <div class="status-indicator amber"></div>
+        <div class="status-indicator green"></div>
         <div>
           <div class="status-phase">11 Analysis Pages &mdash; Three-Layer Integration</div>
-          <div class="status-detail">Annotations, alerting, and investigation layers designed for all depth-indexed pages.</div>
+          <div class="status-detail">Annotations, alerting, and investigation layers integrated on all analysis pages.</div>
         </div>
       </div>
       <div class="status-card">
