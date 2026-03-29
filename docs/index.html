@@ -4,9 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MPD Overwatch — Managed Pressure Drilling Intelligence</title>
-<meta name="description" content="12 physics engines. 23 verified equations. 39 drilling channels. Every value computed from data."/>
+<meta name="description" content="12 physics engines. 23 verified equations. 52 drilling channels. Every value computed from data."/>
 <meta property="og:title" content="MPD Overwatch"/>
-<meta property="og:description" content="Managed Pressure Drilling computation and intelligence. 12 engines. 39 drilling channels. Zero hardcoded values."/>
+<meta property="og:description" content="Managed Pressure Drilling computation and intelligence. 12 engines. 52 drilling channels. Zero hardcoded values."/>
 <meta property="og:type" content="website"/>
 
 <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
@@ -520,7 +520,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
     <div class="section-header reveal">
       <p class="section-label">Domain Intelligence</p>
       <h2 class="section-title" id="intel-h">Every Channel Has a Dossier</h2>
-      <p class="section-desc">For each of 39 drilling channels: what it measures physically, how it behaves in each rig state, what artifacts contaminate it at state transitions, and how it correlates with every other channel. Semantics encoded from domain knowledge. Statistics computed from the data in front of you.</p>
+      <p class="section-desc">For each of 52 drilling channels: what it measures physically, how it behaves in each rig state, what artifacts contaminate it at state transitions, and how it correlates with every other channel. Semantics encoded from domain knowledge. Statistics computed from the data in front of you.</p>
     </div>
 
     <div class="two-col reveal">
@@ -535,7 +535,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
         <div class="narrative-card" style="margin-bottom:var(--space-4);">
           <div class="narrative-num">Encoded</div>
           <h3 class="narrative-title">Domain Vocabulary</h3>
-          <p class="narrative-text">What standpipe pressure physically measures. Why ROP spikes after connections are pipe-squat artifacts, not real drilling. Which channels bridge time and depth indices. 39 entries of operational semantics. No numeric values &mdash; only what the channel means.</p>
+          <p class="narrative-text">What standpipe pressure physically measures. Why ROP spikes after connections are pipe-squat artifacts, not real drilling. Which channels bridge time and depth indices. 52 entries of operational semantics. No numeric values &mdash; only what the channel means.</p>
         </div>
         <div class="narrative-card">
           <div class="narrative-num">Discovered</div>
@@ -748,7 +748,7 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
     <div class="section-header reveal">
       <p class="section-label">Verification &amp; Validation</p>
       <h2 class="section-title" id="vv-h">Every Equation Has a Source.<br>Every Test Has a Proof.</h2>
-      <p class="section-desc">23 physics equations tested against hand-computed expected values from published literature. V&amp;V pipeline grades each: A+ (&lt;0.1% error), A (&lt;1%), B (&lt;5%). 112 tests across benchmarks and structural validation. Zero assumptions.</p>
+      <p class="section-desc">23 physics equations tested against hand-computed expected values from published literature. V&amp;V pipeline grades each: A+ (&lt;0.1% error), A (&lt;1%), B (&lt;5%). 292 tests across benchmarks and structural validation. Zero assumptions.</p>
     </div>
 
     <div class="data-table-wrap reveal">
@@ -772,8 +772,8 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-4"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>ATFT Engine</td><td>Sheaf Laplacian, Gini routing, anomaly classification, zone flagging</td><td class="pass">11</td><td class="pass">Structural</td><td>Jones 2026</td></tr>
           <tr class="vv-detail-row" id="vv-detail-4"><td colspan="5">Structural: Sheaf construction, Laplacian eigenvalues, Gini routing &mdash; 11 tests passing</td></tr>
 
-          <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-5"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>4D Pointcloud</td><td>VR complex, persistent homology, distance metrics, sheaf PSD</td><td class="pass">26</td><td class="pass">Structural</td><td>TDA literature</td></tr>
-          <tr class="vv-detail-row" id="vv-detail-5"><td colspan="5">Structural: VR complex, persistence diagram, distance metrics &mdash; 26 tests passing</td></tr>
+          <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-5"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>4D Pointcloud</td><td>VR complex, persistent homology, distance metrics, sheaf PSD</td><td class="pass">29</td><td class="pass">Structural</td><td>TDA literature</td></tr>
+          <tr class="vv-detail-row" id="vv-detail-5"><td colspan="5">Structural: VR complex, persistence diagram, distance metrics &mdash; 29 tests passing</td></tr>
 
           <tr role="button" tabindex="0" aria-expanded="false" aria-controls="vv-detail-6"><td class="hl"><span class="vv-toggle" aria-hidden="true">+</span>Domain Knowledge</td><td>State machine, vocabulary, scan pipeline, relationships, artifacts</td><td style="color:var(--color-primary);">In dev</td><td style="color:var(--color-primary);">&mdash;</td><td>Data-derived</td></tr>
           <tr class="vv-detail-row" id="vv-detail-6"><td colspan="5">In development &mdash; scan pipeline, vocabulary, state machine, relationships, artifacts</td></tr>
@@ -809,7 +809,7 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         <div class="status-indicator green"></div>
         <div>
           <div class="status-phase">4D Pointcloud Data Standard</div>
-          <div class="status-detail">Unified ingest(). 26 structural tests. V&V round-trip exact. CSV, SQL EDR.</div>
+          <div class="status-detail">Unified ingest(). 29 structural tests. V&V round-trip exact. CSV, SQL EDR.</div>
         </div>
       </div>
       <div class="status-card">
@@ -830,7 +830,7 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         <div class="status-indicator amber"></div>
         <div>
           <div class="status-phase">Domain Knowledge Layer</div>
-          <div class="status-detail">39 channel dossiers. Rig state machine. Relationship discovery. Artifact profiling. In development.</div>
+          <div class="status-detail">52 channel dossiers. Rig state machine. Relationship discovery. Artifact profiling. In development.</div>
         </div>
       </div>
       <div class="status-card">
@@ -844,7 +844,7 @@ Type: RELATIONSHIP_BREAK | State: DRILLING</div>
         <div class="status-indicator green"></div>
         <div>
           <div class="status-phase">Platform Dashboard</div>
-          <div class="status-detail">17 routes. Role-based navigation. File manager. Channel selector. 82 vendor mnemonics.</div>
+          <div class="status-detail">19 routes. Role-based navigation. File manager. Channel selector. 82 vendor mnemonics.</div>
         </div>
       </div>
     </div>
