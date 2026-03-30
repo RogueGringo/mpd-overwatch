@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 from mpd_overwatch.knowledge.dossier import ChannelDossier
 from mpd_overwatch.knowledge.rig_state import RigState, StateTransition
+from mpd_overwatch.knowledge.stand_detector import Stand
 
 
 @dataclass
@@ -15,6 +16,7 @@ class WellDossierSet:
     dossiers: Dict[str, ChannelDossier] = field(default_factory=dict)
     states: Optional[List[RigState]] = None
     transitions: List[StateTransition] = field(default_factory=list)
+    stands: List[Stand] = field(default_factory=list)
     source: str = ""
 
     def get(self, wits_id: str) -> Optional[ChannelDossier]:

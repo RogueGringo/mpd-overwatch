@@ -125,7 +125,7 @@ def page_hmu(assignments_data: dict | None = None):
                "decreasing": {"color": COLORS["warning"]}},
         number={"valueformat": ",.0f", "suffix": " psi",
                 "font": {"size": 28, "color": COLORS["text"]}},
-        title={"text": "Bottomhole Pressure",
+        title={"text": f"Bottomhole Pressure<br><span style='font-size:9px;color:{COLORS['text_dim']}'>Last pt @ {current_md:,.0f} ft MD</span>",
                "font": {"size": 13, "color": COLORS["text_muted"]}},
         gauge={
             "axis": {"range": [pp_psi - 200, fg_psi + 200],
@@ -171,7 +171,7 @@ def page_hmu(assignments_data: dict | None = None):
                "decreasing": {"color": COLORS["warning"]}},
         number={"valueformat": ".0f", "suffix": " psi",
                 "font": {"size": 28, "color": COLORS["text"]}},
-        title={"text": "Surface Back Pressure",
+        title={"text": f"Surface Back Pressure<br><span style='font-size:9px;color:{COLORS['text_dim']}'>Last pt @ {current_md:,.0f} ft MD</span>",
                "font": {"size": 13, "color": COLORS["text_muted"]}},
         gauge={
             "axis": {"range": [0, 500],
@@ -209,7 +209,7 @@ def page_hmu(assignments_data: dict | None = None):
         delta={"reference": round(pp_ppg_emw + 0.3, 2), "valueformat": ".2f", "suffix": " ppg"},
         number={"valueformat": ".2f", "suffix": " ppg",
                 "font": {"size": 28, "color": COLORS["text"]}},
-        title={"text": "Equivalent Circulating Density",
+        title={"text": f"Equivalent Circulating Density<br><span style='font-size:9px;color:{COLORS['text_dim']}'>Computed @ {current_md:,.0f} ft MD</span>",
                "font": {"size": 13, "color": COLORS["text_muted"]}},
         gauge={
             "axis": {"range": [9, 16],
@@ -270,7 +270,7 @@ def page_hmu(assignments_data: dict | None = None):
                "decreasing": {"color": COLORS["danger"]}},
         number={"valueformat": ".3f",
                 "font": {"size": 28, "color": COLORS["text"]}},
-        title={"text": "Flow Balance (Out/In)",
+        title={"text": f"Flow Balance (Out/In)<br><span style='font-size:9px;color:{COLORS['text_dim']}'>Last pt @ {current_md:,.0f} ft MD</span>",
                "font": {"size": 13, "color": COLORS["text_muted"]}},
         gauge={
             "axis": {"range": [0.80, 1.20],
@@ -484,6 +484,9 @@ def page_hmu(assignments_data: dict | None = None):
                             html.Div(f"{target_bhp:,.0f} psi", style={
                                 "color": COLORS["primary"], "fontSize": "24px",
                                 "fontWeight": "700", "fontFamily": "Consolas, monospace"}),
+                            html.Div("Computed (hydrostatic + SBP)", style={
+                                "color": COLORS["text_dim"], "fontSize": "10px",
+                                "marginTop": "2px"}),
                         ], style={"flex": "1", "minWidth": "140px",
                                   "padding": "12px", "backgroundColor": COLORS["background"],
                                   "borderRadius": "6px", "border": f"1px solid {COLORS['card_border']}"}),
@@ -497,7 +500,7 @@ def page_hmu(assignments_data: dict | None = None):
                             html.Div(f"{choke_position:.1f}%", style={
                                 "color": COLORS["secondary"], "fontSize": "24px",
                                 "fontWeight": "700", "fontFamily": "Consolas, monospace"}),
-                            html.Div(f"SBP: {current_sbp:.0f} psi", style={
+                            html.Div(f"SBP: {current_sbp:.0f} psi (last pt)", style={
                                 "color": COLORS["text_muted"], "fontSize": "11px",
                                 "marginTop": "2px"}),
                         ], style={"flex": "1", "minWidth": "140px",

@@ -19,8 +19,15 @@ from mpd_overwatch.core.engine_wrappers import compute_ecd, compute_bhp_static
 from mpd_overwatch.components.tooltip import render_engineering_value
 
 
-def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"):
-    """Create a KPI display card (local helper matching app.py pattern)."""
+def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive",
+                   context=None):
+    """Create a KPI display card with optional data context annotation.
+
+    Parameters
+    ----------
+    context : str, optional
+        Data provenance label: "Last pt", "Computed", "Aggregate", etc.
+    """
     children = [
         html.Div(label, className="kpi-label"),
         html.Div(str(value), className=f"kpi-value {color}"),
@@ -28,6 +35,14 @@ def _make_kpi_card(label, value, color="cyan", delta=None, delta_type="positive"
     if delta is not None:
         children.append(
             html.Div(delta, className=f"kpi-delta {delta_type}")
+        )
+    if context is not None:
+        children.append(
+            html.Div(context, style={
+                "fontSize": "9px", "color": COLORS["text_dim"],
+                "fontFamily": "Consolas, monospace", "marginTop": "2px",
+                "letterSpacing": "0.5px",
+            })
         )
     return html.Div(children, className="kpi-card")
 
@@ -491,18 +506,23 @@ def page_supervisory(assignments_data: dict | None = None):
         html.Div([
             _make_kpi_card("Current Depth",
                            f"{current_md:,.0f} ft MD", "cyan",
-                           f"{current_tvd:,.0f} ft TVD"),
+                           f"{current_tvd:,.0f} ft TVD",
+                           context="LAST PT"),
             _make_kpi_card("Current Phase", current_phase, "green",
-                           f"{pct_drilled * 100:.0f}% lateral complete"),
+                           f"{pct_drilled * 100:.0f}% lateral complete",
+                           context=f"COMPUTED @ {current_md:,.0f} ft"),
             _make_kpi_card("Pressure Window Margin",
                            f"{pressure_window_margin:,.0f} psi", window_color,
-                           f"BHP vs Frac Gradient"),
+                           f"BHP vs Frac Gradient",
+                           context=f"COMPUTED @ {current_md:,.0f} ft"),
             _make_kpi_card("Zone Stability",
                            f"{zone_stability_count_stable}/{zone_stability_count_total}", "cyan",
-                           "stable zones"),
+                           "stable zones",
+                           context="AGGREGATE"),
             _make_kpi_card("Connections Analyzed",
                            f"{connection_count}" if connection_count > 0 else "N/A", "gold",
-                           f"Avg {np.mean(conn_times):.1f} min" if len(conn_times) > 0 else "No time-indexed data"),
+                           f"Avg {np.mean(conn_times):.1f} min" if len(conn_times) > 0 else "No time-indexed data",
+                           context="AGGREGATE"),
         ], className="kpi-row"),
 
         # Computed engineering values with tooltip panels

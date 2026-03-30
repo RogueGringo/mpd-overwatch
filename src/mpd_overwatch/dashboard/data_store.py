@@ -75,6 +75,14 @@ def load_file(filepath: str) -> Dict[str, Any]:
     _well_database = db
     _file_path = filepath
 
+    # Auto-assign channels (mnemonic + unit + range → canonical)
+    try:
+        from mpd_overwatch.data.channel_resolver import auto_assign, Confidence
+        auto_assigned = auto_assign(db, min_confidence=Confidence.HIGH)
+        logger.info("Auto-assigned %d channels on load", len(auto_assigned))
+    except Exception:
+        logger.exception("Channel auto-assign failed — continuing without assignments")
+
     # Run domain knowledge scan
     try:
         from mpd_overwatch.knowledge.scanner import run_scan

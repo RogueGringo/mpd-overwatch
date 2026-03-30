@@ -424,8 +424,13 @@ def run_scan(db: WellDatabase) -> WellDossierSet:
     except (ImportError, ModuleNotFoundError):
         pass  # Not yet implemented
 
+    # Stage 6: Stand detection
+    from mpd_overwatch.knowledge.stand_detector import detect_stands_from_db
+    stands = detect_stands_from_db(db)
+
     return WellDossierSet(
         dossiers=dossiers,
         states=states,
         transitions=transitions,
+        stands=stands,
     )

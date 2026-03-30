@@ -33,6 +33,7 @@ NAV_SECTIONS = [
         "heading": "OPERATIONS",
         "heading_color": None,
         "links": [
+            ("/master", "Master Dashboard", "00"),
             ("/well-overview", "Well Overview", "01"),
             ("/supervisory", "Operations Monitor", "02"),
         ],
@@ -71,6 +72,7 @@ NAV_SECTIONS = [
 
 # Pages that require ANALYSIS workflow stage (channels must be selected)
 ANALYSIS_PAGES = {
+    "/master",
     "/well-overview",
     "/hmu",
     "/supervisory",
@@ -494,6 +496,18 @@ def create_app() -> dash.Dash:
                     return _placeholder_page("Analysis Engines", COLORS)
 
             # ---- OPERATIONS -----------------------------------------------
+            if pathname == "/master":
+                if not channels_ready:
+                    return _gated_page("Master Dashboard", COLORS)
+                try:
+                    from mpd_overwatch.dashboard.master_dashboard import (
+                        page_master_dashboard,
+                    )
+                    return page_master_dashboard(assignments_data)
+                except Exception as exc:
+                    logger.warning("master_dashboard render failed: %s", exc)
+                    return _placeholder_page("Master Dashboard", COLORS)
+
             if pathname == "/well-overview":
                 if not channels_ready:
                     return _gated_page("Well Overview", COLORS)

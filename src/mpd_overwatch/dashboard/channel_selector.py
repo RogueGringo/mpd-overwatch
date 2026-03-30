@@ -568,30 +568,20 @@ def _render_channel_rows(channel_list: List[Dict]) -> List:
             mnemonic = ch.get("mnemonic", "")
             n_points = ch.get("n_points", 0)
 
-            # Manual mapping dropdown for non-CORE channels
-            if tier != ChannelTier.CORE:
-                mapping_cell = dcc.Dropdown(
-                    id={"type": "manual-map-dropdown", "index": wits_id},
-                    options=_CANONICAL_OPTIONS,
-                    value=canonical or "",
-                    clearable=False,
-                    style={
-                        "width": "170px",
-                        "fontSize": "11px",
-                        "backgroundColor": COLORS["background"],
-                    },
-                    className="dash-dropdown-dark",
-                )
-            else:
-                mapping_cell = html.Span(
-                    canonical,
-                    style={
-                        "width": "180px",
-                        "color": COLORS["success"],
-                        "fontSize": "11px",
-                        "fontFamily": "Consolas, monospace",
-                    },
-                )
+            # All channels get a dropdown — expert users can kick/reassign any channel
+            mapping_cell = dcc.Dropdown(
+                id={"type": "manual-map-dropdown", "index": wits_id},
+                options=_CANONICAL_OPTIONS,
+                value=canonical or "",
+                clearable=False,
+                style={
+                    "width": "170px",
+                    "fontSize": "11px",
+                    "backgroundColor": COLORS["background"],
+                    "borderColor": COLORS["success"] if tier == ChannelTier.CORE else COLORS["card_border"],
+                },
+                className="dash-dropdown-dark",
+            )
 
             rows.append(
                 html.Div(

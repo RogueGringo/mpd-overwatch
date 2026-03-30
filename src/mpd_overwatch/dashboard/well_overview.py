@@ -226,28 +226,71 @@ def page_well_overview(
                                       "padding": "16px"})
 
     # ------------------------------------------------------------------ #
-    # Trajectory placeholder (shown when inc/azi channels present)        #
+    # Trajectory visualization from survey data (MD/Inc/Azm)             #
     # ------------------------------------------------------------------ #
-    has_trajectory = channel_map and (
-        "inclination" in channel_map or "azimuth" in channel_map
-    )
+    trajectory_card = html.Div()
+    try:
+        if db is not None:
+            from mpd_overwatch.dashboard.trajectory_panel import render_trajectory_panel
+            # Find survey channels — try assignments first, then raw channels
+            md_survey, inc_survey, azm_survey = None, None, None
 
-    trajectory_card = html.Div([
-        html.Div("TRAJECTORY", className="card-header"),
-        html.Div(
-            html.P(
-                "Inclination/azimuth data detected \u2014 trajectory visualization coming soon.",
-                style={"color": COLORS["text_muted"], "fontSize": "13px",
-                       "fontStyle": "italic", "padding": "24px 16px"},
-            )
-            if has_trajectory else
-            html.P(
-                "No inclination/azimuth channels detected.",
-                style={"color": COLORS["text_dim"], "fontSize": "13px",
-                       "padding": "24px 16px"},
-            ),
-        ),
-    ], className="card", style={"marginTop": "16px"})
+            # Try assigned channels
+            for canonical, wid in db.assignments.items():
+                if canonical in ("inclination", "continuous_inclination") and wid in db.channels:
+                    inc_survey = db.channels[wid].calibrated_value
+                elif canonical in ("azimuth", "continuous_azimuth") and wid in db.channels:
+                    azm_survey = db.channels[wid].calibrated_value
+
+            # Try raw mnemonic search if not assigned
+            if inc_survey is None or azm_survey is None:
+                for wid, cf in db.channels.items():
+                    mn = cf.mnemonic.lower() if cf.mnemonic else ""
+                    if inc_survey is None and mn in ("inc", "incl", "inclination", "devi"):
+                        inc_survey = cf.calibrated_value
+                    elif azm_survey is None and mn in ("azi", "azimuth", "hazi", "azim"):
+                        azm_survey = cf.calibrated_value
+
+            if inc_survey is not None and azm_survey is not None:
+                # Use hole_depth as MD for survey stations
+                md_arr_traj = None
+                for canonical in ("hole_depth", "bit_depth"):
+                    wid = db.assignments.get(canonical)
+                    if wid and wid in db.channels:
+                        md_arr_traj = db.channels[wid].calibrated_value
+                        break
+                if md_arr_traj is None:
+                    # Fall back to depth array from inclination channel
+                    md_arr_traj = db.channels[list(db.channels.keys())[0]].depth
+
+                # Align array lengths
+                n = min(len(md_arr_traj), len(inc_survey), len(azm_survey))
+                if n >= 2:
+                    trajectory_card = render_trajectory_panel(
+                        md_arr_traj[:n], inc_survey[:n], azm_survey[:n],
+                    )
+                else:
+                    trajectory_card = html.Div([
+                        html.Div("TRAJECTORY", className="card-header"),
+                        html.P("Insufficient survey points for trajectory.",
+                               style={"color": COLORS["text_dim"], "fontSize": "13px",
+                                      "padding": "24px 16px"}),
+                    ], className="card", style={"marginTop": "16px"})
+            else:
+                trajectory_card = html.Div([
+                    html.Div("TRAJECTORY", className="card-header"),
+                    html.P("No inclination/azimuth channels detected.",
+                           style={"color": COLORS["text_dim"], "fontSize": "13px",
+                                  "padding": "24px 16px"}),
+                ], className="card", style={"marginTop": "16px"})
+    except Exception:
+        logger.exception("Trajectory panel failed")
+        trajectory_card = html.Div([
+            html.Div("TRAJECTORY", className="card-header"),
+            html.P("Trajectory rendering error.",
+                   style={"color": COLORS["text_dim"], "fontSize": "13px",
+                          "padding": "24px 16px"}),
+        ], className="card", style={"marginTop": "16px"})
 
     # --- Layer 3: Investigation panel ---
     try:
@@ -373,9 +416,16 @@ def _build_quality_summary(channel_map: Optional[Dict[str, np.ndarray]]) -> html
         })
 
     return html.Div([
-        _stat("Channels", str(total_channels), COLORS["primary"]),
-        _stat("Data Points", f"{total_points:,}", COLORS["text"]),
-        _stat("Clean", str(channels_clean), COLORS["success"]),
-        _stat("With Nulls", str(channels_with_nulls),
-              COLORS["warning"] if channels_with_nulls > 0 else COLORS["text_dim"]),
-    ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap"})
+        html.Div([
+            _stat("Channels", str(total_channels), COLORS["primary"]),
+            _stat("Data Points", f"{total_points:,}", COLORS["text"]),
+            _stat("Clean", str(channels_clean), COLORS["success"]),
+            _stat("With Nulls", str(channels_with_nulls),
+                  COLORS["warning"] if channels_with_nulls > 0 else COLORS["text_dim"]),
+        ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
+        html.Div("ALL VALUES: DATASET AGGREGATE", style={
+            "fontSize": "9px", "color": COLORS["text_dim"],
+            "fontFamily": "Consolas, monospace", "marginTop": "8px",
+            "letterSpacing": "0.5px",
+        }),
+    ])
