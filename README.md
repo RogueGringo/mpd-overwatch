@@ -1,8 +1,8 @@
 # MPD Overwatch
-
+# IN DEVELOPMENT
 Managed Pressure Drilling computation platform. Quantifies MPD value through physics equations, topological data analysis, and sheaf coherence.
 
-**[Launch Dashboard](https://codespaces.new/RogueGringo/mpd-overwatch)** — opens in browser (GitHub account required)
+
 
 ## Computation Engines
 
